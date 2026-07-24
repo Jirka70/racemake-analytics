@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { createApp } from '../../src/app'
+import { HTTP_STATUS } from '../../src/http/http-status'
 
 const stintPath = `${import.meta.dir}/../../data/stint.telemetry.json`
 
@@ -31,7 +32,7 @@ describe('POST /ingest', () => {
       body: stintJson,
     })
 
-    expect(response.status).toBe(200)
+    expect(response.status).toBe(HTTP_STATUS.OK)
     expect(await response.json()).toEqual({
       schema: stint.schema,
       receivedFrames: stint.frame_count,
@@ -39,7 +40,7 @@ describe('POST /ingest', () => {
     })
   })
 
-  test('returns 422 for a structurally invalid telemetry payload', async () => {
+  test('returns unprocessable entity for an invalid payload', async () => {
     const response = await createApp().request('/ingest', {
       method: 'POST',
       headers: {
@@ -57,7 +58,7 @@ describe('POST /ingest', () => {
       }),
     })
 
-    expect(response.status).toBe(422)
+    expect(response.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY)
     const body = (await response.json()) as ErrorResponse
 
     expect(body.error.code).toBe('INVALID_TELEMETRY_PAYLOAD')

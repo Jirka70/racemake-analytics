@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { ZodError } from 'zod'
+import { HTTP_STATUS } from './http/http-status'
 import { telemetryPayloadSchema } from './http/schemas/telemetry-payload'
 import { zValidate } from './http/z-validate'
 
@@ -15,7 +16,7 @@ export function createApp(): Hono {
             message: 'Request body must contain valid JSON',
           },
         },
-        400,
+        HTTP_STATUS.BAD_REQUEST,
       )
     }
 
@@ -31,7 +32,7 @@ export function createApp(): Hono {
             })),
           },
         },
-        422,
+        HTTP_STATUS.UNPROCESSABLE_ENTITY,
       )
     }
 
@@ -42,18 +43,21 @@ export function createApp(): Hono {
           message: 'Unexpected internal error',
         },
       },
-      500,
+      HTTP_STATUS.INTERNAL_SERVER_ERROR,
     )
   })
 
   app.post('/ingest', async (context) => {
     const payload = zValidate(telemetryPayloadSchema, await context.req.json())
 
-    return context.json({
-      schema: payload.schema,
-      receivedFrames: payload.frame_count,
-      validatedFrames: payload.frames.length,
-    })
+    return context.json(
+      {
+        schema: payload.schema,
+        receivedFrames: payload.frame_count,
+        validatedFrames: payload.frames.length,
+      },
+      HTTP_STATUS.OK,
+    )
   })
 
   return app
