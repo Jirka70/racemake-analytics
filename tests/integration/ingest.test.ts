@@ -37,8 +37,8 @@ describe('POST /ingest', () => {
     expect(await response.json()).toEqual({
       schema: stint.schema,
       sessionId: stint.session_id,
-      receivedFrames: stint.frame_count,
-      validatedFrames: stint.frames.length,
+      receivedFrames: stint.frames.length,
+      normalizedFrames: stint.frames.length,
     })
   })
 

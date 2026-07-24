@@ -1,11 +1,13 @@
 import { Hono } from 'hono'
 import { ZodError } from 'zod'
+import { createTelemetryApplication } from './application/telemetry-application'
 import { HTTP_STATUS } from './http/http-status'
 import { telemetryPayloadSchema } from './http/schemas/telemetry-payload'
 import { zValidate } from './http/z-validate'
 
 export function createApp(): Hono {
   const app = new Hono()
+  const telemetryApplication = createTelemetryApplication()
 
   app.onError((error, context) => {
     if (error instanceof SyntaxError) {
@@ -49,13 +51,14 @@ export function createApp(): Hono {
 
   app.post('/ingest', async (context) => {
     const payload = zValidate(telemetryPayloadSchema, await context.req.json())
+    const normalizedStint = telemetryApplication.ingest(payload)
 
     return context.json(
       {
-        schema: payload.schema,
-        sessionId: payload.session_id,
-        receivedFrames: payload.frame_count,
-        validatedFrames: payload.frames.length,
+        schema: normalizedStint.schemaVersion,
+        sessionId: normalizedStint.sessionId,
+        receivedFrames: payload.frames.length,
+        normalizedFrames: normalizedStint.frames.length,
       },
       HTTP_STATUS.OK,
     )

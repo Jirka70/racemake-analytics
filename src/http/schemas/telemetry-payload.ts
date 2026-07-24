@@ -1,4 +1,10 @@
 import { z } from 'zod'
+import type {
+  WireTelemetryFrame,
+  WireTelemetryPayload,
+  WireTelemetryRecorder,
+  WireTyres,
+} from '../../analytics/telemetry-types'
 
 const INT16_MIN = -32_768
 const INT16_MAX = 32_767
@@ -12,7 +18,7 @@ const int32Schema = z.int32()
  * Tyre temperatures are still in the recorder's fixed-point wire format here.
  * Conversion to Celsius belongs to the normalization step, not input parsing.
  */
-export const wireTyresSchema = z.strictObject({
+export const wireTyresSchema: z.ZodType<WireTyres> = z.strictObject({
   fl: int16Schema,
   fr: int16Schema,
   rl: int16Schema,
@@ -26,23 +32,25 @@ export const wireTyresSchema = z.strictObject({
  * timestamp continuity, or position regressions) is intentionally handled by
  * the later telemetry audit so it can produce evidence-rich diagnostics.
  */
-export const wireTelemetryFrameSchema = z.strictObject({
-  ts: z.int().nonnegative(),
-  lap: int32Schema,
-  pos: finiteNumberSchema.min(0).max(1),
-  spd: finiteNumberSchema.nonnegative(),
-  thr: finiteNumberSchema.min(0).max(1),
-  brk: finiteNumberSchema.min(0).max(1),
-  str: finiteNumberSchema,
-  gear: z.int().min(-1).max(8),
-  rpm: int32Schema.nonnegative(),
-  tyres: wireTyresSchema,
-})
+export const wireTelemetryFrameSchema: z.ZodType<WireTelemetryFrame> =
+  z.strictObject({
+    ts: z.int().nonnegative(),
+    lap: int32Schema,
+    pos: finiteNumberSchema.min(0).max(1),
+    spd: finiteNumberSchema.nonnegative(),
+    thr: finiteNumberSchema.min(0).max(1),
+    brk: finiteNumberSchema.min(0).max(1),
+    str: finiteNumberSchema,
+    gear: z.int().min(-1).max(8),
+    rpm: int32Schema.nonnegative(),
+    tyres: wireTyresSchema,
+  })
 
-export const telemetryRecorderSchema = z.strictObject({
-  name: z.string().min(1),
-  version: z.string().min(1),
-})
+export const telemetryRecorderSchema: z.ZodType<WireTelemetryRecorder> =
+  z.strictObject({
+    name: z.string().min(1),
+    version: z.string().min(1),
+  })
 
 /**
  * Versioned HTTP payload accepted by POST /ingest.
@@ -51,7 +59,7 @@ export const telemetryRecorderSchema = z.strictObject({
  * A future payload version should receive its own schema instead of silently
  * accepting fields with unknown semantics.
  */
-export const telemetryPayloadSchema = z
+export const telemetryPayloadSchema: z.ZodType<WireTelemetryPayload> = z
   .strictObject({
     schema: z.literal('racemake.telemetry.stint.v1'),
     recorder: telemetryRecorderSchema,
@@ -70,7 +78,9 @@ export const telemetryPayloadSchema = z
     }
   })
 
-export type WireTyres = z.infer<typeof wireTyresSchema>
-export type WireTelemetryFrame = z.infer<typeof wireTelemetryFrameSchema>
-export type TelemetryRecorder = z.infer<typeof telemetryRecorderSchema>
-export type TelemetryPayload = z.infer<typeof telemetryPayloadSchema>
+export type {
+  WireTelemetryFrame,
+  WireTelemetryPayload as TelemetryPayload,
+  WireTelemetryRecorder as TelemetryRecorder,
+  WireTyres,
+} from '../../analytics/telemetry-types'
