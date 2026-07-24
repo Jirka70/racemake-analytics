@@ -6,6 +6,7 @@ const stintPath = `${import.meta.dir}/../../data/stint.telemetry.json`
 
 interface StintEnvelope {
   schema: string
+  session_id: string
   frame_count: number
   frames: readonly unknown[]
 }
@@ -35,6 +36,7 @@ describe('POST /ingest', () => {
     expect(response.status).toBe(HTTP_STATUS.OK)
     expect(await response.json()).toEqual({
       schema: stint.schema,
+      sessionId: stint.session_id,
       receivedFrames: stint.frame_count,
       validatedFrames: stint.frames.length,
     })
@@ -52,6 +54,7 @@ describe('POST /ingest', () => {
           name: 'racemake-agent',
           version: '0.1.2874',
         },
+        session_id: '7f3a9c1e-0b52-4d84-9a6e-2c1d5f8b41a0',
         note: 'invalid test payload',
         frame_count: 1,
         frames: [],

@@ -53,6 +53,7 @@ export function createApp(): Hono {
     return context.json(
       {
         schema: payload.schema,
+        sessionId: payload.session_id,
         receivedFrames: payload.frame_count,
         validatedFrames: payload.frames.length,
       },

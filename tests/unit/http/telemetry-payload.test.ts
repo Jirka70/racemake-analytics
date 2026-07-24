@@ -37,6 +37,7 @@ function createValidPayload(
       name: 'racemake-agent',
       version: '0.1.2874',
     },
+    session_id: '7f3a9c1e-0b52-4d84-9a6e-2c1d5f8b41a0',
     note: 'raw frames as streamed by the native recorder',
     frame_count: frames.length,
     frames,
@@ -114,6 +115,40 @@ describe('telemetryPayloadSchema', () => {
     const result = telemetryPayloadSchema.safeParse(createValidPayload())
 
     expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.session_id).toBe(
+        '7f3a9c1e-0b52-4d84-9a6e-2c1d5f8b41a0',
+      )
+    }
+  })
+
+  test('requires session_id', () => {
+    const { session_id: _sessionId, ...payload } = createValidPayload()
+
+    const result = telemetryPayloadSchema.safeParse(payload)
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path)).toContainEqual([
+        'session_id',
+      ])
+    }
+  })
+
+  test('rejects session_id that is not a UUID', () => {
+    const payload = {
+      ...createValidPayload(),
+      session_id: 'not-a-uuid',
+    }
+
+    const result = telemetryPayloadSchema.safeParse(payload)
+
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues.map((issue) => issue.path)).toContainEqual([
+        'session_id',
+      ])
+    }
   })
 
   test('rejects a declared frame count that differs from the payload', () => {

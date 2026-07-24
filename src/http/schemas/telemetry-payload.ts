@@ -55,8 +55,7 @@ export const telemetryPayloadSchema = z
   .strictObject({
     schema: z.literal('racemake.telemetry.stint.v1'),
     recorder: telemetryRecorderSchema,
-    // Present in the supplied export, but intentionally not part of the MVP.
-    session_id: z.unknown().optional(),
+    session_id: z.uuid(),
     note: z.string(),
     frame_count: z.int().positive(),
     frames: z.array(wireTelemetryFrameSchema).min(1),
@@ -70,7 +69,6 @@ export const telemetryPayloadSchema = z
       })
     }
   })
-  .transform(({ session_id: _ignoredSessionId, ...payload }) => payload)
 
 export type WireTyres = z.infer<typeof wireTyresSchema>
 export type WireTelemetryFrame = z.infer<typeof wireTelemetryFrameSchema>
