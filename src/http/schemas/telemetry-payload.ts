@@ -37,7 +37,7 @@ export const wireTelemetryFrameSchema: z.ZodType<WireTelemetryFrame> =
     ts: z.int().nonnegative(),
     lap: int32Schema,
     pos: finiteNumberSchema.min(0).max(1),
-    spd: finiteNumberSchema.nonnegative(),
+    spd: finiteNumberSchema, // negative for reverse
     thr: finiteNumberSchema.min(0).max(1),
     brk: finiteNumberSchema.min(0).max(1),
     str: finiteNumberSchema,
