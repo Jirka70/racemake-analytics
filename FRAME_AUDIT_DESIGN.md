@@ -180,8 +180,8 @@ interface AuditedTransition {
   readonly toSourceIndex: number
   readonly durationMs: number
   readonly continuity: 'continuous' | 'gap' | 'discontinuous'
-  readonly interpolationAllowed: boolean
-  readonly derivativesAllowed: boolean
+  readonly interpolationBlockedChannels: readonly TelemetryChannel[]
+  readonly derivativesBlockedChannels: readonly TelemetryChannel[]
   readonly issues: readonly ProcessingIssue[]
 }
 
@@ -195,6 +195,7 @@ interface ContinuousSegment {
 }
 
 interface TelemetryAuditResult {
+  readonly telemetry: NormalizedTelemetryStint
   readonly frames: readonly AuditedFrame[]
   readonly transitions: readonly AuditedTransition[]
   readonly continuousSegments: readonly ContinuousSegment[]
@@ -209,6 +210,10 @@ interface TelemetryAuditResult {
 gap or a recorder discontinuity belongs to that edge, not necessarily to either
 endpoint frame. Both endpoint frames may remain valid while interpolation and
 derivative calculation across their boundary are forbidden.
+
+Interpolation and derivative restrictions are channel-specific. A broken tyre
+sensor must not make an otherwise valid speed or steering value unusable. A
+sampling gap or global sequence break blocks every affected continuous channel.
 
 `ContinuousSegment` is a derived, higher-level view: a maximal run of frames
 whose transitions are all `continuous`. It prevents every downstream consumer
@@ -375,8 +380,8 @@ tyre groups is stronger evidence than several shifts within one group.
 - attach issues to frames, channels, and transitions;
 - calculate each frame disposition without deleting the normalized source
   frame;
-- mark gap and discontinuity transitions as unsafe for interpolation and
-  derivatives;
+- mark affected channels on gap and discontinuity transitions as unsafe for
+  interpolation and derivatives;
 - split `continuousSegments` at every gap, discontinuity, or time-order
   violation;
 - preserve deterministic ordering by source index and issue generation order;
