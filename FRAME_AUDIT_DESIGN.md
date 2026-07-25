@@ -287,7 +287,7 @@ typicalDtMs = median(positive deltas)
 dtMadMs = MAD(positive deltas)
 maximumGapMs = max(
   gapMedianMultiplier * typicalDtMs,
-  typicalDtMs + gapMadMultiplier * dtMadMs
+  typicalDtMs + gapRobustScaleMultiplier * scaledDtMadMs
 )
 ```
 

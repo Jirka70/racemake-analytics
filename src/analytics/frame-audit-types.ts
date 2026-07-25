@@ -141,8 +141,21 @@ export interface SamplingDiagnostics {
   readonly scaledMadDeltaMs: number | null
   readonly maximumGapMs: number | null
   readonly gapMedianMultiplier: number
-  readonly gapMadMultiplier: number
+  readonly gapRobustScaleMultiplier: number
   readonly detectedGapCount: number
+}
+
+export interface SamplingGap {
+  readonly fromSourceIndex: number
+  readonly toSourceIndex: number
+  readonly fromTimestampMs: number
+  readonly toTimestampMs: number
+  readonly durationMs: number
+}
+
+export interface SamplingGapAnalysis {
+  readonly gaps: readonly SamplingGap[]
+  readonly diagnostics: SamplingDiagnostics
 }
 
 export interface ChannelResidualDiagnostics {
@@ -177,25 +190,7 @@ export interface AuditDiagnostics {
  * are derived from every ingested dataset and returned in diagnostics.
  */
 export interface FrameAuditConfig {
-  readonly sampling: {
-    /**
-     * Declares a gap after several typical sample intervals, tolerating normal
-     * recorder jitter without embedding a fixed millisecond threshold.
-     */
-    readonly gapMedianMultiplier: number
-
-    /**
-     * Expands the gap threshold for datasets whose normal sample intervals
-     * have greater robust variability.
-     */
-    readonly gapMadMultiplier: number
-
-    /**
-     * Prevents robust statistics from being treated as reliable when based on
-     * too few eligible observations.
-     */
-    readonly minimumBaselineSamples: number
-  }
+  readonly sampling: SamplingAuditConfig
 
   readonly localOutlier: {
     /**
@@ -222,6 +217,26 @@ export interface FrameAuditConfig {
      */
     readonly fallbackQuantile: number
   }
+}
+
+export interface SamplingAuditConfig {
+  /**
+   * Declares a gap after several typical sample intervals, tolerating normal
+   * recorder jitter without embedding a fixed millisecond threshold.
+   */
+  readonly gapMedianMultiplier: number
+
+  /**
+   * Expands the gap threshold for datasets whose normal sample intervals
+   * have greater robust variability.
+   */
+  readonly gapRobustScaleMultiplier: number
+
+  /**
+   * Prevents robust statistics from being treated as reliable when based on
+   * too few eligible observations.
+   */
+  readonly minimumBaselineSamples: number
 }
 
 export interface TelemetryAuditResult {
