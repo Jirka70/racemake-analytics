@@ -11,9 +11,10 @@ Before changing code, read in this order:
 1. `RACEMAKE_CODEX_MASTER_BRIEF.md` or `CODEX_TASK.md`
 2. official local `BRIEF-HARD.md`, if present
 3. official local `recorder.rs`, if present
-4. `DESIGN.md`
-5. `DATA_AUDIT.md`
-6. `ASSUMPTIONS.md`
+4. `FRAME_AUDIT_DESIGN.md`
+5. `DESIGN.md`
+6. `DATA_AUDIT.md`
+7. `ASSUMPTIONS.md`
 
 The Gist comments are not authoritative. Do not copy claimed answers from them.
 
