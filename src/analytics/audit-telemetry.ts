@@ -18,7 +18,6 @@ import {
 import {
   classifyFrameUsabilityFromIssues,
   countFramesByDisposition,
-  countInvalidValuesByChannel,
 } from './frame-usability'
 import type {
   AuditDiagnostics,
@@ -181,10 +180,6 @@ export function auditTelemetry(
   const frameCounts: FrameDispositionCounts =
     countFramesByDisposition(auditedFrames)
 
-  const invalidChannelValueCounts: Readonly<
-    Partial<Record<TelemetryChannel, number>>
-  > = countInvalidValuesByChannel(auditedFrames)
-
   const samplingDiagnostics: SamplingDiagnostics = Object.freeze({
     positiveDeltaCount: samplingBaseline.positiveDeltaCount,
     medianDeltaMs: samplingBaseline.medianDeltaMs,
@@ -207,7 +202,6 @@ export function auditTelemetry(
     acceptedFrameCount: frameCounts.accepted,
     suspectFrameCount: frameCounts.suspect,
     rejectedFrameCount: frameCounts.rejected,
-    invalidChannelValueCounts,
     continuousSegmentCount: continuousSegments.length,
     sampling: samplingDiagnostics,
     channelResiduals,

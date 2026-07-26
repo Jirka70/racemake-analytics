@@ -97,9 +97,6 @@ describe('auditTelemetry', () => {
       suspectFrameCount: 1,
       rejectedFrameCount: 1,
       continuousSegmentCount: 3,
-      invalidChannelValueCounts: {
-        speedKmh: 1,
-      },
       sampling: {
         detectedGapCount: 1,
       },

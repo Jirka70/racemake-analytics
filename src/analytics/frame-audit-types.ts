@@ -177,9 +177,6 @@ export interface AuditDiagnostics {
   readonly acceptedFrameCount: number
   readonly suspectFrameCount: number
   readonly rejectedFrameCount: number
-  readonly invalidChannelValueCounts: Readonly<
-    Partial<Record<TelemetryChannel, number>>
-  >
   readonly continuousSegmentCount: number
   readonly sampling: SamplingDiagnostics
   readonly channelResiduals: readonly ChannelResidualDiagnostics[]

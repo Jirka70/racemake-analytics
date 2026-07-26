@@ -3,7 +3,6 @@ import type { ProcessingIssue } from '../../../src/analytics/frame-audit-types'
 import {
   classifyFrameUsabilityFromIssues,
   countFramesByDisposition,
-  countInvalidValuesByChannel,
 } from '../../../src/analytics/frame-usability'
 import { NormalizedTelemetryFrame } from '../../../src/analytics/telemetry-types'
 
@@ -38,7 +37,7 @@ describe('frame usability', () => {
         action: 'exclude-channel-value',
         scope: 'channel',
         sourceIndex: 1,
-        channels: ['speedKmh'],
+        channels: ['speedKmh', 'speedKmh'],
         message: 'speed spike',
       },
       {
@@ -73,7 +72,7 @@ describe('frame usability', () => {
     expect(audited[0].issues).toEqual([])
   })
 
-  test('counts dispositions and invalid values by channel', () => {
+  test('counts frame dispositions', () => {
     const issues: readonly ProcessingIssue[] = [
       {
         code: 'LOCAL_OUTLIER',
@@ -105,10 +104,6 @@ describe('frame usability', () => {
       accepted: 1,
       suspect: 2,
       rejected: 0,
-    })
-    expect(countInvalidValuesByChannel(audited)).toEqual({
-      speedKmh: 2,
-      engineRpm: 1,
     })
   })
 })

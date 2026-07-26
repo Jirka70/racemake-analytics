@@ -1,6 +1,7 @@
 import type { FrameDispositionCounts } from './audit-telemetry'
 import type {
   AuditedFrame,
+  FrameDisposition,
   ProcessingIssue,
   TelemetryChannel,
 } from './frame-audit-types'
@@ -16,9 +17,9 @@ export function classifyFrameUsabilityFromIssues(
   >()
 
   for (const issue of issues) {
-    if (
-      issue.sourceIndex === undefined || (issue.scope !== 'frame' && issue.scope !== 'channel')
-    ) {
+    if (issue.sourceIndex === undefined) continue
+    const isFrameRelatedIssue = issue.scope === 'frame' || issue.scope === 'channel'
+    if (!isFrameRelatedIssue) {
       continue
     }
 
@@ -27,39 +28,17 @@ export function classifyFrameUsabilityFromIssues(
     issuesBySourceIndex.set(issue.sourceIndex, frameIssues)
   }
 
-  return Object.freeze(
-    frames.map((frame) => {
-      const frameIssues = Object.freeze([
-        ...(issuesBySourceIndex.get(frame.sourceIndex) ?? []),
-      ])
-      const invalidChannels = Object.freeze([
-        ...new Set(
-          frameIssues.flatMap((issue) =>
-            issue.action === 'exclude-channel-value'
-              ? (issue.channels ?? [])
-              : [],
-          ),
-        ),
-      ])
-      const rejected = frameIssues.some(
-        (issue) =>
-          issue.action === 'exclude-frame' ||
-          issue.action === 'reject-dataset',
-      )
-      const disposition = rejected
-        ? 'rejected'
-        : frameIssues.length > 0 || invalidChannels.length > 0
-          ? 'suspect'
-          : 'accepted'
+  const auditedFrames: AuditedFrame[] = []
 
-      return Object.freeze({
-        frame,
-        disposition,
-        invalidChannels,
-        issues: frameIssues,
-      })
-    }),
-  )
+  for (const frame of frames) {
+    const frameIssues = issuesBySourceIndex.get(frame.sourceIndex) ?? []
+    const invalidChannels = collectInvalidChannels(frameIssues)
+    const disposition = computeFrameDisposition(frameIssues)
+
+    auditedFrames.push({ frame, disposition, invalidChannels, issues: frameIssues })
+  }
+
+  return Object.freeze(auditedFrames)
 }
 
 export function countFramesByDisposition(
@@ -90,16 +69,26 @@ export function countFramesByDisposition(
   })
 }
 
-export function countInvalidValuesByChannel(
-  frames: readonly AuditedFrame[],
-): Readonly<Partial<Record<TelemetryChannel, number>>> {
-  const counts: Partial<Record<TelemetryChannel, number>> = {}
+function collectInvalidChannels(frameIssues: readonly ProcessingIssue[]): readonly TelemetryChannel[] {
+  const invalidChannels = new Set<TelemetryChannel>()
 
-  for (const frame of frames) {
-    for (const channel of frame.invalidChannels) {
-      counts[channel] = (counts[channel] ?? 0) + 1
+  for (const frameIssue of frameIssues) {
+    if (frameIssue.action !== 'exclude-channel-value') continue
+
+    for (const channel of frameIssue.channels ?? []) {
+      invalidChannels.add(channel)
     }
   }
 
-  return Object.freeze(counts)
+  return Object.freeze([...invalidChannels])
+}
+
+function computeFrameDisposition(frameIssues: readonly ProcessingIssue[]): FrameDisposition {
+  const hasIssues = frameIssues.length > 0
+  const isFrameRejected = frameIssues.some((issue) => issue.action === 'exclude-frame')
+
+  if (isFrameRejected) return 'rejected'
+  if (hasIssues) return 'suspect'
+
+  return 'accepted'
 }
