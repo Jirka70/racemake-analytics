@@ -1,12 +1,14 @@
-import type { FrameAuditConfig } from '../analytics/frame-audit-types'
-import { DEFAULT_SAMPLING_AUDIT_CONFIG } from '../analytics/sampling-gaps'
+import type {
+  FrameAuditConfig,
+  SamplingConfig,
+} from '../analytics/frame-audit-types'
+
+export const DEFAULT_SAMPLING_CONFIG: SamplingConfig = Object.freeze({
+  minimumSampleCount: 30,
+  gapMedianMultiplier: 5,
+  gapMadMultiplier: 10,
+})
 
 export const DEFAULT_FRAME_AUDIT_CONFIG: FrameAuditConfig = Object.freeze({
-  sampling: DEFAULT_SAMPLING_AUDIT_CONFIG,
-  localOutlier: Object.freeze({
-    spikeMadMultiplier: 12,
-    persistenceWindowDeltaMultiplier: 5,
-    minimumWindowSamples: 2,
-    fallbackQuantile: 0.99,
-  }),
+  sampling: DEFAULT_SAMPLING_CONFIG,
 })
