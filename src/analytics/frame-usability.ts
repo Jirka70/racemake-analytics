@@ -69,18 +69,18 @@ export function countFramesByDisposition(
   })
 }
 
-function collectInvalidChannels(frameIssues: readonly ProcessingIssue[]): readonly TelemetryChannel[] {
-  const invalidChannels = new Set<TelemetryChannel>()
+function collectInvalidChannels(frameIssues: readonly ProcessingIssue[]): TelemetryChannel[] {
+  const invalidChannels: TelemetryChannel[] = []
 
   for (const frameIssue of frameIssues) {
     if (frameIssue.action !== 'exclude-channel-value') continue
 
     for (const channel of frameIssue.channels ?? []) {
-      invalidChannels.add(channel)
+      invalidChannels.push(channel)
     }
   }
 
-  return Object.freeze([...invalidChannels])
+  return invalidChannels
 }
 
 function computeFrameDisposition(frameIssues: readonly ProcessingIssue[]): FrameDisposition {

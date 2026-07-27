@@ -116,7 +116,8 @@
         duplicateFrames,
         timestampOrderViolations,
         samplingGaps,
-        timelineIssues) 
+        timelineIssues,
+) 
       
 
     const residualBaselines: readonly SignalResidualBaseline[] =
