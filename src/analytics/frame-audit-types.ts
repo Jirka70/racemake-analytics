@@ -153,11 +153,6 @@ export interface SamplingGap {
   readonly durationMs: number
 }
 
-export interface SamplingGapAnalysis {
-  readonly gaps: readonly SamplingGap[]
-  readonly diagnostics: SamplingDiagnostics
-}
-
 export interface ChannelResidualDiagnostics {
   readonly channel: TelemetryChannel
   readonly method: ResidualBaselineMethod

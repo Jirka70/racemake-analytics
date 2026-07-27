@@ -84,10 +84,7 @@ export function findTimestampOrderViolations(
     const durationMs = current.timestampMs - previous.timestampMs
 
     // Exact duplicate samples have their own, more precise issue category.
-    if (
-      durationMs === 0 &&
-      containSameTelemetryValues(previous, current)
-    ) {
+    if (durationMs === 0 && containSameTelemetryValues(previous, current)) {
       continue
     }
 
@@ -120,8 +117,7 @@ export function findTimelineIntegrityIssues(
   const issues: ProcessingIssue[] = []
 
   for (const duplicate of duplicateFrames) {
-    issues.push(
-      Object.freeze({
+    issues.push({
         code: 'DUPLICATE_SAMPLE',
         reason: 'exact-consecutive-duplicate',
         severity: 'error',
@@ -129,27 +125,27 @@ export function findTimelineIntegrityIssues(
         scope: 'frame',
         sourceIndex: duplicate.duplicateSourceIndex,
         timestampMs: duplicate.timestampMs,
-        observed: Object.freeze({
+        observed: {
           retainedSourceIndex: duplicate.retainedSourceIndex,
-        }),
+        },
         message: `Frame ${duplicate.duplicateSourceIndex} duplicates retained frame ${duplicate.retainedSourceIndex}.`,
-      }),
-    )
+      })
   }
 
   for (const violation of timestampOrderViolations) {
     const duplicateTimestamp =
       violation.kind === 'duplicate-timestamp'
 
-    issues.push(
-      Object.freeze({
+    issues.push({
         code: 'TIME_ORDER_VIOLATION',
         reason: violation.kind,
         severity: 'error',
         action: duplicateTimestamp
           ? 'exclude-frame'
           : 'split-segment',
-        scope: duplicateTimestamp ? 'frame' : 'transition',
+        scope: duplicateTimestamp 
+          ? 'frame' 
+          : 'transition',
         sourceIndex: duplicateTimestamp
           ? violation.toSourceIndex
           : violation.fromSourceIndex,
@@ -165,13 +161,13 @@ export function findTimelineIntegrityIssues(
         message: duplicateTimestamp
           ? `Frame ${violation.toSourceIndex} reuses timestamp ${violation.currentTimestampMs} with different telemetry values.`
           : `Timestamp regresses between frames ${violation.fromSourceIndex} and ${violation.toSourceIndex}.`,
-      }),
-    )
+      })
   }
 
+  const isMaximumGapSet = samplingBaseline.maximumGapMs !== null
+  
   for (const gap of samplingGaps) {
-    issues.push(
-      Object.freeze({
+    issues.push({
         code: 'SAMPLING_GAP',
         reason: 'interval-exceeds-derived-maximum',
         severity: 'warning',
@@ -183,36 +179,30 @@ export function findTimelineIntegrityIssues(
         observed: Object.freeze({
           durationMs: gap.durationMs,
         }),
-        thresholds:
-          samplingBaseline.maximumGapMs === null
+        thresholds: !isMaximumGapSet
             ? undefined
-            : Object.freeze({
-                maximumGapMs: samplingBaseline.maximumGapMs,
-              }),
+            : { maximumGapMs: samplingBaseline.maximumGapMs },
         message: `Sampling interval between frames ${gap.fromSourceIndex} and ${gap.toSourceIndex} exceeds the dataset-derived maximum.`,
-      }),
-    )
+      })
   }
 
   if (samplingBaseline.maximumGapMs === null) {
-    issues.push(
-      Object.freeze({
+    issues.push({
         code: 'INSUFFICIENT_BASELINE',
         reason: 'sampling-baseline-too-small',
         severity: 'warning',
         action: 'retain',
         scope: 'dataset',
-        observed: Object.freeze({
+        observed: {
           positiveDeltaCount:
             samplingBaseline.positiveDeltaCount,
-        }),
+        },
         message:
           'There are not enough positive timestamp intervals to derive a reliable sampling-gap threshold.',
-      }),
-    )
+      })
   }
 
-  return Object.freeze(issues)
+  return issues
 }
 
 const INTERPOLATED_CHANNELS: readonly TelemetryChannel[] =
@@ -235,6 +225,52 @@ const DERIVED_VALUE_CHANNELS: readonly TelemetryChannel[] =
     INTERPOLATED_CHANNELS.filter((channel) => channel !== 'gear'),
   )
 
+function createAuditedTransition(
+  previousFrame: NormalizedTelemetryFrame,
+  currentFrame: NormalizedTelemetryFrame,
+  duplicateIndexes: ReadonlySet<number>,
+  gapPairs: ReadonlySet<string>,
+  timeViolationPairs: ReadonlySet<string>,
+  issues: readonly ProcessingIssue[],
+): AuditedTransition {
+  const pairKey = `${previousFrame.sourceIndex}:${currentFrame.sourceIndex}`
+  let continuity: AuditedTransition['continuity'] = 'continuous'
+
+  const hasGap = gapPairs.has(pairKey)
+  const isTimeTransitionBroken = duplicateIndexes.has(currentFrame.sourceIndex) || timeViolationPairs.has(pairKey)
+  if (isTimeTransitionBroken) {
+    continuity = 'discontinuous'
+  } else if (hasGap) {
+    continuity = 'gap'
+  }
+
+  const transitionIssues = issues.filter(
+    (issue) =>
+      (issue.sourceIndex === previousFrame.sourceIndex &&
+        issue.nextSourceIndex === currentFrame.sourceIndex) ||
+      (issue.code === 'DUPLICATE_SAMPLE' &&
+        issue.sourceIndex === currentFrame.sourceIndex) ||
+      (issue.code === 'TIME_ORDER_VIOLATION' &&
+        issue.nextSourceIndex === undefined &&
+        issue.sourceIndex === currentFrame.sourceIndex),
+  )
+  const blocksAllChannels = continuity !== 'continuous'
+
+  return Object.freeze({
+    fromSourceIndex: previousFrame.sourceIndex,
+    toSourceIndex: currentFrame.sourceIndex,
+    durationMs: currentFrame.timestampMs - previousFrame.timestampMs,
+    continuity,
+    interpolationBlockedChannels: blocksAllChannels
+      ? INTERPOLATED_CHANNELS
+      : Object.freeze([]),
+    derivativesBlockedChannels: blocksAllChannels
+      ? DERIVED_VALUE_CHANNELS
+      : Object.freeze([]),
+    issues: Object.freeze(transitionIssues),
+  })
+}
+
 export function classifyFramePairsAsContinuousGapOrDiscontinuous(
   frames: readonly NormalizedTelemetryFrame[],
   duplicateFrames: readonly DuplicateFrameFinding[],
@@ -243,7 +279,9 @@ export function classifyFramePairsAsContinuousGapOrDiscontinuous(
   issues: readonly ProcessingIssue[],
 ): readonly AuditedTransition[] {
   const duplicateIndexes = new Set(
-    duplicateFrames.map((finding) => finding.duplicateSourceIndex),
+    duplicateFrames.map(
+      (duplicateFrame) => duplicateFrame.duplicateSourceIndex,
+    ),
   )
   const timeViolationPairs = new Set(
     timestampOrderViolations.map(
@@ -259,48 +297,12 @@ export function classifyFramePairsAsContinuousGapOrDiscontinuous(
   const transitions: AuditedTransition[] = []
 
   for (let index = 1; index < frames.length; index += 1) {
-    const previous = frames[index - 1]
-    const current = frames[index]
-    const pairKey = `${previous.sourceIndex}:${current.sourceIndex}`
-    const isDiscontinuous =
-      duplicateIndexes.has(current.sourceIndex) ||
-      timeViolationPairs.has(pairKey)
-    const isGap = !isDiscontinuous && gapPairs.has(pairKey)
-    const continuity = isDiscontinuous
-      ? 'discontinuous'
-      : isGap
-        ? 'gap'
-        : 'continuous'
-    const transitionIssues = issues.filter(
-      (issue) =>
-        (issue.sourceIndex === previous.sourceIndex &&
-          issue.nextSourceIndex === current.sourceIndex) ||
-        (issue.code === 'DUPLICATE_SAMPLE' &&
-          issue.sourceIndex === current.sourceIndex) ||
-        (issue.code === 'TIME_ORDER_VIOLATION' &&
-          issue.nextSourceIndex === undefined &&
-          issue.sourceIndex === current.sourceIndex),
-    )
-    const blocksAllChannels = continuity !== 'continuous'
-
-    transitions.push(
-      Object.freeze({
-        fromSourceIndex: previous.sourceIndex,
-        toSourceIndex: current.sourceIndex,
-        durationMs: current.timestampMs - previous.timestampMs,
-        continuity,
-        interpolationBlockedChannels: blocksAllChannels
-          ? INTERPOLATED_CHANNELS
-          : Object.freeze([]),
-        derivativesBlockedChannels: blocksAllChannels
-          ? DERIVED_VALUE_CHANNELS
-          : Object.freeze([]),
-        issues: Object.freeze(transitionIssues),
-      }),
-    )
+    const auditedTransition = createAuditedTransition(frames[index - 1], frames[index], duplicateIndexes, gapPairs,
+        timeViolationPairs, issues)
+    transitions.push(auditedTransition)
   }
 
-  return Object.freeze(transitions)
+  return transitions
 }
 
 export function splitFramesAtContinuityBreaks(

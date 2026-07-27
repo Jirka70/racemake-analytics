@@ -4,7 +4,6 @@ import type {
 import type {
   SamplingAuditConfig,
   SamplingGap,
-  SamplingGapAnalysis,
 } from './frame-audit-types'
 import {
   median,
@@ -35,7 +34,8 @@ export function computeSamplingIntervalBaseline(
 ): SamplingIntervalBaseline {
   const positiveDeltas = collectPositiveDeltas(frames)
 
-  if (positiveDeltas.length < config.minimumBaselineSamples) {
+  const hasEnoughSamples = positiveDeltas.length >= config.minimumBaselineSamples
+  if (!hasEnoughSamples) {
     return Object.freeze({
       positiveDeltaCount: positiveDeltas.length,
       medianDeltaMs: null,
@@ -47,21 +47,16 @@ export function computeSamplingIntervalBaseline(
 
   const medianDeltaMs = median(positiveDeltas)
   const madDeltaMs = medianAbsoluteDeviation(positiveDeltas)
-  const robustScaleMs =
-    scaledMedianAbsoluteDeviation(positiveDeltas)
-  const maximumGapMs = Math.max(
-    config.gapMedianMultiplier * medianDeltaMs,
-    medianDeltaMs +
-      config.gapRobustScaleMultiplier * robustScaleMs,
-  )
+  const robustScaleMs = scaledMedianAbsoluteDeviation(positiveDeltas)
+  const maximumGapMs = Math.max(config.gapMedianMultiplier * medianDeltaMs, medianDeltaMs + config.gapRobustScaleMultiplier * robustScaleMs)
 
-  return Object.freeze({
+  return {
     positiveDeltaCount: positiveDeltas.length,
     medianDeltaMs,
     madDeltaMs,
     robustScaleMs,
     maximumGapMs,
-  })
+  }
 }
 
 export function findGapsExceedingMaximumGap(
@@ -110,32 +105,4 @@ function collectPositiveDeltas(
   }
 
   return positiveDeltas
-}
-
-export function analyzeSamplingGaps(
-  frames: readonly NormalizedTelemetryFrame[],
-  config: SamplingAuditConfig = DEFAULT_SAMPLING_AUDIT_CONFIG,
-): SamplingGapAnalysis {
-  const baseline = computeSamplingIntervalBaseline(
-    frames,
-    config,
-  )
-  const gaps = findGapsExceedingMaximumGap(
-    frames,
-    baseline.maximumGapMs,
-  )
-
-  return Object.freeze({
-    gaps,
-    diagnostics: Object.freeze({
-      positiveDeltaCount: baseline.positiveDeltaCount,
-      medianDeltaMs: baseline.medianDeltaMs,
-      madDeltaMs: baseline.madDeltaMs,
-      scaledMadDeltaMs: baseline.robustScaleMs,
-      maximumGapMs: baseline.maximumGapMs,
-      gapMedianMultiplier: config.gapMedianMultiplier,
-      gapRobustScaleMultiplier: config.gapRobustScaleMultiplier,
-      detectedGapCount: gaps.length,
-    }),
-  })
 }

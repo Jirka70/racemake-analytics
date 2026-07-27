@@ -28,14 +28,14 @@ type LocallyAuditedChannel =
   | 'tyreCoreTemperatureC.rearLeft'
   | 'tyreCoreTemperatureC.rearRight'
 
-interface ResidualSample {
+interface SignalResidualSample {
   readonly sourceIndex: number
   readonly timestampMs: number
-  readonly measuredValue: number
+  readonly channel: LocallyAuditedChannel
+  readonly previousFrameValue: number
+  readonly observedValue: number
+  readonly nextFrameValue: number
   readonly predictedValue: number
-  readonly continuousPreviousValue: number
-  readonly continuousMeasuredValue: number
-  readonly continuousNextValue: number
   readonly residual: number
 }
 
@@ -157,31 +157,31 @@ function hasGearChangeAroundFrame(
   return previous.gear !== current.gear || current.gear !== next.gear
 }
 
-function readChannelValuesForResidual(
-  previous: NormalizedTelemetryFrame,
-  current: NormalizedTelemetryFrame,
-  next: NormalizedTelemetryFrame,
+function prepareChannelValuesForResidualCalculation(
+  previousFrameValue: number,
+  observedValue: number,
+  nextFrameValue: number,
   channel: LocallyAuditedChannel,
 ): ChannelValuesForResidual {
-  const previousValue = readChannelValue(previous, channel)
-  const measuredValue = readChannelValue(current, channel)
-  const nextValue = readChannelValue(next, channel)
-
   if (channel !== 'normalizedTrackPosition') {
-    return { previousValue, measuredValue, nextValue }
+    return {
+      previousValue: previousFrameValue,
+      measuredValue: observedValue,
+      nextValue: nextFrameValue,
+    }
   }
 
   const continuousMeasuredValue = convertToContinuousTrackPosition(
-    measuredValue,
-    previousValue,
+    observedValue,
+    previousFrameValue,
   )
   const continuousNextValue = convertToContinuousTrackPosition(
-    nextValue,
+    nextFrameValue,
     continuousMeasuredValue,
   )
 
   return {
-    previousValue,
+    previousValue: previousFrameValue,
     measuredValue: continuousMeasuredValue,
     nextValue: continuousNextValue,
   }
@@ -192,29 +192,35 @@ function calculateResidualSample(
   current: NormalizedTelemetryFrame,
   next: NormalizedTelemetryFrame,
   channel: LocallyAuditedChannel,
-): ResidualSample | null {
+): SignalResidualSample | null {
   const surroundingDurationMs = next.timestampMs - previous.timestampMs
   if (surroundingDurationMs <= 0) return null
 
   const elapsedDurationMs = current.timestampMs - previous.timestampMs
   const currentFrameProgress = elapsedDurationMs / surroundingDurationMs
-  const channelValues = readChannelValuesForResidual(previous, current, next, channel)
-  const predictedContinuousValue = channelValues.previousValue + currentFrameProgress * (channelValues.nextValue - channelValues.previousValue)
-  const residual = Math.abs(channelValues.measuredValue - predictedContinuousValue)
+  const previousFrameValue = readChannelValue(previous, channel)
+  const observedValue = readChannelValue(current, channel)
+  const nextFrameValue = readChannelValue(next, channel)
+  const valuesForCalculation = prepareChannelValuesForResidualCalculation(
+    previousFrameValue,
+    observedValue,
+    nextFrameValue,
+    channel,
+  )
+  const predictedContinuousValue = valuesForCalculation.previousValue + currentFrameProgress * (valuesForCalculation.nextValue - valuesForCalculation.previousValue)
+  const residual = Math.abs(valuesForCalculation.measuredValue - predictedContinuousValue)
   const isTrackPositionChannel = channel === 'normalizedTrackPosition'
 
   return Object.freeze({
     sourceIndex: current.sourceIndex,
     timestampMs: current.timestampMs,
-    measuredValue: isTrackPositionChannel 
-      ? current.normalizedTrackPosition 
-      : channelValues.measuredValue,
+    channel,
+    previousFrameValue,
+    observedValue,
+    nextFrameValue,
     predictedValue: isTrackPositionChannel
       ? convertToPositionWithinLap(predictedContinuousValue)
       : predictedContinuousValue,
-    continuousPreviousValue: channelValues.previousValue,
-    continuousMeasuredValue: channelValues.measuredValue,
-    continuousNextValue: channelValues.nextValue,
     residual,
   })
 }
@@ -223,8 +229,8 @@ function collectChannelResiduals(
   frames: readonly NormalizedTelemetryFrame[],
   continuousTransitionKeys: ReadonlySet<string>,
   channel: LocallyAuditedChannel,
-): readonly ResidualSample[] {
-  const residualSamples: ResidualSample[] = []
+): readonly SignalResidualSample[] {
+  const residualSamples: SignalResidualSample[] = []
 
   for (let index = 1; index < frames.length - 1; index += 1) {
     const previous = frames[index - 1]
@@ -511,7 +517,7 @@ function mapFrameIndexesBySourceIndex(
 }
 
 function mapResidualsBySourceIndex(
-  residualSamples: readonly ResidualSample[],
+  residualSamples: readonly SignalResidualSample[],
 ): ReadonlyMap<number, number> {
   const residuals = new Map<number, number>()
 
@@ -523,7 +529,7 @@ function mapResidualsBySourceIndex(
 }
 
 function isHighestResidualNearFrame(
-  sample: ResidualSample,
+  sample: SignalResidualSample,
   frameIndex: number,
   frames: readonly NormalizedTelemetryFrame[],
   residualsBySourceIndex: ReadonlyMap<number, number>,
@@ -546,9 +552,30 @@ function isHighestResidualNearFrame(
   return isAtLeastAsHighAsNeighbours && isHigherThanAtLeastOneNeighbour
 }
 
-function returnsToSurroundingSignalTrend(sample: ResidualSample): boolean {
-  const incomingChange = sample.continuousMeasuredValue - sample.continuousPreviousValue
-  const outgoingChange = sample.continuousNextValue - sample.continuousMeasuredValue
+function calculateChannelValueChange(
+  fromValue: number,
+  toValue: number,
+  channel: LocallyAuditedChannel,
+): number {
+  const valueChange = toValue - fromValue
+  if (channel !== 'normalizedTrackPosition') return valueChange
+  if (valueChange > 0.5) return valueChange - 1
+  if (valueChange < -0.5) return valueChange + 1
+
+  return valueChange
+}
+
+function returnsToSurroundingSignalTrend(sample: SignalResidualSample): boolean {
+  const incomingChange = calculateChannelValueChange(
+    sample.previousFrameValue,
+    sample.observedValue,
+    sample.channel,
+  )
+  const outgoingChange = calculateChannelValueChange(
+    sample.observedValue,
+    sample.nextFrameValue,
+    sample.channel,
+  )
 
   return incomingChange * outgoingChange < 0
 }
@@ -577,15 +604,14 @@ function hasRequiredSurroundingSampleCount(
 }
 
 function createLocalSignalSpike(
-  sample: ResidualSample,
-  channel: LocallyAuditedChannel,
+  sample: SignalResidualSample,
   threshold: number,
 ): LocalSignalSpike {
   return Object.freeze({
     sourceIndex: sample.sourceIndex,
     timestampMs: sample.timestampMs,
-    channel,
-    measuredValue: sample.measuredValue,
+    channel: sample.channel,
+    measuredValue: sample.observedValue,
     predictedValue: sample.predictedValue,
     residual: sample.residual,
     threshold,
@@ -646,7 +672,7 @@ export function findIsolatedSignalSpikes(
       const returnsToSignalTrend = returnsToSurroundingSignalTrend(sample)
       if (!returnsToSignalTrend) continue
 
-      spikes.push(createLocalSignalSpike(sample, channel, baseline.spikeThreshold))
+      spikes.push(createLocalSignalSpike(sample, baseline.spikeThreshold))
     }
   }
 

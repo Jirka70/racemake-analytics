@@ -1,13 +1,11 @@
 import { Hono } from 'hono'
 import { ZodError } from 'zod'
-import { createTelemetryApplication } from './application/telemetry-application'
+import { runTelemetryAuditPipeline } from './application/telemetry-audit-pipeline'
+import { DEFAULT_FRAME_AUDIT_CONFIG } from './config/frame-audit-config'
 import { HTTP_STATUS } from './http/http-status'
-import { telemetryPayloadSchema } from './http/schemas/telemetry-payload'
-import { zValidate } from './http/z-validate'
 
 export function createApp(): Hono {
   const app = new Hono()
-  const telemetryApplication = createTelemetryApplication()
 
   app.onError((error, context) => {
     if (error instanceof SyntaxError) {
@@ -50,15 +48,19 @@ export function createApp(): Hono {
   })
 
   app.post('/ingest', async (context) => {
-    const payload = zValidate(telemetryPayloadSchema, await context.req.json())
-    const normalizedStint = telemetryApplication.ingest(payload)
+    const unknownPayload: unknown = await context.req.json()
+    const { validatedWirePayload, normalizedTelemetry } =
+      runTelemetryAuditPipeline(
+        unknownPayload,
+        DEFAULT_FRAME_AUDIT_CONFIG,
+      )
 
     return context.json(
       {
-        schema: normalizedStint.schemaVersion,
-        sessionId: normalizedStint.sessionId,
-        receivedFrames: payload.frames.length,
-        normalizedFrames: normalizedStint.frames.length,
+        schema: normalizedTelemetry.schemaVersion,
+        sessionId: normalizedTelemetry.sessionId,
+        receivedFrames: validatedWirePayload.frames.length,
+        normalizedFrames: normalizedTelemetry.frames.length,
       },
       HTTP_STATUS.OK,
     )
