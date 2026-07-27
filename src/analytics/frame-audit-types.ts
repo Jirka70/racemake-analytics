@@ -50,12 +50,14 @@ export interface SamplingBaseline {
 
 export interface FrameAuditConfig {
   readonly sampling: SamplingConfig
+  readonly isolatedOutlier: IsolatedOutlierConfig
 }
 
 export interface TelemetryAuditResult {
   readonly frameTransitions: readonly FrameTransition[]
   readonly timelineTransitions: readonly TimelineTransition[]
   readonly samplingBaseline: SamplingBaseline | null
+  readonly isolatedOutliers: readonly IsolatedChannelOutlier[]
 }
 
 export type TimelineContinuity =

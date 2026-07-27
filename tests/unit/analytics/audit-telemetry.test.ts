@@ -9,14 +9,13 @@ import {
 const AUDIT_CONFIG: FrameAuditConfig = {
   sampling: {
     gapMedianMultiplier: 5,
-    gapRobustScaleMultiplier: 10,
-    minimumBaselineSamples: 10,
+    gapMadMultiplier: 10,
+    minimumSampleCount: 10,
   },
-  localOutlier: {
-    spikeMadMultiplier: 8,
-    persistenceWindowDeltaMultiplier: 5,
-    minimumWindowSamples: 1,
-    fallbackQuantile: 0.9,
+  isolatedOutlier: {
+    minimumResidualSampleCount: 10,
+    signalMadMultiplier: 8,
+    driverInputMadMultiplier: 20,
   },
 }
 
@@ -77,29 +76,21 @@ describe('auditTelemetry', () => {
     const second = auditTelemetry(telemetry, AUDIT_CONFIG)
 
     expect(first).toEqual(second)
-    expect(first.telemetry).toBe(telemetry)
-    expect(first.issues.map((issue) => issue.code)).toContain(
-      'DUPLICATE_SAMPLE',
+    expect(first.frameTransitions).toHaveLength(
+      telemetry.frames.length - 1,
     )
-    expect(first.issues.map((issue) => issue.code)).toContain(
-      'SAMPLING_GAP',
-    )
-    expect(first.issues).toContainEqual(
+    expect(first.timelineTransitions).toContainEqual(
       expect.objectContaining({
-        code: 'LOCAL_OUTLIER',
-        sourceIndex: 12,
-        channels: ['speedKmh'],
+        relation: 'exact-duplicate',
       }),
     )
-    expect(first.diagnostics).toMatchObject({
-      inputFrameCount: 40,
-      acceptedFrameCount: 38,
-      suspectFrameCount: 1,
-      rejectedFrameCount: 1,
-      continuousSegmentCount: 3,
-      sampling: {
-        detectedGapCount: 1,
-      },
-    })
+    expect(first.samplingBaseline).not.toBeNull()
+    expect(first.isolatedOutliers).toContainEqual(
+      expect.objectContaining({
+        frame: telemetry.frames[12],
+        channel: 'speedKmh',
+        usability: 'suspect',
+      }),
+    )
   })
 })

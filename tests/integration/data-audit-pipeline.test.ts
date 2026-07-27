@@ -15,19 +15,20 @@ describe('telemetry audit pipeline', () => {
 
     const wireFrames = result.validatedWirePayload.frames
     const normalizedFrames = result.normalizedTelemetry.frames
-    const diagnostics = result.auditResult.diagnostics
 
     expect(normalizedFrames).toHaveLength(wireFrames.length)
-    expect(result.auditResult.telemetry).toBe(result.normalizedTelemetry)
+    expect(result.auditResult.frameTransitions).toHaveLength(
+      normalizedFrames.length - 1,
+    )
+    expect(result.auditResult.timelineTransitions).toHaveLength(
+      normalizedFrames.length - 1,
+    )
+    expect(result.auditResult.samplingBaseline).not.toBeNull()
+    expect(Array.isArray(result.auditResult.isolatedOutliers)).toBeTrue()
     expect(normalizedFrames[0]?.sourceIndex).toBe(0)
     expect(normalizedFrames[0]?.tyreCoreTemperatureC.frontLeft).toBe(
       (wireFrames[0]?.tyres.fl ?? Number.NaN) / 10,
     )
-    expect(
-      diagnostics.acceptedFrameCount +
-        diagnostics.suspectFrameCount +
-        diagnostics.rejectedFrameCount,
-    ).toBe(wireFrames.length)
   })
 
   test('stops at Zod validation for an invalid payload', () => {
