@@ -75,17 +75,15 @@ Severity describes the importance of an issue. Action describes the processing
 decision. These are independent concepts.
 
 ```ts
-type IssueSeverity = 'info' | 'warning' | 'error' | 'fatal'
+type ProcessingIssueSeverity = 'warning' | 'error'
 
-type IssueAction =
+type ProcessingIssueAction =
   | 'retain'
   | 'exclude-channel-value'
   | 'exclude-frame'
-  | 'split-segment'
-  | 'exclude-lap'
-  | 'reject-dataset'
-
-type FrameDisposition = 'accepted' | 'suspect' | 'rejected'
+  | 'block-channel-transition'
+  | 'split-timeline'
+  | 'stop-analysis'
 ```
 
 An invalid RPM value can therefore be an `error` whose action is
@@ -93,27 +91,25 @@ An invalid RPM value can therefore be an `error` whose action is
 frame can remain usable. Reject an entire frame only when a required structural
 value is unusable or several failures make the sample unsafe as a whole.
 
-`exclude-lap` is part of the shared action vocabulary, but the frame audit does
-not issue it. Lap selection decides that later.
+Lap selection will define its own lap-level actions later. The frame audit does
+not speculate about them.
 
 ## Stable issue vocabulary
 
 Use a deliberately small set of general codes:
 
 ```ts
-type IssueCode =
-  | 'CONTRACT_VIOLATION'
+type ProcessingIssueCode =
   | 'DUPLICATE_SAMPLE'
   | 'TIME_ORDER_VIOLATION'
   | 'SAMPLING_GAP'
   | 'LOCAL_OUTLIER'
   | 'SEQUENCE_DISCONTINUITY'
-  | 'CYCLE_MARKER_MISMATCH'
-  | 'PARTIAL_CYCLE'
-  | 'INSUFFICIENT_SUPPORT'
-  | 'STATIONARY_FRAGMENT'
   | 'INSUFFICIENT_BASELINE'
 ```
+
+Lap analysis may later add its own cycle, completeness, stationary-fragment,
+and support codes without changing the meaning of these frame-audit codes.
 
 The code identifies the general problem class. `reason`, `channels`, observed
 values, and thresholds carry the precise explanation. Do not introduce
@@ -122,15 +118,15 @@ number, or boundary.
 
 Examples of reasons include:
 
-- `exact-duplicate`;
-- `duplicate-timestamp`;
+- `exact-adjacent-duplicate`;
+- `same-timestamp-conflict`;
 - `timestamp-regression`;
-- `isolated-spike`;
-- `persistent-level-shift`;
-- `position-wrap-mismatch`;
-- `opening-fragment`;
-- `closing-fragment`;
-- `zero-mad`.
+- `maximum-sampling-gap-exceeded`;
+- `isolated-timestamp-outlier`;
+- `isolated-driver-input-outlier`;
+- `isolated-sensor-outlier`;
+- `persistent-channel-level-shift`;
+- `insufficient-chronological-transitions`.
 
 The reason may initially remain a string if a closed union would create a large
 speculative taxonomy. Issue codes and actions are the stable machine-facing
@@ -143,17 +139,12 @@ normalized telemetry model, not arbitrary strings.
 
 ```ts
 interface ProcessingIssue {
-  readonly code: IssueCode
+  readonly id: string
+  readonly code: ProcessingIssueCode
   readonly reason: string
-  readonly severity: IssueSeverity
-  readonly action: IssueAction
-  readonly scope:
-    | 'dataset'
-    | 'segment'
-    | 'lap'
-    | 'frame'
-    | 'channel'
-    | 'transition'
+  readonly severity: ProcessingIssueSeverity
+  readonly action: ProcessingIssueAction
+  readonly scope: 'dataset' | 'frame' | 'channel' | 'transition'
 
   readonly sourceIndex?: number
   readonly nextSourceIndex?: number
@@ -170,9 +161,8 @@ interface ProcessingIssue {
 
 interface AuditedFrame {
   readonly frame: NormalizedTelemetryFrame
-  readonly disposition: FrameDisposition
+  readonly suspectChannels: readonly TelemetryChannel[]
   readonly invalidChannels: readonly TelemetryChannel[]
-  readonly issues: readonly ProcessingIssue[]
 }
 
 interface AuditedTimelineTransition extends TimelineTransition {
@@ -195,8 +185,14 @@ interface TelemetryAuditResult {
   readonly usableTimeline: UsableTimeline | null
   readonly continuousTimelineSegments: readonly ContinuousTimelineSegment[]
   readonly channelDiscontinuities: readonly ChannelDiscontinuity[]
+  readonly issues: readonly ProcessingIssue[]
 }
 ```
+
+Issues are kept in one deterministic collection with stable IDs. Frames and
+transitions retain compact machine-usable classifications; future analysis can
+join either structure to issues by source indexes and channels without copying
+the full explanations onto every object.
 
 ### Why transitions and continuous segments both exist
 
@@ -399,15 +395,15 @@ tyre groups is stronger evidence than several shifts within one group.
 
 | Situation | Severity | Action | Result |
 |---|---|---|---|
-| Exact duplicate sample | warning or error | exclude-frame | Preserve issue and one usable copy |
-| Equal timestamp, different data | error | exclude-frame or split-segment | Do not derive through ambiguous ordering |
-| Timestamp regression | error | split-segment | Preserve both sides as separate runs |
-| Large positive sampling gap | warning | retain | Forbid interpolation and derivatives across edge |
+| Exact duplicate sample | warning | exclude-frame | Preserve issue and one usable copy |
+| Equal timestamp, different data | error | exclude-frame | Do not derive through ambiguous ordering |
+| Timestamp regression | error | split-timeline | Preserve both sides as separate runs |
+| Large positive sampling gap | warning | split-timeline | Retain endpoints and forbid interpolation and derivatives across edge |
 | Isolated outlier in one non-essential channel | error | exclude-channel-value | Keep other channel values |
-| Isolated position outlier | error | exclude-frame for position-based processing | Preserve evidence |
-| Persistent level shift | warning or error | exclude-channel-value | Block affected channels only across the boundary and keep both stable sides |
+| Isolated position outlier | error | exclude-channel-value | Preserve frame but block its position value |
+| Persistent level shift | error | block-channel-transition | Block affected channels only across the boundary and keep both stable sides |
 | Sustained unusual driving | info or no issue | retain | Treat as behavior, not corruption |
-| Insufficient statistical support | warning | retain | Disable affected heuristic or lower confidence |
+| Insufficient sampling baseline | error | stop-analysis | Preserve normalized data but stop dependent analysis |
 
 Do not reject a whole dataset merely because a heuristic cannot establish a
 baseline. Dataset rejection is reserved for a failed wire contract or a stream

@@ -129,5 +129,55 @@ describe('auditTelemetry', () => {
         (segment) => segment.frameCount,
       ),
     ).toEqual([29, 10])
+    expect(new Set(first.issues.map((issue) => issue.id)).size).toBe(first.issues.length)
+    expect(first.issues).toContainEqual(expect.objectContaining({
+      id: 'duplicate-sample:20',
+      code: 'DUPLICATE_SAMPLE',
+      action: 'exclude-frame',
+      severity: 'warning',
+      scope: 'frame',
+      reason: 'exact-adjacent-duplicate',
+      sourceIndex: 20,
+    }))
+    expect(first.issues).toContainEqual(expect.objectContaining({
+      id: 'local-outlier:12:speedKmh',
+      code: 'LOCAL_OUTLIER',
+      action: 'exclude-channel-value',
+      severity: 'error',
+      scope: 'channel',
+      channels: ['speedKmh'],
+      observed: expect.objectContaining({ observedValue: 1_000, usability: 'invalid' }),
+      thresholds: expect.objectContaining({ residualThreshold: expect.any(Number) }),
+    }))
+    expect(first.issues).toContainEqual(expect.objectContaining({
+      id: 'sampling-gap:29:30',
+      code: 'SAMPLING_GAP',
+      action: 'split-timeline',
+      severity: 'warning',
+      scope: 'transition',
+      sourceIndex: 29,
+      nextSourceIndex: 30,
+      thresholds: expect.objectContaining({ maximumGapMs: first.samplingBaseline?.maximumGapMs }),
+    }))
+    expect(first.issues.every((issue) => issue.message.length > 40)).toBeTrue()
+  })
+
+  test('reports when the sampling baseline cannot support dependent analysis', () => {
+    const telemetry = createTelemetry()
+    const shortTelemetry: NormalizedTelemetryStint = Object.freeze({ ...telemetry, frameCount: 5, frames: Object.freeze(telemetry.frames.slice(0, 5)) })
+    const result = auditTelemetry(shortTelemetry, AUDIT_CONFIG)
+
+    expect(result.samplingBaseline).toBeNull()
+    expect(result.usableTimeline).toBeNull()
+    expect(result.issues).toContainEqual(expect.objectContaining({
+      id: 'insufficient-baseline:sampling',
+      code: 'INSUFFICIENT_BASELINE',
+      action: 'stop-analysis',
+      severity: 'error',
+      scope: 'dataset',
+      reason: 'insufficient-chronological-transitions',
+      observed: { chronologicalTransitionCount: 4 },
+      thresholds: { minimumChronologicalTransitionCount: 10 },
+    }))
   })
 })

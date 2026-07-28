@@ -72,6 +72,27 @@ describe('telemetry audit pipeline', () => {
       )
     }
 
+    expect(new Set(audit.issues.map((issue) => issue.id)).size).toBe(audit.issues.length)
+    expect(audit.issues.every((issue) => issue.message.length > 40 && issue.reason.length > 0)).toBeTrue()
+
+    for (const outlier of audit.isolatedOutliers) {
+      expect(audit.issues).toContainEqual(expect.objectContaining({
+        id: `local-outlier:${outlier.frame.sourceIndex}:${outlier.channel}`,
+        code: 'LOCAL_OUTLIER',
+        action: outlier.channel === 'timestampMs' ? 'exclude-frame' : outlier.usability === 'invalid' ? 'exclude-channel-value' : 'retain',
+        channels: [outlier.channel],
+      }))
+    }
+
+    for (const finding of audit.channelDiscontinuities) {
+      expect(audit.issues).toContainEqual(expect.objectContaining({
+        id: `sequence-discontinuity:${finding.previousSourceIndex}:${finding.currentSourceIndex}`,
+        code: 'SEQUENCE_DISCONTINUITY',
+        action: 'block-channel-transition',
+        channels: finding.channels,
+      }))
+    }
+
     expect(samplingBaseline.maximumGapMs)
       .toBeGreaterThanOrEqual(samplingBaseline.medianDeltaMs)
 
@@ -138,6 +159,15 @@ describe('telemetry audit pipeline', () => {
     })
 
     expect(unappliedChannelDiscontinuities).toEqual([])
+
+    for (const transition of usableTimeline.transitions.filter((item) => item.timeContinuity === 'gap')) {
+      expect(audit.issues).toContainEqual(expect.objectContaining({
+        id: `sampling-gap:${transition.previous.sourceIndex}:${transition.current.sourceIndex}`,
+        code: 'SAMPLING_GAP',
+        action: 'split-timeline',
+        thresholds: { maximumGapMs: samplingBaseline.maximumGapMs },
+      }))
+    }
 
     const unblockedUnsafeFrameChannels = usableTimeline.transitions.filter((transition) => {
       const previous = usableTimeline.frames.find((item) => item.frame === transition.previous)

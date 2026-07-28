@@ -1,5 +1,5 @@
 import type { NormalizedTelemetryFrame, NormalizedTelemetryStint } from "./telemetry-types";
-import type { ChannelDiscontinuity, ContinuousTimelineSegment, FrameAuditConfig, FrameTransition, IsolatedChannelOutlier, SamplingBaseline, TelemetryAuditResult, TimelineTransition, UsableTimeline } from "./frame-audit-types";
+import type { ChannelDiscontinuity, ContinuousTimelineSegment, FrameAuditConfig, FrameTransition, IsolatedChannelOutlier, ProcessingIssue, SamplingBaseline, TelemetryAuditResult, TimelineTransition, UsableTimeline } from "./frame-audit-types";
 import { createTimelineTransitions } from "./audit/create-timeline-transitions";
 import { createFrameTransitions } from "./audit/create-frame-transitions";
 import { computeSamplingBaseline } from "./audit/compute-sampling-baseline";
@@ -8,6 +8,7 @@ import { createAuditedFrames } from "./audit/create-audit-frames";
 import { createUsableTimeline } from "./audit/create-usable-timeline";
 import { createContinuousTimelineSegments } from "./audit/create-continuous-timeline-segments";
 import { attachChannelDiscontinuities, findChannelDiscontinuities } from "./audit/find-channel-discontinuities";
+import { createProcessingIssues } from "./audit/create-processing-issues";
 
 export function auditTelemetry(telemetry: NormalizedTelemetryStint, config: FrameAuditConfig) : TelemetryAuditResult {
     const normalizedFrames: readonly NormalizedTelemetryFrame[] = telemetry.frames
@@ -36,6 +37,8 @@ export function auditTelemetry(telemetry: NormalizedTelemetryStint, config: Fram
         continuousTimelineSegments = createContinuousTimelineSegments(usableTimeline)
     }
 
+    const issues: ProcessingIssue[] = createProcessingIssues(timelineTransitions, samplingBaseline, isolatedOutliers, usableTimeline, channelDiscontinuities, config)
+
     return {
         frameTransitions,
         timelineTransitions,
@@ -45,5 +48,6 @@ export function auditTelemetry(telemetry: NormalizedTelemetryStint, config: Fram
         usableTimeline,
         continuousTimelineSegments,
         channelDiscontinuities,
+        issues,
     }
 }

@@ -74,6 +74,7 @@ export interface TelemetryAuditResult {
   readonly usableTimeline: UsableTimeline | null
   readonly continuousTimelineSegments: readonly ContinuousTimelineSegment[]
   readonly channelDiscontinuities: readonly ChannelDiscontinuity[]
+  readonly issues: readonly ProcessingIssue[]
 }
 
 export type TimelineContinuity =
@@ -187,4 +188,55 @@ export interface ChannelDiscontinuity {
   readonly previousSourceIndex: number
   readonly currentSourceIndex: number
   readonly channels: readonly PersistenceAuditedChannel[]
+  readonly evidence: readonly ChannelDiscontinuityEvidence[]
+}
+
+export interface ChannelDiscontinuityEvidence {
+  readonly channel: PersistenceAuditedChannel
+  readonly previousValue: number
+  readonly currentValue: number
+  readonly boundaryDelta: number
+  readonly absoluteRatePerSecond: number
+  readonly rateThresholdPerSecond: number
+  readonly leftMedian: number
+  readonly rightMedian: number
+  readonly persistentShift: number
+  readonly leftSpread: number
+  readonly rightSpread: number
+}
+
+export type ProcessingIssueCode =
+  | 'DUPLICATE_SAMPLE'
+  | 'TIME_ORDER_VIOLATION'
+  | 'SAMPLING_GAP'
+  | 'LOCAL_OUTLIER'
+  | 'SEQUENCE_DISCONTINUITY'
+  | 'INSUFFICIENT_BASELINE'
+
+export type ProcessingIssueAction =
+  | 'retain'
+  | 'exclude-channel-value'
+  | 'exclude-frame'
+  | 'block-channel-transition'
+  | 'split-timeline'
+  | 'stop-analysis'
+
+export type ProcessingIssueSeverity = 'warning' | 'error'
+export type ProcessingIssueScope = 'dataset' | 'frame' | 'channel' | 'transition'
+
+export interface ProcessingIssue {
+  readonly id: string
+  readonly code: ProcessingIssueCode
+  readonly action: ProcessingIssueAction
+  readonly severity: ProcessingIssueSeverity
+  readonly scope: ProcessingIssueScope
+  readonly reason: string
+  readonly message: string
+  readonly sourceIndex?: number
+  readonly nextSourceIndex?: number
+  readonly timestampMs?: number
+  readonly recordedLapNumber?: number
+  readonly channels?: readonly TelemetryChannel[]
+  readonly observed?: Readonly<Record<string, number | string | boolean>>
+  readonly thresholds?: Readonly<Record<string, number>>
 }

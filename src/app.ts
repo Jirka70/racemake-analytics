@@ -75,6 +75,8 @@ export function createApp(): Hono {
             auditResult.continuousTimelineSegments.length,
           channelDiscontinuityCount:
             auditResult.channelDiscontinuities.length,
+          issueCount: auditResult.issues.length,
+          issues: auditResult.issues,
         },
       },
       HTTP_STATUS.OK,

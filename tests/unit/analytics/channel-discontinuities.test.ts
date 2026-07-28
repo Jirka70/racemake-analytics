@@ -84,18 +84,31 @@ describe('channel discontinuities', () => {
     const boundary = transitionAt(auditedTimeline, 19)
     const following = transitionAt(auditedTimeline, 20)
 
-    expect(findings).toEqual([
-      {
-        previousSourceIndex: 19,
-        currentSourceIndex: 20,
-        channels: [
-          'tyreCoreTemperatureC.frontLeft',
-          'tyreCoreTemperatureC.frontRight',
-          'tyreCoreTemperatureC.rearLeft',
-          'tyreCoreTemperatureC.rearRight',
-        ],
-      },
-    ])
+    expect(findings).toHaveLength(1)
+    expect(findings[0]).toMatchObject({
+      previousSourceIndex: 19,
+      currentSourceIndex: 20,
+      channels: [
+        'tyreCoreTemperatureC.frontLeft',
+        'tyreCoreTemperatureC.frontRight',
+        'tyreCoreTemperatureC.rearLeft',
+        'tyreCoreTemperatureC.rearRight',
+      ],
+    })
+    expect(findings[0].evidence).toHaveLength(4)
+    expect(findings[0].evidence[0]).toEqual({
+      channel: 'tyreCoreTemperatureC.frontLeft',
+      previousValue: 90,
+      currentValue: 105,
+      boundaryDelta: 15,
+      absoluteRatePerSecond: 300,
+      rateThresholdPerSecond: 0,
+      leftMedian: 90,
+      rightMedian: 105,
+      persistentShift: 15,
+      leftSpread: 0,
+      rightSpread: 0,
+    })
     expect(canCalculateDerivative(boundary, 'tyreCoreTemperatureC.frontLeft')).toBeFalse()
     expect(canInterpolateAcrossTransition(boundary, 'tyreCoreTemperatureC.frontLeft')).toBeFalse()
     expect(canCalculateDerivative(following, 'tyreCoreTemperatureC.frontLeft')).toBeTrue()
@@ -113,7 +126,7 @@ describe('channel discontinuities', () => {
     const boundary = transitionAt(auditedTimeline, 19)
     const following = transitionAt(auditedTimeline, 20)
 
-    expect(findings[0]).toEqual({
+    expect(findings[0]).toMatchObject({
       previousSourceIndex: 19,
       currentSourceIndex: 20,
       channels: [
@@ -125,6 +138,8 @@ describe('channel discontinuities', () => {
         'tyreCoreTemperatureC.rearRight',
       ],
     })
+    expect(findings[0].evidence.map((item) => item.channel)).toEqual([...findings[0].channels])
+    expect(findings[0].evidence.every((item) => item.absoluteRatePerSecond > item.rateThresholdPerSecond)).toBeTrue()
     expect(boundary.discontinuousChannels).toEqual(findings[0].channels)
     expect(following.discontinuousChannels).toEqual([])
   })

@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { createApp } from '../../src/app'
+import type { ProcessingIssue } from '../../src/analytics/frame-audit-types'
 import { HTTP_STATUS } from '../../src/http/http-status'
 
 const stintPath = `${import.meta.dir}/../../data/stint.telemetry.json`
@@ -30,6 +31,8 @@ interface IngestResponse {
     readonly excludedTimelineFrameCount: number
     readonly continuousTimelineSegmentCount: number
     readonly channelDiscontinuityCount: number
+    readonly issueCount: number
+    readonly issues: readonly ProcessingIssue[]
   }
 }
 
@@ -59,6 +62,9 @@ describe('POST /ingest', () => {
     expect(body.audit.excludedTimelineFrameCount).toBeGreaterThanOrEqual(0)
     expect(body.audit.continuousTimelineSegmentCount).toBeGreaterThan(0)
     expect(body.audit.channelDiscontinuityCount).toBeGreaterThanOrEqual(0)
+    expect(body.audit.issueCount).toBe(body.audit.issues.length)
+    expect(body.audit.issues.length).toBeGreaterThan(0)
+    expect(new Set(body.audit.issues.map((issue) => issue.id)).size).toBe(body.audit.issues.length)
   })
 
   test('returns unprocessable entity for an invalid payload', async () => {

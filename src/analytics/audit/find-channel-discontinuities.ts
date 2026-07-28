@@ -1,4 +1,4 @@
-import { AuditedFrame, AuditedTimelineTransition, ChannelContinuityConfig, ChannelDiscontinuity, DerivableTelemetryChannel, LocallyAuditedSignalChannel, PersistenceAuditedChannel, SamplingBaseline, TelemetryChannel, UsableTimeline } from "../frame-audit-types";
+import { AuditedFrame, AuditedTimelineTransition, ChannelContinuityConfig, ChannelDiscontinuity, ChannelDiscontinuityEvidence, DerivableTelemetryChannel, LocallyAuditedSignalChannel, PersistenceAuditedChannel, SamplingBaseline, TelemetryChannel, UsableTimeline } from "../frame-audit-types";
 import { interquartileRange, median, quantile, scaledMedianAbsoluteDeviation } from "../robust-statistics";
 import { readChannelValue } from "./util/read-channel-value";
 
@@ -28,6 +28,17 @@ const LOCALLY_AUDITED_SIGNAL_CHANNEL_SET: ReadonlySet<TelemetryChannel> = new Se
 
 type ChannelGroup = 'motion' | 'powertrain' | 'thermal'
 
+interface PersistentShiftEvidence {
+    readonly previousValue: number
+    readonly currentValue: number
+    readonly boundaryDelta: number
+    readonly leftMedian: number
+    readonly rightMedian: number
+    readonly persistentShift: number
+    readonly leftSpread: number
+    readonly rightSpread: number
+}
+
 export function findChannelDiscontinuities(timeline: UsableTimeline, samplingBaseline: SamplingBaseline, config: ChannelContinuityConfig) : ChannelDiscontinuity[] {
     const rateThresholds = calculateRateThresholds(timeline, config)
     const findings: ChannelDiscontinuity[] = []
@@ -36,25 +47,28 @@ export function findChannelDiscontinuities(timeline: UsableTimeline, samplingBas
         const transition = timeline.transitions[transitionIndex]
         if (transition.timeContinuity !== 'continuous') continue
 
-        const candidateChannels: PersistenceAuditedChannel[] = []
+        const candidateEvidence: ChannelDiscontinuityEvidence[] = []
 
         for (const channel of PERSISTENCE_AUDITED_CHANNELS) {
             const threshold = rateThresholds.get(channel)
             if (threshold === undefined) continue
             if (channel === 'engineRpm' && transition.previous.gear !== transition.current.gear) continue
-            if (calculateAbsoluteRate(transition, channel) <= threshold) continue
-            if (!hasPersistentShift(timeline, transitionIndex, channel, samplingBaseline, config)) continue
+            const absoluteRatePerSecond = calculateAbsoluteRate(transition, channel)
+            if (absoluteRatePerSecond <= threshold) continue
+            const persistentShiftEvidence = createPersistentShiftEvidence(timeline, transitionIndex, channel, samplingBaseline, config)
+            if (persistentShiftEvidence === null) continue
 
-            candidateChannels.push(channel)
+            candidateEvidence.push({ channel, absoluteRatePerSecond, rateThresholdPerSecond: threshold, ...persistentShiftEvidence })
         }
 
-        const confirmedChannels = confirmCandidateChannels(candidateChannels)
-        if (confirmedChannels.length === 0) continue
+        const confirmedEvidence = confirmCandidateEvidence(candidateEvidence)
+        if (confirmedEvidence.length === 0) continue
 
         findings.push({
             previousSourceIndex: transition.previous.sourceIndex,
             currentSourceIndex: transition.current.sourceIndex,
-            channels: confirmedChannels,
+            channels: confirmedEvidence.map((item) => item.channel),
+            evidence: confirmedEvidence,
         })
     }
 
@@ -146,7 +160,7 @@ function calculateAbsoluteRate(transition: AuditedTimelineTransition, channel: P
     return Math.abs(currentValue - previousValue) / durationSeconds
 }
 
-function hasPersistentShift(timeline: UsableTimeline, transitionIndex: number, channel: PersistenceAuditedChannel, samplingBaseline: SamplingBaseline, config: ChannelContinuityConfig) : boolean {
+function createPersistentShiftEvidence(timeline: UsableTimeline, transitionIndex: number, channel: PersistenceAuditedChannel, samplingBaseline: SamplingBaseline, config: ChannelContinuityConfig) : PersistentShiftEvidence | null {
     const windowDurationMs = samplingBaseline.medianDeltaMs * config.windowDurationMultiplier
     const previousFrameIndex = transitionIndex
     const currentFrameIndex = transitionIndex + 1
@@ -155,23 +169,26 @@ function hasPersistentShift(timeline: UsableTimeline, transitionIndex: number, c
     const leftValues = readWindowValues(leftWindow, channel, config.minimumWindowSamples)
     const rightValues = readWindowValues(rightWindow, channel, config.minimumWindowSamples)
 
-    if (leftValues === null || rightValues === null) return false
+    if (leftValues === null || rightValues === null) return null
 
     const leftMedian = median(leftValues)
     const rightMedian = median(rightValues)
-    const windowShift = rightMedian - leftMedian
-    if (windowShift === 0) return false
+    const persistentShift = rightMedian - leftMedian
+    if (persistentShift === 0) return null
 
     const previousValue = readChannelValue(timeline.frames[previousFrameIndex].frame, channel)
     const currentValue = readChannelValue(timeline.frames[currentFrameIndex].frame, channel)
-    const boundaryChange = currentValue - previousValue
+    const boundaryDelta = currentValue - previousValue
 
-    if (Math.sign(boundaryChange) !== Math.sign(windowShift)) return false
-    if (Math.abs(boundaryChange) < Math.abs(windowShift) * 0.5) return false
+    if (Math.sign(boundaryDelta) !== Math.sign(persistentShift)) return null
+    if (Math.abs(boundaryDelta) < Math.abs(persistentShift) * 0.5) return null
 
-    const largestWindowSpread = Math.max(calculateWindowSpread(leftValues), calculateWindowSpread(rightValues))
+    const leftSpread = calculateWindowSpread(leftValues)
+    const rightSpread = calculateWindowSpread(rightValues)
+    const largestWindowSpread = Math.max(leftSpread, rightSpread)
+    if (Math.abs(persistentShift) <= largestWindowSpread * config.minimumShiftToSpreadRatio) return null
 
-    return Math.abs(windowShift) > largestWindowSpread * config.minimumShiftToSpreadRatio
+    return { previousValue, currentValue, boundaryDelta, leftMedian, rightMedian, persistentShift, leftSpread, rightSpread }
 }
 
 function collectWindow(timeline: UsableTimeline, startIndex: number, direction: -1 | 1, durationMs: number) : AuditedFrame[] {
@@ -215,11 +232,11 @@ function isChannelUsable(frame: AuditedFrame, channel: PersistenceAuditedChannel
     return !frame.suspectChannels.includes(channel) && !frame.invalidChannels.includes(channel)
 }
 
-function confirmCandidateChannels(candidates: readonly PersistenceAuditedChannel[]) : PersistenceAuditedChannel[] {
-    const groups = new Set(candidates.map(channelGroup))
+function confirmCandidateEvidence(candidates: readonly ChannelDiscontinuityEvidence[]) : ChannelDiscontinuityEvidence[] {
+    const groups = new Set(candidates.map((item) => channelGroup(item.channel)))
     const hasCrossGroupEvidence = groups.size >= 2
 
-    return candidates.filter((channel) => isTyreTemperatureChannel(channel) || hasCrossGroupEvidence).sort()
+    return candidates.filter((item) => isTyreTemperatureChannel(item.channel) || hasCrossGroupEvidence).sort((left, right) => left.channel.localeCompare(right.channel))
 }
 
 function channelGroup(channel: PersistenceAuditedChannel) : ChannelGroup {
