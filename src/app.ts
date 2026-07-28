@@ -49,7 +49,11 @@ export function createApp(): Hono {
 
   app.post('/ingest', async (context) => {
     const unknownPayload: unknown = await context.req.json()
-    const { validatedWirePayload, normalizedTelemetry } =
+    const {
+      validatedWirePayload,
+      normalizedTelemetry,
+      auditResult,
+    } =
       runTelemetryAuditPipeline(
         unknownPayload,
         DEFAULT_FRAME_AUDIT_CONFIG,
@@ -61,6 +65,15 @@ export function createApp(): Hono {
         sessionId: normalizedTelemetry.sessionId,
         receivedFrames: validatedWirePayload.frames.length,
         normalizedFrames: normalizedTelemetry.frames.length,
+        audit: {
+          isolatedOutlierCount:
+            auditResult.isolatedOutliers.length,
+          excludedTimelineFrameCount:
+            auditResult.usableTimeline
+              ?.excludedFrames.length ?? 0,
+          continuousTimelineSegmentCount:
+            auditResult.continuousTimelineSegments.length,
+        },
       },
       HTTP_STATUS.OK,
     )

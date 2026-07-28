@@ -1,5 +1,5 @@
-import type { IsolatedChannelOutlier, IsolatedOutlierConfig, LocallyAuditedSignalChannel, SamplingBaseline, SignalResidualSample } from "../frame-audit-types";
-import { median, scaledMedianAbsoluteDeviation } from "../robust-statistics";
+import type { DriverInputChannel, IsolatedChannelOutlier, IsolatedOutlierConfig, LocallyAuditedSignalChannel, SamplingBaseline, SignalResidualSample } from "../frame-audit-types";
+import { interquartileRange, median, quantile, scaledMedianAbsoluteDeviation } from "../robust-statistics";
 import type { NormalizedTelemetryFrame } from "../telemetry-types";
 import { readChannelValue } from "./util/read-channel-value";
 
@@ -26,6 +26,19 @@ export const DEFAULT_ISOLATED_OUTLIER_CONFIG:
 
     // Pedals and steering can legitimately change faster.
     driverInputMadMultiplier: 20,
+
+    // An isolated spike must return at a comparable rate to the one at which
+    // it departed. This rejects the innocent neighbours of a spike and
+    // persistent level changes.
+    minimumReturnRateRatio: 0.25,
+    fallbackIqrMultiplier: 3,
+    minimumResidualBySignalChannel: {
+        engineRpm: 1,
+        'tyreCoreTemperatureC.frontLeft': 0.1,
+        'tyreCoreTemperatureC.frontRight': 0.1,
+        'tyreCoreTemperatureC.rearLeft': 0.1,
+        'tyreCoreTemperatureC.rearRight': 0.1,
+    },
   }
 
 export function findChannelOutliers(frames: readonly NormalizedTelemetryFrame[], samplingBaseline: SamplingBaseline, 
@@ -77,14 +90,22 @@ function findIsolatedChannelOutliers(frames: readonly NormalizedTelemetryFrame[]
         const residualThreshold = calculateResidualThreshold(residualSamples, channel, config)
         if (residualThreshold === null) continue
 
-        const channelOutliers = createChannelOutliers(residualSamples, residualThreshold)
+        const channelOutliers = createChannelOutliers(
+            residualSamples,
+            residualThreshold,
+            config.minimumReturnRateRatio,
+        )
         outliers.push(...channelOutliers)
     }
 
     return outliers
 }
 
-function createChannelOutliers(residualSamples: SignalResidualSample[], residualThreshold: number) : IsolatedChannelOutlier[] {
+function createChannelOutliers(
+    residualSamples: SignalResidualSample[],
+    residualThreshold: number,
+    minimumReturnRateRatio: number,
+) : IsolatedChannelOutlier[] {
     const channelOutliers: IsolatedChannelOutlier[] = []
     
     for (const sample of residualSamples) {
@@ -92,7 +113,10 @@ function createChannelOutliers(residualSamples: SignalResidualSample[], residual
             continue
         }
 
-        if (!returnsImmediatelyToTrend(sample)) {
+        if (!returnsImmediatelyToTrend(
+            sample,
+            minimumReturnRateRatio,
+        )) {
             continue
         }
 
@@ -112,22 +136,65 @@ function createChannelOutliers(residualSamples: SignalResidualSample[], residual
     return channelOutliers
 }
 
-function returnsImmediatelyToTrend(sample: SignalResidualSample) {
-    if (sample.channel !== "normalizedTrackPosition") {
-        const incomingChange = sample.observedValue - sample.previousValue
-        const outgoingChange = sample.nextValue - sample.observedValue
+function returnsImmediatelyToTrend(
+    sample: SignalResidualSample,
+    minimumReturnRateRatio: number,
+) {
+    const values = valuesForRateComparison(sample)
+    const incomingRate =
+        (values.observed - values.previous) /
+        sample.incomingDurationMs
+    const outgoingRate =
+        (values.next - values.observed) /
+        sample.outgoingDurationMs
 
-        return incomingChange * outgoingChange < 0
+    if (incomingRate * outgoingRate >= 0) {
+        return false
     }
 
-    const previousValue = unwrapTrackPosition(sample.previousValue, sample.predictedValue)
-    const observedValue = unwrapTrackPosition(sample.observedValue, sample.predictedValue)
-    const nextValue = unwrapTrackPosition(sample.nextValue, sample.predictedValue)
+    const largerRate = Math.max(
+        Math.abs(incomingRate),
+        Math.abs(outgoingRate),
+    )
+    const smallerRate = Math.min(
+        Math.abs(incomingRate),
+        Math.abs(outgoingRate),
+    )
 
-    const incomingChange = observedValue - previousValue
-    const outgoingChange = nextValue - observedValue
+    return smallerRate / largerRate >= minimumReturnRateRatio
+}
 
-    return incomingChange * outgoingChange < 0
+interface RateComparisonValues {
+    readonly previous: number
+    readonly observed: number
+    readonly next: number
+}
+
+function valuesForRateComparison(
+    sample: SignalResidualSample,
+): RateComparisonValues {
+    if (sample.channel !== "normalizedTrackPosition") {
+        return {
+            previous: sample.previousValue,
+            observed: sample.observedValue,
+            next: sample.nextValue,
+        }
+    }
+
+    return {
+        previous: unwrapTrackPosition(
+            sample.previousValue,
+            sample.predictedValue,
+        ),
+        observed: unwrapTrackPosition(
+            sample.observedValue,
+            sample.predictedValue,
+        ),
+        next: unwrapTrackPosition(
+            sample.nextValue,
+            sample.predictedValue,
+        ),
+    }
 }
 
 function calculateResidualThreshold(samples: SignalResidualSample[], 
@@ -141,17 +208,49 @@ function calculateResidualThreshold(samples: SignalResidualSample[],
     const medianResidual = median(residuals)
     const scaledMadResidual = scaledMedianAbsoluteDeviation(residuals)
 
-    const madMultiplier = isDriverInputChannel(channel)
-        ? config.driverInputMadMultiplier
-        : config.signalMadMultiplier
+    if (scaledMadResidual > 0) {
+        const madMultiplier = isDriverInputChannel(channel)
+            ? config.driverInputMadMultiplier
+            : config.signalMadMultiplier
 
-    return (
-        medianResidual +
-        madMultiplier * scaledMadResidual
-    )
+        const madThreshold = medianResidual + madMultiplier * scaledMadResidual
+        return applyChannelResidualFloor(madThreshold, channel, config)
+    }
+
+    const iqrResiduals = interquartileRange(residuals)
+
+    if (iqrResiduals > 0) {
+        const upperQuartile = quantile(residuals, 0.75)
+        const iqrThreshold = upperQuartile + config.fallbackIqrMultiplier * iqrResiduals
+        return applyChannelResidualFloor(iqrThreshold, channel, config)
+    }
+
+    if (isDriverInputChannel(channel)) return null
+
+    const minimumResidual = config.minimumResidualBySignalChannel[channel]
+
+    if (minimumResidual === undefined) {
+        return null
+    }
+
+    return Math.max(medianResidual, minimumResidual)
 }
 
-function isDriverInputChannel(channel: LocallyAuditedSignalChannel) {
+function applyChannelResidualFloor(threshold: number, channel: LocallyAuditedSignalChannel,
+    config: IsolatedOutlierConfig) : number {
+    if (isDriverInputChannel(channel)) {
+        return threshold
+    }
+
+    const minimumResidual = config.minimumResidualBySignalChannel[channel]
+    if (minimumResidual === undefined) {
+        return threshold
+    }
+
+    return Math.max(threshold, minimumResidual)
+}
+
+function isDriverInputChannel(channel: LocallyAuditedSignalChannel): channel is DriverInputChannel {
     return channel === "throttleRatio"
         || channel === "brakeRatio"
         || channel === "steeringDegrees"
@@ -186,8 +285,11 @@ function createSignalResidualSample(previousFrame: NormalizedTelemetryFrame,
     const nextValue = readChannelValue(nextFrame, channel)
 
     const totalDurationMs = nextFrame.timestampMs - previousFrame.timestampMs
-    const elapsedDurationMs = currentFrame.timestampMs - previousFrame.timestampMs
-    const progress = elapsedDurationMs / totalDurationMs
+    const incomingDurationMs =
+        currentFrame.timestampMs - previousFrame.timestampMs
+    const outgoingDurationMs =
+        nextFrame.timestampMs - currentFrame.timestampMs
+    const progress = incomingDurationMs / totalDurationMs
 
     const values = prepareValuesForInterpolation(previousValue, observedValue, nextValue, progress, channel)
     const residual = Math.abs(values.observed - values.predicted)
@@ -201,7 +303,9 @@ function createSignalResidualSample(previousFrame: NormalizedTelemetryFrame,
         observedValue,
         nextValue,
         predictedValue,
-        residual
+        residual,
+        incomingDurationMs,
+        outgoingDurationMs,
     }
 }
 

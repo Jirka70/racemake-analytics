@@ -34,6 +34,17 @@ export interface TimelineTransition extends FrameTransition {
   readonly relation: FrameTransitionRelation
 }
 
+export interface AuditedTimelineTransition extends TimelineTransition {
+  readonly timeContinuity: TimelineContinuity
+  readonly discontinuousChannels: readonly LocallyAuditedSignalChannel[]
+}
+
+export interface UsableTimeline {
+  readonly frames: readonly AuditedFrame[]
+  readonly excludedFrames: readonly ExcludedTimelineFrame[]
+  readonly transitions: readonly AuditedTimelineTransition[]
+}
+
 export interface SamplingConfig {
   readonly minimumSampleCount: number
   readonly gapMedianMultiplier: number
@@ -51,6 +62,7 @@ export interface SamplingBaseline {
 export interface FrameAuditConfig {
   readonly sampling: SamplingConfig
   readonly isolatedOutlier: IsolatedOutlierConfig
+  readonly channelContinuity: ChannelContinuityConfig
 }
 
 export interface TelemetryAuditResult {
@@ -58,6 +70,10 @@ export interface TelemetryAuditResult {
   readonly timelineTransitions: readonly TimelineTransition[]
   readonly samplingBaseline: SamplingBaseline | null
   readonly isolatedOutliers: readonly IsolatedChannelOutlier[]
+  readonly auditedFrames: readonly AuditedFrame[]
+  readonly usableTimeline: UsableTimeline | null
+  readonly continuousTimelineSegments: readonly ContinuousTimelineSegment[]
+  readonly channelDiscontinuities: ChannelDiscontinuity[]
 }
 
 export type TimelineContinuity =
@@ -108,10 +124,23 @@ export interface IsolatedChannelOutlier {
   readonly threshold?: number
 }
 
+export type DriverInputChannel =
+  | 'throttleRatio'
+  | 'brakeRatio'
+  | 'steeringDegrees'
+
+export type LocallyAuditedSensorChannel = Exclude<
+  LocallyAuditedSignalChannel,
+  DriverInputChannel
+>
+
 export interface IsolatedOutlierConfig {
   readonly minimumResidualSampleCount: number
   readonly signalMadMultiplier: number
   readonly driverInputMadMultiplier: number
+  readonly minimumReturnRateRatio: number
+  readonly fallbackIqrMultiplier: number
+  readonly minimumResidualBySignalChannel: Partial<Record<LocallyAuditedSensorChannel, number>>
 }
 
 export interface SignalResidualSample {
@@ -124,4 +153,36 @@ export interface SignalResidualSample {
 
   readonly predictedValue: number
   readonly residual: number
+  readonly incomingDurationMs: number
+  readonly outgoingDurationMs: number
+}
+
+export interface ContinuousTimelineSegment {
+  readonly id: string
+  readonly frames: readonly AuditedFrame[]
+  readonly startSourceIndex: number
+  readonly endSourceIndex: number
+  readonly startTimestampMs: number
+  readonly endTimestampMs: number
+  readonly frameCount: number
+}
+
+export type PersistenceAuditedChannel =
+  | 'speedKmh'
+  | 'engineRpm'
+  | TyreTemperatureChannel
+
+export interface ChannelContinuityConfig {
+  readonly minimumRateSampleCount: number
+  readonly rateMadMultiplier: number
+  readonly rateIqrMultiplier: number
+  readonly windowDurationMultiplier: number
+  readonly minimumWindowSamples: number
+  readonly minimumShiftToSpreadRatio: number
+}
+
+export interface ChannelDiscontinuity {
+  readonly previousSourceIndex: number
+  readonly currentSourceIndex: number
+  readonly channels: readonly PersistenceAuditedChannel[]
 }

@@ -20,6 +20,18 @@ interface ErrorResponse {
   }
 }
 
+interface IngestResponse {
+  readonly schema: string
+  readonly sessionId: string
+  readonly receivedFrames: number
+  readonly normalizedFrames: number
+  readonly audit: {
+    readonly isolatedOutlierCount: number
+    readonly excludedTimelineFrameCount: number
+    readonly continuousTimelineSegmentCount: number
+  }
+}
+
 describe('POST /ingest', () => {
   test('validates the complete official telemetry stint', async () => {
     const stintJson = await Bun.file(stintPath).text()
@@ -34,12 +46,17 @@ describe('POST /ingest', () => {
     })
 
     expect(response.status).toBe(HTTP_STATUS.OK)
-    expect(await response.json()).toEqual({
+    const body = (await response.json()) as IngestResponse
+
+    expect(body).toMatchObject({
       schema: stint.schema,
       sessionId: stint.session_id,
       receivedFrames: stint.frames.length,
       normalizedFrames: stint.frames.length,
     })
+    expect(body.audit.isolatedOutlierCount).toBeGreaterThanOrEqual(0)
+    expect(body.audit.excludedTimelineFrameCount).toBeGreaterThanOrEqual(0)
+    expect(body.audit.continuousTimelineSegmentCount).toBeGreaterThan(0)
   })
 
   test('returns unprocessable entity for an invalid payload', async () => {

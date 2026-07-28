@@ -6,7 +6,7 @@ interface FrameChannelClassification {
   readonly invalidChannels: Set<TelemetryChannel>
 }
 
-export function createAuditedFrames(frames: NormalizedTelemetryFrame[], outliers: IsolatedChannelOutlier[]) : AuditedFrame[] {
+export function createAuditedFrames(frames: readonly NormalizedTelemetryFrame[], outliers: readonly IsolatedChannelOutlier[]) : AuditedFrame[] {
     const classificationsBySourceIndex = classifyFrameChannels(outliers)
 
     return frames.map((frame) => {
@@ -22,7 +22,7 @@ export function createAuditedFrames(frames: NormalizedTelemetryFrame[], outliers
     })
 }
 
-function classifyFrameChannels(outliers: IsolatedChannelOutlier[]) : Map<number, FrameChannelClassification> {
+function classifyFrameChannels(outliers: readonly IsolatedChannelOutlier[]) : Map<number, FrameChannelClassification> {
     const classifications = new Map<number, FrameChannelClassification>()
 
     for (const outlier of outliers) {

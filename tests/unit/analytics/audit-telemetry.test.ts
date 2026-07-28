@@ -16,6 +16,11 @@ const AUDIT_CONFIG: FrameAuditConfig = {
     minimumResidualSampleCount: 10,
     signalMadMultiplier: 8,
     driverInputMadMultiplier: 20,
+    minimumReturnRateRatio: 0.25,
+    fallbackIqrMultiplier: 3,
+    minimumResidualBySignalChannel: {
+      speedKmh: 0.1,
+    },
   },
 }
 
@@ -92,5 +97,27 @@ describe('auditTelemetry', () => {
         usability: 'suspect',
       }),
     )
+    expect(first.auditedFrames[12]).toMatchObject({
+      frame: telemetry.frames[12],
+      suspectChannels: ['speedKmh'],
+      invalidChannels: [],
+    })
+    expect(first.usableTimeline).not.toBeNull()
+    expect(first.usableTimeline?.excludedFrames).toContainEqual({
+      frame: telemetry.frames[20],
+      reason: 'exact-duplicate',
+    })
+    expect(
+      first.usableTimeline?.frames.some(
+        (auditedFrame) =>
+          auditedFrame.frame === telemetry.frames[12],
+      ),
+    ).toBeTrue()
+    expect(first.continuousTimelineSegments).toHaveLength(2)
+    expect(
+      first.continuousTimelineSegments.map(
+        (segment) => segment.frameCount,
+      ),
+    ).toEqual([29, 10])
   })
 })
