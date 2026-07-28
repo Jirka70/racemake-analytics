@@ -56,6 +56,10 @@ describe('telemetry audit pipeline', () => {
       ),
     ).toEqual([])
 
+    const nonInvalidSensorOutliers = audit.isolatedOutliers.filter((outlier) => outlier.channel !== 'timestampMs' && outlier.channel !== 'throttleRatio' && outlier.channel !== 'brakeRatio' && outlier.channel !== 'steeringDegrees' && outlier.usability !== 'invalid')
+
+    expect(nonInvalidSensorOutliers).toEqual([])
+
     const samplingBaseline = audit.samplingBaseline
     const usableTimeline = audit.usableTimeline
 
@@ -102,7 +106,7 @@ describe('telemetry audit pipeline', () => {
 
     const inconsistentTransitions =
       usableTimeline.transitions.filter((transition) => {
-        if (transition.continuity === 'continuous') {
+        if (transition.timeContinuity === 'continuous') {
           return (
             transition.relation !== 'chronological' ||
             transition.timestampDeltaMs >
@@ -110,7 +114,7 @@ describe('telemetry audit pipeline', () => {
           )
         }
 
-        if (transition.continuity === 'gap') {
+        if (transition.timeContinuity === 'gap') {
           return (
             transition.relation !== 'chronological' ||
             transition.timestampDeltaMs <=
@@ -127,6 +131,24 @@ describe('telemetry audit pipeline', () => {
           `${previous.sourceIndex}:${current.sourceIndex}`,
       ),
     ).toEqual([])
+
+    const unappliedChannelDiscontinuities = audit.channelDiscontinuities.filter((finding) => {
+      const transition = usableTimeline.transitions.find((item) => item.previous.sourceIndex === finding.previousSourceIndex && item.current.sourceIndex === finding.currentSourceIndex)
+      return !transition || finding.channels.some((channel) => !transition.discontinuousChannels.includes(channel))
+    })
+
+    expect(unappliedChannelDiscontinuities).toEqual([])
+
+    const unblockedUnsafeFrameChannels = usableTimeline.transitions.filter((transition) => {
+      const previous = usableTimeline.frames.find((item) => item.frame === transition.previous)
+      const current = usableTimeline.frames.find((item) => item.frame === transition.current)
+      if (!previous || !current) return true
+
+      const unsafeChannels = [...previous.suspectChannels, ...previous.invalidChannels, ...current.suspectChannels, ...current.invalidChannels]
+      return unsafeChannels.some((channel) => channel !== 'timestampMs' && channel !== 'recordedLapNumber' && channel !== 'gear' && !transition.discontinuousChannels.includes(channel))
+    })
+
+    expect(unblockedUnsafeFrameChannels).toEqual([])
 
     expect(
       audit.continuousTimelineSegments.length,
@@ -165,7 +187,7 @@ describe('telemetry audit pipeline', () => {
 
         return (
           (previousSegmentId === currentSegmentId) !==
-          (transition.continuity === 'continuous')
+          (transition.timeContinuity === 'continuous')
         )
       })
 

@@ -111,6 +111,7 @@ describe('findChannelOutliers', () => {
     expect(positionOutliers).toContainEqual(
       expect.objectContaining({
         frame: frames[3],
+        usability: 'invalid',
         observedValue: 0.5,
         predictedValue: 0,
         residual: 0.5,
@@ -144,6 +145,7 @@ describe('findChannelOutliers', () => {
     expect(speedOutliers).toContainEqual(
       expect.objectContaining({
         frame: frames[3],
+        usability: 'invalid',
         observedValue: 1_000,
         predictedValue: 103,
         residual: 897,
@@ -175,6 +177,16 @@ describe('findChannelOutliers', () => {
     expect(throttleOutliers).toEqual([])
   })
 
+  test('keeps a detected driver-input outlier suspect instead of invalid', () => {
+    const positions = Array.from({ length: 35 }, (_, index) => index / 35)
+    const throttles = positions.map((_, index) => 0.5 + 0.01 * Math.sin(index))
+    throttles[17] = 1
+    const frames = createFrames(positions, positions.map(() => 100), throttles)
+    const throttleOutliers = findChannelOutliers(frames, SAMPLING_BASELINE, { ...OUTLIER_CONFIG, driverInputMadMultiplier: 8 }).filter((outlier) => outlier.channel === 'throttleRatio')
+
+    expect(throttleOutliers).toEqual([expect.objectContaining({ frame: frames[17], usability: 'suspect' })])
+  })
+
   test('uses IQR when MAD is zero but IQR provides scale', () => {
     const positions = Array.from(
       { length: 41 },
@@ -200,6 +212,7 @@ describe('findChannelOutliers', () => {
     expect(speedOutliers).toEqual([
       expect.objectContaining({
         frame: frames[31],
+        usability: 'invalid',
         observedValue: 120,
         predictedValue: 100,
         residual: 20,
@@ -254,6 +267,7 @@ describe('findChannelOutliers', () => {
     expect(speedOutliers).toEqual([
       expect.objectContaining({
         frame: frames[17],
+        usability: 'invalid',
         observedValue: 1_000,
         predictedValue: 100,
         residual: 900,
@@ -317,6 +331,18 @@ describe('findChannelOutliers on the official stint', () => {
           DEFAULT_FRAME_AUDIT_CONFIG.isolatedOutlier
             .minimumReturnRateRatio,
         )
+    }
+  })
+
+  test('classifies isolated sensor outliers as invalid channel values', async () => {
+    const result = await auditOfficialStint()
+    const sensorOutliers = result.auditResult.isolatedOutliers.filter((outlier) => outlier.channel !== 'timestampMs' && outlier.channel !== 'throttleRatio' && outlier.channel !== 'brakeRatio' && outlier.channel !== 'steeringDegrees')
+
+    expect(sensorOutliers.length).toBeGreaterThan(0)
+    expect(sensorOutliers.every((outlier) => outlier.usability === 'invalid')).toBeTrue()
+
+    for (const outlier of sensorOutliers) {
+      expect(result.auditResult.auditedFrames[outlier.frame.sourceIndex].invalidChannels).toContain(outlier.channel)
     }
   })
 

@@ -29,6 +29,7 @@ interface IngestResponse {
     readonly isolatedOutlierCount: number
     readonly excludedTimelineFrameCount: number
     readonly continuousTimelineSegmentCount: number
+    readonly channelDiscontinuityCount: number
   }
 }
 
@@ -57,6 +58,7 @@ describe('POST /ingest', () => {
     expect(body.audit.isolatedOutlierCount).toBeGreaterThanOrEqual(0)
     expect(body.audit.excludedTimelineFrameCount).toBeGreaterThanOrEqual(0)
     expect(body.audit.continuousTimelineSegmentCount).toBeGreaterThan(0)
+    expect(body.audit.channelDiscontinuityCount).toBeGreaterThanOrEqual(0)
   })
 
   test('returns unprocessable entity for an invalid payload', async () => {

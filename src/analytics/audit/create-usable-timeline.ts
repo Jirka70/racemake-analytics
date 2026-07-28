@@ -1,4 +1,4 @@
-import { AuditedFrame, AuditedTimelineTransition, ExcludedTimelineFrame, ExcludedTimelineFrameReason, LocallyAuditedSignalChannel, SamplingBaseline, TimelineContinuity, TimelineTransition, UsableTimeline } from "../frame-audit-types";
+import { AuditedFrame, AuditedTimelineTransition, ExcludedTimelineFrame, ExcludedTimelineFrameReason, SamplingBaseline, TimelineContinuity, TimelineTransition, UsableTimeline } from "../frame-audit-types";
 import { createFrameTransitions } from "./create-frame-transitions";
 import { createTimelineTransitions } from "./create-timeline-transitions";
 
@@ -39,15 +39,10 @@ export function createUsableTimeline(auditedFrames: readonly AuditedFrame[],
 function createAuditedTransition(transition: TimelineTransition, samplingBaseline: SamplingBaseline) : AuditedTimelineTransition {
     return {
         ...transition,
-        timeContinuity: determineContinuity(transition, samplingBaseline)
+        timeContinuity: determineContinuity(transition, samplingBaseline),
+        discontinuousChannels: [],
     }
 }
-
-function canCalculateDerivative(transition: AuditedTimelineTransition, channel: LocallyAuditedSignalChannel) {
-    return transition.timeContinuity === 'continuous' 
-        && !transition.discontinuousChannels.includes(channel)
-}
-
 
 function determineContinuity(transition: TimelineTransition, samplingBaseline: SamplingBaseline) : TimelineContinuity {
     if (transition.relation !== "chronological") return "break"

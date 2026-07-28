@@ -123,7 +123,7 @@ function createChannelOutliers(
         channelOutliers.push({
             frame: sample.frame,
             channel: sample.channel,
-            usability: 'suspect',
+            usability: isDriverInputChannel(sample.channel) ? 'suspect' : 'invalid',
             previousValue: sample.previousValue,
             observedValue: sample.observedValue,
             nextValue: sample.nextValue,

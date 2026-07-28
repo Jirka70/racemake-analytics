@@ -175,18 +175,14 @@ interface AuditedFrame {
   readonly issues: readonly ProcessingIssue[]
 }
 
-interface AuditedTransition {
-  readonly fromSourceIndex: number
-  readonly toSourceIndex: number
-  readonly durationMs: number
-  readonly continuity: 'continuous' | 'gap' | 'discontinuous'
-  readonly interpolationBlockedChannels: readonly TelemetryChannel[]
-  readonly derivativesBlockedChannels: readonly TelemetryChannel[]
-  readonly issues: readonly ProcessingIssue[]
+interface AuditedTimelineTransition extends TimelineTransition {
+  readonly timeContinuity: 'continuous' | 'gap' | 'break'
+  readonly discontinuousChannels: readonly LocallyAuditedSignalChannel[]
 }
 
-interface ContinuousSegment {
+interface ContinuousTimelineSegment {
   readonly id: string
+  readonly frames: readonly AuditedFrame[]
   readonly startSourceIndex: number
   readonly endSourceIndex: number
   readonly startTimestampMs: number
@@ -195,18 +191,16 @@ interface ContinuousSegment {
 }
 
 interface TelemetryAuditResult {
-  readonly telemetry: NormalizedTelemetryStint
-  readonly frames: readonly AuditedFrame[]
-  readonly transitions: readonly AuditedTransition[]
-  readonly continuousSegments: readonly ContinuousSegment[]
-  readonly issues: readonly ProcessingIssue[]
-  readonly diagnostics: AuditDiagnostics
+  readonly auditedFrames: readonly AuditedFrame[]
+  readonly usableTimeline: UsableTimeline | null
+  readonly continuousTimelineSegments: readonly ContinuousTimelineSegment[]
+  readonly channelDiscontinuities: readonly ChannelDiscontinuity[]
 }
 ```
 
 ### Why transitions and continuous segments both exist
 
-`AuditedTransition` describes the edge between two adjacent samples. A sampling
+`AuditedTimelineTransition` describes the edge between two adjacent samples. A sampling
 gap or a recorder discontinuity belongs to that edge, not necessarily to either
 endpoint frame. Both endpoint frames may remain valid while interpolation and
 derivative calculation across their boundary are forbidden.
@@ -215,10 +209,22 @@ Interpolation and derivative restrictions are channel-specific. A broken tyre
 sensor must not make an otherwise valid speed or steering value unusable. A
 sampling gap or global sequence break blocks every affected continuous channel.
 
-`ContinuousSegment` is a derived, higher-level view: a maximal run of frames
-whose transitions are all `continuous`. It prevents every downstream consumer
-from having to reconstruct runs itself. Lap grouping, resampling, and later
-visualization can consume these segments directly.
+`ContinuousTimelineSegment` is a derived, higher-level view: a maximal run of
+frames whose timestamps are continuous. It splits only at a sampling gap or
+time-order break. A discontinuity in one signal remains attached to its
+transition through `discontinuousChannels`; it does not split otherwise usable
+speed, position, driver-input, or tyre data into global segments.
+
+Downstream interpolation and derivative code must therefore check both
+`timeContinuity` and whether the requested channel is present in
+`discontinuousChannels`. The transition containing a persistent level shift is
+blocked, while later internally continuous transitions on the new level become
+usable again.
+
+Engine RPM remains available for comparison and interpolation, but it is not a
+`DerivableTelemetryChannel`. Gear changes make its local time derivative
+ambiguous for the MVP analysis, so attempting to request an RPM derivative is
+rejected by TypeScript.
 
 Use the name `transition` for adjacent-frame edges and `segment` for a
 multi-frame continuous range so that the two concepts are not confused.
@@ -382,8 +388,10 @@ tyre groups is stronger evidence than several shifts within one group.
   frame;
 - mark affected channels on gap and discontinuity transitions as unsafe for
   interpolation and derivatives;
-- split `continuousSegments` at every gap, discontinuity, or time-order
+- split `continuousTimelineSegments` at every sampling gap or time-order
   violation;
+- retain channel discontinuities on their transition and block only the
+  affected channels there;
 - preserve deterministic ordering by source index and issue generation order;
 - emit the calibration values and fallback decisions in diagnostics.
 
@@ -397,7 +405,7 @@ tyre groups is stronger evidence than several shifts within one group.
 | Large positive sampling gap | warning | retain | Forbid interpolation and derivatives across edge |
 | Isolated outlier in one non-essential channel | error | exclude-channel-value | Keep other channel values |
 | Isolated position outlier | error | exclude-frame for position-based processing | Preserve evidence |
-| Persistent level shift | warning or error | split-segment | Keep both stable sides |
+| Persistent level shift | warning or error | exclude-channel-value | Block affected channels only across the boundary and keep both stable sides |
 | Sustained unusual driving | info or no issue | retain | Treat as behavior, not corruption |
 | Insufficient statistical support | warning | retain | Disable affected heuristic or lower confidence |
 
@@ -472,8 +480,8 @@ supplied stint's known answers:
 - large gap preserves endpoint frames and forbids interpolation;
 - one-channel isolated spike excludes only that channel where possible;
 - multi-channel isolated spike can reject the frame;
-- persistent level shift creates a segment boundary instead of rejecting the
-  new stable run;
+- persistent level shift blocks affected channels only at its transition and
+  does not reject the new stable run;
 - circular position wrap is not classified as a spike;
 - isolated circular-position corruption is classified;
 - zero MAD uses the documented fallback;

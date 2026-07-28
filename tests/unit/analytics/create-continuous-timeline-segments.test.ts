@@ -39,7 +39,7 @@ function createAuditedFrame(
 function createTransition(
   previous: AuditedFrame,
   current: AuditedFrame,
-  continuity: TimelineContinuity,
+  timeContinuity: TimelineContinuity,
 ): AuditedTimelineTransition {
   const timestampDeltaMs =
     current.frame.timestampMs -
@@ -55,7 +55,8 @@ function createTransition(
     current: current.frame,
     timestampDeltaMs,
     relation,
-    continuity,
+    timeContinuity,
+    discontinuousChannels: [],
   }
 }
 

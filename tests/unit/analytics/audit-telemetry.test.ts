@@ -22,6 +22,14 @@ const AUDIT_CONFIG: FrameAuditConfig = {
       speedKmh: 0.1,
     },
   },
+  channelContinuity: {
+    minimumRateSampleCount: 10,
+    rateMadMultiplier: 12,
+    rateIqrMultiplier: 3,
+    windowDurationMultiplier: 5,
+    minimumWindowSamples: 4,
+    minimumShiftToSpreadRatio: 6,
+  },
 }
 
 function createTelemetry(): NormalizedTelemetryStint {
@@ -94,13 +102,13 @@ describe('auditTelemetry', () => {
       expect.objectContaining({
         frame: telemetry.frames[12],
         channel: 'speedKmh',
-        usability: 'suspect',
+        usability: 'invalid',
       }),
     )
     expect(first.auditedFrames[12]).toMatchObject({
       frame: telemetry.frames[12],
-      suspectChannels: ['speedKmh'],
-      invalidChannels: [],
+      suspectChannels: [],
+      invalidChannels: ['speedKmh'],
     })
     expect(first.usableTimeline).not.toBeNull()
     expect(first.usableTimeline?.excludedFrames).toContainEqual({
@@ -113,6 +121,8 @@ describe('auditTelemetry', () => {
           auditedFrame.frame === telemetry.frames[12],
       ),
     ).toBeTrue()
+    expect(first.usableTimeline?.transitions[11].discontinuousChannels).toContain('speedKmh')
+    expect(first.usableTimeline?.transitions[12].discontinuousChannels).toContain('speedKmh')
     expect(first.continuousTimelineSegments).toHaveLength(2)
     expect(
       first.continuousTimelineSegments.map(

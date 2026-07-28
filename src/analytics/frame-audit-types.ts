@@ -73,7 +73,7 @@ export interface TelemetryAuditResult {
   readonly auditedFrames: readonly AuditedFrame[]
   readonly usableTimeline: UsableTimeline | null
   readonly continuousTimelineSegments: readonly ContinuousTimelineSegment[]
-  readonly channelDiscontinuities: ChannelDiscontinuity[]
+  readonly channelDiscontinuities: readonly ChannelDiscontinuity[]
 }
 
 export type TimelineContinuity =
@@ -105,6 +105,8 @@ export type LocallyAuditedSignalChannel =
   | 'steeringDegrees'
   | 'engineRpm'
   | TyreTemperatureChannel
+
+export type DerivableTelemetryChannel = Exclude<LocallyAuditedSignalChannel, 'engineRpm'>
 
 export type IsolatedOutlierChannel =
   | 'timestampMs'

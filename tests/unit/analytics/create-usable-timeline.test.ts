@@ -106,7 +106,8 @@ describe('createUsableTimeline', () => {
       current: last,
       timestampDeltaMs: 50,
       relation: 'chronological',
-      continuity: 'continuous',
+      timeContinuity: 'continuous',
+      discontinuousChannels: [],
     })
   })
 
@@ -184,7 +185,8 @@ describe('createUsableTimeline', () => {
         current: last,
         timestampDeltaMs: 100,
         relation: 'chronological',
-        continuity: 'continuous',
+        timeContinuity: 'continuous',
+        discontinuousChannels: [],
       }),
     ])
   })
@@ -205,7 +207,7 @@ describe('createUsableTimeline', () => {
     expect(usableTimeline.excludedFrames).toEqual([])
     expect(
       usableTimeline.transitions.map(
-        (transition) => transition.continuity,
+        (transition) => transition.timeContinuity,
       ),
     ).toEqual(['continuous', 'gap'])
   })
@@ -227,7 +229,7 @@ describe('createUsableTimeline', () => {
     expect(usableTimeline.excludedFrames).toEqual([])
     expect(
       usableTimeline.transitions.map(
-        (transition) => transition.continuity,
+        (transition) => transition.timeContinuity,
       ),
     ).toEqual(['continuous', 'break'])
   })
@@ -266,7 +268,7 @@ describe('createUsableTimeline', () => {
     expect(usableTimeline.excludedFrames).toEqual([])
     expect(
       usableTimeline.transitions.map(
-        (transition) => transition.continuity,
+        (transition) => transition.timeContinuity,
       ),
     ).toEqual(['continuous', 'continuous'])
   })
