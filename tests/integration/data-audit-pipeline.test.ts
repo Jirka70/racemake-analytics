@@ -16,6 +16,7 @@ describe('telemetry audit pipeline', () => {
     const wireFrames = result.validatedWirePayload.frames
     const normalizedFrames = result.normalizedTelemetry.frames
     const audit = result.auditResult
+    const lapDetection = result.lapDetectionResult
 
     expect(normalizedFrames).toHaveLength(wireFrames.length)
     expect(audit.frameTransitions).toHaveLength(
@@ -238,6 +239,62 @@ describe('telemetry audit pipeline', () => {
     expect(normalizedFrames[0]?.sourceIndex).toBe(0)
     expect(normalizedFrames[0]?.tyreCoreTemperatureC.frontLeft).toBe(
       (wireFrames[0]?.tyres.fl ?? Number.NaN) / 10,
+    )
+
+    expect(lapDetection.crossings.length).toBeGreaterThanOrEqual(2)
+    expect(lapDetection.laps).toHaveLength(
+      lapDetection.crossings.length - 1,
+    )
+    expect(lapDetection.includedRacingLaps.length).toBeGreaterThan(0)
+    expect(
+      lapDetection.includedRacingLaps.length +
+        lapDetection.excludedLaps.length,
+    ).toBe(lapDetection.laps.length)
+    expect(
+      lapDetection.laps.every(
+        (lap) =>
+          lap.lapTimeMs > 0 &&
+          lap.startTimestampMs < lap.finishTimestampMs,
+      ),
+    ).toBeTrue()
+    expect(
+      lapDetection.laps.every((lap) =>
+        [
+          lap.confidence.overall,
+          lap.confidence.timing,
+          lap.confidence.cornerModel,
+          lap.confidence.positionContinuity,
+          lap.confidence.steeringContinuity,
+          lap.confidence.counterAgreement,
+          lap.confidence.counterConsistency,
+          ...Object.values(lap.startCrossing.confidence),
+          ...Object.values(lap.finishCrossing.confidence),
+        ].every(
+          (confidence) =>
+            confidence >= 0 && confidence <= 1,
+        ),
+      ),
+    ).toBeTrue()
+    expect(
+      lapDetection.fragments.every(
+        (fragment) => fragment.frameCount > 0,
+      ),
+    ).toBeTrue()
+  })
+
+  test('produces the same lap result for repeated processing', async () => {
+    const unknownPayload: unknown = await Bun.file(stintPath).json()
+    const first = runTelemetryAuditPipeline(
+      unknownPayload,
+      DEFAULT_FRAME_AUDIT_CONFIG,
+    )
+    const second = runTelemetryAuditPipeline(
+      unknownPayload,
+      DEFAULT_FRAME_AUDIT_CONFIG,
+    )
+
+    expect(first.lapDetectionResult).toEqual(
+      second.lapDetectionResult,
     )
   })
 

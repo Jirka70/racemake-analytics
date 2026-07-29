@@ -1,11 +1,14 @@
 import { Hono } from 'hono'
 import { ZodError } from 'zod'
+import type { LapDetectionResult } from './analytics/lap-detect/lap-detect-types'
 import { runTelemetryAuditPipeline } from './application/telemetry-audit-pipeline'
 import { DEFAULT_FRAME_AUDIT_CONFIG } from './config/frame-audit-config'
 import { HTTP_STATUS } from './http/http-status'
 
 export function createApp(): Hono {
   const app = new Hono()
+  let activeSessionId: string | null = null
+  let activeLapDetection: LapDetectionResult | null = null
 
   app.onError((error, context) => {
     if (error instanceof SyntaxError) {
@@ -53,11 +56,15 @@ export function createApp(): Hono {
       validatedWirePayload,
       normalizedTelemetry,
       auditResult,
+      lapDetectionResult,
     } =
       runTelemetryAuditPipeline(
         unknownPayload,
         DEFAULT_FRAME_AUDIT_CONFIG,
       )
+
+    activeSessionId = normalizedTelemetry.sessionId
+    activeLapDetection = lapDetectionResult
 
     return context.json(
       {
@@ -78,6 +85,47 @@ export function createApp(): Hono {
           issueCount: auditResult.issues.length,
           issues: auditResult.issues,
         },
+        lapDetection: {
+          crossingCount:
+            lapDetectionResult.crossings.length,
+          detectedLapCount:
+            lapDetectionResult.laps.length,
+          includedRacingLapCount:
+            lapDetectionResult.includedRacingLaps.length,
+          excludedLapCount:
+            lapDetectionResult.excludedLaps.length,
+          fragmentCount:
+            lapDetectionResult.fragments.length,
+        },
+      },
+      HTTP_STATUS.OK,
+    )
+  })
+
+  app.get('/laps', (context) => {
+    if (
+      activeSessionId === null ||
+      activeLapDetection === null
+    ) {
+      return context.json(
+        {
+          error: {
+            code: 'NO_ACTIVE_DATASET',
+            message:
+              'Ingest a valid telemetry dataset before requesting laps',
+          },
+        },
+        HTTP_STATUS.CONFLICT,
+      )
+    }
+
+    return context.json(
+      {
+        sessionId: activeSessionId,
+        laps: activeLapDetection.includedRacingLaps,
+        excludedLaps: activeLapDetection.excludedLaps,
+        fragments: activeLapDetection.fragments,
+        diagnostics: activeLapDetection.diagnostics,
       },
       HTTP_STATUS.OK,
     )

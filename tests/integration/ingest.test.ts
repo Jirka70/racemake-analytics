@@ -1,6 +1,11 @@
 import { describe, expect, test } from 'bun:test'
 import { createApp } from '../../src/app'
 import type { ProcessingIssue } from '../../src/analytics/frame-audit-types'
+import type {
+  DetectedLap,
+  LapDetectionDiagnostics,
+  LapFragment,
+} from '../../src/analytics/lap-detect/lap-detect-types'
 import { HTTP_STATUS } from '../../src/http/http-status'
 
 const stintPath = `${import.meta.dir}/../../data/stint.telemetry.json`
@@ -34,9 +39,37 @@ interface IngestResponse {
     readonly issueCount: number
     readonly issues: readonly ProcessingIssue[]
   }
+  readonly lapDetection: {
+    readonly crossingCount: number
+    readonly detectedLapCount: number
+    readonly includedRacingLapCount: number
+    readonly excludedLapCount: number
+    readonly fragmentCount: number
+  }
+}
+
+interface LapsResponse {
+  readonly sessionId: string
+  readonly laps: readonly DetectedLap[]
+  readonly excludedLaps: readonly DetectedLap[]
+  readonly fragments: readonly LapFragment[]
+  readonly diagnostics: LapDetectionDiagnostics
 }
 
 describe('POST /ingest', () => {
+  test('returns conflict from GET /laps before a successful ingest', async () => {
+    const response = await createApp().request('/laps')
+
+    expect(response.status).toBe(HTTP_STATUS.CONFLICT)
+    expect(await response.json()).toEqual({
+      error: {
+        code: 'NO_ACTIVE_DATASET',
+        message:
+          'Ingest a valid telemetry dataset before requesting laps',
+      },
+    })
+  })
+
   test('validates the complete official telemetry stint', async () => {
     const stintJson = await Bun.file(stintPath).text()
     const stint = JSON.parse(stintJson) as StintEnvelope
@@ -65,6 +98,50 @@ describe('POST /ingest', () => {
     expect(body.audit.issueCount).toBe(body.audit.issues.length)
     expect(body.audit.issues.length).toBeGreaterThan(0)
     expect(new Set(body.audit.issues.map((issue) => issue.id)).size).toBe(body.audit.issues.length)
+    expect(body.lapDetection.crossingCount).toBeGreaterThanOrEqual(2)
+    expect(body.lapDetection.detectedLapCount).toBe(
+      body.lapDetection.crossingCount - 1,
+    )
+    expect(body.lapDetection.includedRacingLapCount).toBeGreaterThan(0)
+    expect(
+      body.lapDetection.includedRacingLapCount +
+        body.lapDetection.excludedLapCount,
+    ).toBe(body.lapDetection.detectedLapCount)
+  })
+
+  test('exposes detected laps and keeps them active after a failed ingest', async () => {
+    const app = createApp()
+    const stintJson = await Bun.file(stintPath).text()
+    const stint = JSON.parse(stintJson) as StintEnvelope
+
+    const ingestResponse = await app.request('/ingest', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: stintJson,
+    })
+
+    expect(ingestResponse.status).toBe(HTTP_STATUS.OK)
+
+    const firstLapsResponse = await app.request('/laps')
+    expect(firstLapsResponse.status).toBe(HTTP_STATUS.OK)
+
+    const firstLaps = (await firstLapsResponse.json()) as LapsResponse
+    expect(firstLaps.sessionId).toBe(stint.session_id)
+    expect(firstLaps.laps.length).toBeGreaterThan(0)
+    expect(firstLaps.laps.every(({ realRacingLap }) => realRacingLap)).toBeTrue()
+    expect(firstLaps.excludedLaps.every(({ realRacingLap }) => !realRacingLap)).toBeTrue()
+
+    const invalidIngestResponse = await app.request('/ingest', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ frames: [] }),
+    })
+
+    expect(invalidIngestResponse.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY)
+
+    const retainedLapsResponse = await app.request('/laps')
+    expect(retainedLapsResponse.status).toBe(HTTP_STATUS.OK)
+    expect(await retainedLapsResponse.json()).toEqual(firstLaps)
   })
 
   test('returns unprocessable entity for an invalid payload', async () => {
