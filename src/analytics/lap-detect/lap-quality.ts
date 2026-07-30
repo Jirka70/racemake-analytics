@@ -5,6 +5,7 @@ import type {
     LapCandidate,
     LapConfidence,
     LapDetectionConfig,
+    LapGridSupport,
     LapLimitation,
     LinearGrid,
     MotionResult,
@@ -45,7 +46,12 @@ interface CalculateLapConfidenceArguments {
     readonly limitations: readonly LapLimitation[]
 }
 
-export function evaluateLapCandidate(args: EvaluateLapCandidateArguments): DetectedLap {
+export interface EvaluatedLapCandidate {
+    readonly lap: DetectedLap
+    readonly gridSupport: LapGridSupport
+}
+
+export function evaluateLapCandidate(args: EvaluateLapCandidateArguments): EvaluatedLapCandidate {
     const { candidate, grid, calibration, auditedFrameBySourceIndex, config } = args
 
     const positionCoverage = calculateChannelCoverage({
@@ -63,6 +69,9 @@ export function evaluateLapCandidate(args: EvaluateLapCandidateArguments): Detec
         maximumInterpolationSpan: calibration.maximumInterpolationSpan,
         auditedFrameBySourceIndex,
     })
+    const cornerDetectionSupportedCellMask = positionCoverage.supportedCellMask.map(
+        (positionSupported, cellIndex) => positionSupported && steeringCoverage.supportedCellMask[cellIndex],
+    )
 
     const lapTimeMs = candidate.finishCrossing.crossing.timestampMs - candidate.startCrossing.crossing.timestampMs
     const usablePositionSampleCount = candidate.frames.filter(isPositionFrameUsable).length
@@ -104,11 +113,7 @@ export function evaluateLapCandidate(args: EvaluateLapCandidateArguments): Detec
         && hasSufficientRacingPositionContinuity
         && !stationary
     const cornerModelEligible = realRacingLap
-        && usablePositionSampleCount >= grid.requiredUsablePositionSampleCountPerLap
-        && positionCoverage.coverage >= config.eligibility.minimumCornerPositionCoverage
-        && steeringCoverage.coverage >= config.eligibility.minimumCornerSteeringCoverage
-        && positionCoverage.maximumUnsupportedSpan <= config.eligibility.maximumCornerUnsupportedSpan
-        && steeringCoverage.maximumUnsupportedSpan <= config.eligibility.maximumCornerUnsupportedSpan
+        && cornerDetectionSupportedCellMask.every(Boolean)
 
     const positionComparisonEligible = realRacingLap
         && positionCoverage.coverage >= config.eligibility.minimumComparisonCoverage
@@ -127,6 +132,8 @@ export function evaluateLapCandidate(args: EvaluateLapCandidateArguments): Detec
         hasSufficientPositionDensity,
         hasSufficientRacingPositionCoverage,
         hasSufficientRacingPositionContinuity,
+        realRacingLap,
+        cornerDetectionSupportedCellCount: cornerDetectionSupportedCellMask.filter(Boolean).length,
         stationary,
         recordedLap,
         config,
@@ -158,34 +165,44 @@ export function evaluateLapCandidate(args: EvaluateLapCandidateArguments): Detec
         limitations,
     })
 
+    const lapId = `lap-${candidate.sequenceNumber}`
+
     return {
-        id: `lap-${candidate.sequenceNumber}`,
-        sequenceNumber: candidate.sequenceNumber,
-        recordedLapNumber: recordedLap.value,
-        startCrossing: candidate.startCrossing.crossing,
-        finishCrossing: candidate.finishCrossing.crossing,
-        startTimestampMs: candidate.startCrossing.crossing.timestampMs,
-        finishTimestampMs: candidate.finishCrossing.crossing.timestampMs,
-        lapTimeMs,
-        startSourceIndex: candidate.frames[0]?.frame.sourceIndex ?? candidate.startCrossing.crossing.nextSourceIndex,
-        endSourceIndex: candidate.frames.at(-1)?.frame.sourceIndex ?? candidate.finishCrossing.crossing.previousSourceIndex,
-        frameCount: candidate.frames.length,
-        positionCoverage: positionCoverage.coverage,
-        steeringCoverage: steeringCoverage.coverage,
-        maximumUnsupportedPositionSpan: positionCoverage.maximumUnsupportedSpan,
-        maximumUnsupportedSteeringSpan: steeringCoverage.maximumUnsupportedSpan,
-        usablePositionSampleCount,
-        requiredPositionSampleCount: grid.requiredUsablePositionSampleCountPerLap,
-        samplingGapCount: samplingGaps.length,
-        largestSamplingGapMs,
-        speedEvidenceFraction,
-        movingFraction: motion.movingFraction,
-        longestStationaryDurationMs: motion.longestStationaryDurationMs,
-        timingEligible,
-        realRacingLap,
-        cornerModelEligible,
-        positionComparisonEligible,
-        confidence,
+        lap: {
+            id: lapId,
+            sequenceNumber: candidate.sequenceNumber,
+            recordedLapNumber: recordedLap.value,
+            startCrossing: candidate.startCrossing.crossing,
+            finishCrossing: candidate.finishCrossing.crossing,
+            startTimestampMs: candidate.startCrossing.crossing.timestampMs,
+            finishTimestampMs: candidate.finishCrossing.crossing.timestampMs,
+            lapTimeMs,
+            startSourceIndex: candidate.frames[0]?.frame.sourceIndex ?? candidate.startCrossing.crossing.nextSourceIndex,
+            endSourceIndex: candidate.frames.at(-1)?.frame.sourceIndex ?? candidate.finishCrossing.crossing.previousSourceIndex,
+            frameCount: candidate.frames.length,
+            positionCoverage: positionCoverage.coverage,
+            steeringCoverage: steeringCoverage.coverage,
+            maximumUnsupportedPositionSpan: positionCoverage.maximumUnsupportedSpan,
+            maximumUnsupportedSteeringSpan: steeringCoverage.maximumUnsupportedSpan,
+            usablePositionSampleCount,
+            requiredPositionSampleCount: grid.requiredUsablePositionSampleCountPerLap,
+            samplingGapCount: samplingGaps.length,
+            largestSamplingGapMs,
+            speedEvidenceFraction,
+            movingFraction: motion.movingFraction,
+            longestStationaryDurationMs: motion.longestStationaryDurationMs,
+            timingEligible,
+            realRacingLap,
+            cornerModelEligible,
+            positionComparisonEligible,
+            confidence,
+        },
+        gridSupport: {
+            lapId,
+            positionSupportedCellMask: positionCoverage.supportedCellMask,
+            steeringSupportedCellMask: steeringCoverage.supportedCellMask,
+            cornerDetectionSupportedCellMask,
+        },
     }
 }
 
@@ -202,6 +219,8 @@ interface CreateLapLimitationsArguments {
     readonly hasSufficientPositionDensity: boolean
     readonly hasSufficientRacingPositionCoverage: boolean
     readonly hasSufficientRacingPositionContinuity: boolean
+    readonly realRacingLap: boolean
+    readonly cornerDetectionSupportedCellCount: number
     readonly stationary: boolean
     readonly recordedLap: RecordedLapMode
     readonly config: LapDetectionConfig
@@ -292,6 +311,15 @@ function createLapLimitations(args: CreateLapLimitationsArguments): LapLimitatio
             severity: 'error',
             impact: 'corner-detection',
             message: `Largest unsupported steering span is ${round(args.steeringCoverage.maximumUnsupportedSpan * 100, 1)}% of the lap`,
+        })
+    }
+
+    if (args.realRacingLap && args.cornerDetectionSupportedCellCount < args.grid.cellCount) {
+        limitations.push({
+            code: 'PARTIAL_CORNER_GRID_SUPPORT',
+            severity: 'warning',
+            impact: 'corner-detection',
+            message: `Corner detection can use ${args.cornerDetectionSupportedCellCount} of ${args.grid.cellCount} grid cells from this racing lap; unsupported cells remain masked`,
         })
     }
 

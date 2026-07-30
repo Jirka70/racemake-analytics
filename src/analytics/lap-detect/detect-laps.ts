@@ -42,13 +42,14 @@ export function detectLaps(audit: TelemetryAuditResult, config: LapDetectionConf
     )
     const candidates = createLapCandidates(timeline, internalCrossings)
     const grid = deriveLinearGrid(candidates, calibration, config)
-    const laps = candidates.map((candidate) => evaluateLapCandidate({
+    const evaluatedLaps = candidates.map((candidate) => evaluateLapCandidate({
         candidate,
         grid,
         calibration,
         auditedFrameBySourceIndex,
         config,
     }))
+    const laps = evaluatedLaps.map(({ lap }) => lap)
 
     const limitations: LapLimitation[] = internalCrossings.length >= 2 ? [] : [{
         code: 'INSUFFICIENT_LAP_CROSSINGS',
@@ -58,6 +59,8 @@ export function detectLaps(audit: TelemetryAuditResult, config: LapDetectionConf
     }]
 
     return {
+        linearGrid: grid,
+        lapGridSupport: evaluatedLaps.map(({ gridSupport }) => gridSupport),
         crossings: internalCrossings.map(({ crossing }) => crossing),
         laps,
         includedRacingLaps: laps.filter((lap) => lap.realRacingLap),
@@ -79,6 +82,8 @@ export function detectLaps(audit: TelemetryAuditResult, config: LapDetectionConf
 
 function createEmptyLapDetectionResult(limitation: LapLimitation, fragments: LapDetectionResult['fragments'] = []): LapDetectionResult {
     return {
+        linearGrid: null,
+        lapGridSupport: [],
         crossings: [],
         laps: [],
         includedRacingLaps: [],

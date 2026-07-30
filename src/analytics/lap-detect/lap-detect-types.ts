@@ -69,6 +69,7 @@ export type LapLimitationCode =
     | 'INSUFFICIENT_STEERING_COVERAGE'
     | 'UNSUPPORTED_POSITION_SPAN'
     | 'UNSUPPORTED_STEERING_SPAN'
+    | 'PARTIAL_CORNER_GRID_SUPPORT'
     | 'INSUFFICIENT_SPEED_EVIDENCE'
     | 'STATIONARY_LAP'
 
@@ -176,6 +177,15 @@ export interface LinearGrid {
     readonly requiredUsablePositionSampleCountPerLap: number
 }
 
+export interface LapGridSupport {
+    readonly lapId: string
+    // All masks have exactly linearGrid.cellCount entries.
+    readonly positionSupportedCellMask: readonly boolean[]
+    readonly steeringSupportedCellMask: readonly boolean[]
+    // False means that the lap must abstain in this cell during corner detection.
+    readonly cornerDetectionSupportedCellMask: readonly boolean[]
+}
+
 export interface CoverageResult {
     readonly coverage: number
     readonly maximumUnsupportedSpan: number
@@ -253,6 +263,10 @@ export interface LapDetectionDiagnostics {
 }
 
 export interface LapDetectionResult {
+    // Kept as an analytics artifact so downstream stages never reconstruct the grid from diagnostics.
+    readonly linearGrid: LinearGrid | null
+    // Internal per-lap evidence; the HTTP lap response intentionally does not expose these large masks.
+    readonly lapGridSupport: readonly LapGridSupport[]
     readonly crossings: readonly LapCrossing[]
     readonly laps: readonly DetectedLap[]
     readonly includedRacingLaps: readonly DetectedLap[]

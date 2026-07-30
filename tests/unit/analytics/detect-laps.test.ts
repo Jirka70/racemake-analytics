@@ -236,6 +236,16 @@ describe('detectLaps', () => {
             expectConfidenceInUnitInterval(lap.confidence.timing)
             expectConfidenceInUnitInterval(lap.confidence.cornerModel)
         }
+
+        expect(result.linearGrid).not.toBeNull()
+        expect(result.lapGridSupport).toHaveLength(result.laps.length)
+
+        for (const support of result.lapGridSupport) {
+            expect(support.positionSupportedCellMask).toHaveLength(result.linearGrid?.cellCount ?? 0)
+            expect(support.steeringSupportedCellMask).toHaveLength(result.linearGrid?.cellCount ?? 0)
+            expect(support.cornerDetectionSupportedCellMask).toHaveLength(result.linearGrid?.cellCount ?? 0)
+            expect(support.cornerDetectionSupportedCellMask.every(Boolean)).toBeTrue()
+        }
     })
 
     test('interpolates crossing time in unwrapped position space', () => {
@@ -551,6 +561,14 @@ describe('detectLaps', () => {
             DEFAULT_LAP_DETECTION_CONFIG.eligibility.maximumCornerUnsupportedSpan,
         )
         expect(affectedLap?.cornerModelEligible).toBeFalse()
+        const affectedLapSupport = result.lapGridSupport.find(({ lapId }) => lapId === affectedLap?.id)
+
+        expect(affectedLapSupport).toBeDefined()
+        expect(affectedLapSupport?.cornerDetectionSupportedCellMask.some((supported) => !supported)).toBeTrue()
+        expect(affectedLap?.confidence.limitations).toContainEqual(expect.objectContaining({
+            code: 'PARTIAL_CORNER_GRID_SUPPORT',
+            severity: 'warning',
+        }))
         expect(affectedLap?.confidence.limitations).toContainEqual(expect.objectContaining({
             code: 'UNSUPPORTED_STEERING_SPAN',
         }))
