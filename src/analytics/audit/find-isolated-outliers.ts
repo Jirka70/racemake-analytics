@@ -74,8 +74,6 @@ function findIsolatedTimestampOutliers(frames: readonly NormalizedTelemetryFrame
         if (potentialTimestampOutlier) {
             outliers.push(potentialTimestampOutlier)
         }
-
-
     }
 
     return outliers;
@@ -278,23 +276,28 @@ function collectSignalResidualSamples(frames: readonly NormalizedTelemetryFrame[
 function createSignalResidualSample(previousFrame: NormalizedTelemetryFrame, 
     currentFrame: NormalizedTelemetryFrame,
     nextFrame: NormalizedTelemetryFrame,
-    channel: LocallyAuditedSignalChannel) {
+    channel: LocallyAuditedSignalChannel) : SignalResidualSample {
     
     const previousValue = readChannelValue(previousFrame, channel)
     const observedValue = readChannelValue(currentFrame, channel)
     const nextValue = readChannelValue(nextFrame, channel)
 
-    const totalDurationMs = nextFrame.timestampMs - previousFrame.timestampMs
-    const incomingDurationMs =
-        currentFrame.timestampMs - previousFrame.timestampMs
-    const outgoingDurationMs =
-        nextFrame.timestampMs - currentFrame.timestampMs
-    const progress = incomingDurationMs / totalDurationMs
+    const neighborTimeSpanMs = nextFrame.timestampMs - previousFrame.timestampMs
+    const incomingDurationMs = currentFrame.timestampMs - previousFrame.timestampMs
+    const outgoingDurationMs = nextFrame.timestampMs - currentFrame.timestampMs
+    const interpolationFraction = incomingDurationMs / neighborTimeSpanMs
 
-    const values = prepareValuesForInterpolation(previousValue, observedValue, nextValue, progress, channel)
-    const residual = Math.abs(values.observed - values.predicted)
-
-    const predictedValue = channel === "normalizedTrackPosition" ? wrapTrackPosition(values.predicted) : values.predicted
+    const interpolationEndValue = channel === "normalizedTrackPosition" 
+        ? unwrapTrackPosition(nextValue, previousValue) 
+        : nextValue
+    const predictedValueForComparison = linearInterpolate(previousValue, interpolationEndValue, interpolationFraction)
+    const observedValueForComparison = channel === "normalizedTrackPosition" 
+        ? unwrapTrackPosition(observedValue, predictedValueForComparison) 
+        : observedValue
+    const residual = Math.abs(observedValueForComparison - predictedValueForComparison)
+    const predictedValue = channel === "normalizedTrackPosition" 
+        ? wrapTrackPosition(predictedValueForComparison) 
+        : predictedValueForComparison
 
     return {
         frame: currentFrame,
@@ -309,26 +312,8 @@ function createSignalResidualSample(previousFrame: NormalizedTelemetryFrame,
     }
 }
 
-interface InterpolationValues {
-    readonly observed: number
-    readonly predicted: number
-}
-
-function prepareValuesForInterpolation(previous: number, observed: number, next: number, progress: number, channel: LocallyAuditedSignalChannel): InterpolationValues {
-    if (channel !== "normalizedTrackPosition") {
-        return {
-            observed,
-            predicted: previous + progress * (next - previous)
-        }
-    }
-
-    const unwrappedNext = unwrapTrackPosition(next, previous)
-    const predicted = previous + progress * (unwrappedNext - previous)
-
-    return {
-        observed: unwrapTrackPosition(observed, predicted),
-        predicted
-    }
+function linearInterpolate(startValue: number, endValue: number, fraction: number): number {
+    return startValue + fraction * (endValue - startValue)
 }
 
 function unwrapTrackPosition(position: number, reference: number) {
@@ -385,6 +370,8 @@ function maybeCreateTimestampOutlier(previousFrame: NormalizedTelemetryFrame,
     
     if (!hasTimestampRegression) return null
 
+    // here the frame has a time regression -- nothing we want
+    // let's check, if we could mark current frame timestamp as "local outlier" and create transition between previous and next frame
     const canSafelyBridge = bridgeDeltaMs > 0 && bridgeDeltaMs <= samplingBaseline.maximumGapMs
 
     if (!canSafelyBridge) return null

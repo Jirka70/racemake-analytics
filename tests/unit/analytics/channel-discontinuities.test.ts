@@ -22,6 +22,7 @@ const CHANNEL_CONTINUITY_CONFIG: ChannelContinuityConfig = {
   rateIqrMultiplier: 3,
   windowDurationMultiplier: 5,
   minimumWindowSamples: 4,
+  minimumBoundaryShareOfPersistentShift: 0.5,
   minimumShiftToSpreadRatio: 6,
 }
 

@@ -40,9 +40,9 @@ export function derivePositionCalibration(timeline: UsableTimeline, auditedFrame
         ({ positionRatePerSecond }) => positionRatePerSecond <= preliminaryRateLimit,
     )
 
-    const calibrationSamples = filteredSamples.length >= config.calibration.minimumSamples
-        ? filteredSamples
-        : movementSamples
+    if (filteredSamples.length < config.calibration.minimumSamples) return null
+
+    const calibrationSamples = filteredSamples
 
     const positionSteps = calibrationSamples.map(({ positionStep }) => positionStep)
     const positionRates = calibrationSamples.map(({ positionRatePerSecond }) => positionRatePerSecond)

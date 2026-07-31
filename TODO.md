@@ -1,0 +1,57 @@
+# TODO after MVP
+
+## Channel trust after an anomaly
+
+The current audit can mark a discontinuity on one transition, but it treats later stable samples as usable again. That is insufficient when a sensor may have reset, acquired a permanent offset, or otherwise become unreliable. Keep the global timeline intact when only one channel is affected; model trust separately for each channel.
+
+### Channel value statuses
+
+Use discrete statuses instead of a numeric confidence score:
+
+- `usable`: the value can be displayed, aggregated, and used as an interpolation or derivative endpoint.
+- `suspect`: preserve and display the raw value with its reason, but do not use it as an interpolation or derivative endpoint. Aggregation eligibility must be decided by one central audit policy, not by thresholds repeated in analyzers.
+- `invalid`: retain the raw value for audit and diagnostics, but exclude it from aggregation, interpolation, derivatives, and evidence-backed findings.
+- `unassessed`: there was not enough support to evaluate the value. Display it with this limitation, but do not use it as an interpolation or derivative endpoint.
+
+Keep the status separate from the reason and supporting evidence. A statistical threshold crossing creates suspicion; it must not automatically mean `invalid`, especially when MAD and IQR are zero.
+
+### Channel issue reasons
+
+Define typed reason codes so callers can distinguish at least:
+
+- isolated spike with an immediate return;
+- persistent level discontinuity;
+- unverified sensor state after a discontinuity;
+- repeated discontinuities;
+- stuck or frozen signal;
+- hard range violation;
+- physically impossible rate of change;
+- independently corroborated cross-channel inconsistency;
+- insufficient data for assessment.
+
+Timestamp corruption remains a frame-level problem rather than a channel status. An invalid timestamp makes interpolation impossible and the affected frame should be excluded when the timeline can be bridged safely; otherwise it must create a timeline break.
+
+### Channel epochs
+
+After a persistent single-channel discontinuity, start a new epoch for that channel:
+
+```text
+trusted epoch | discontinuity boundary | unverified epoch
+```
+
+- Do not interpolate, derive, or compare values across the boundary.
+- Do not split the global continuous timeline when timestamps remain continuous; unaffected channels must remain usable.
+- Mark the new epoch `suspect` until there is independent evidence that trust can be restored.
+- After enough stable samples, relative trends inside the new epoch may be usable under a central policy, while absolute values and comparisons with the previous epoch remain unsupported.
+- If no trustworthy recovery evidence exists, keep the channel suspect until the end of the stint.
+- Repeated jumps, a frozen signal, hard range violations, or physically impossible behavior can escalate the channel to `invalid`.
+
+Possible recovery evidence includes a known source reset, a credible return to the expected signal, agreement with independent channels, or another explicit sensor-health signal. Smooth values after a jump alone are not proof that the new absolute level is correct.
+
+If all related channels jump together, treat that as evidence of a shared telemetry/source problem rather than automatically classifying every sensor as an independent failure.
+
+### Central downstream policy
+
+Expose typed helpers or final eligibility flags from the audit layer, such as `canAggregateChannel`, `canInterpolateChannel`, and `canCalculateDerivative`. Downstream lap, corner, and coaching analyzers must consume those decisions without defining their own confidence thresholds.
+
+Add focused tests for status transitions, epoch boundaries, recovery, repeated-fault escalation, zero-scale MAD/IQR data, and preservation of unaffected channels.

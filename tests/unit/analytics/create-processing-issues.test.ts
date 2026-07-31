@@ -6,7 +6,7 @@ import { NormalizedTelemetryFrame } from '../../../src/analytics/telemetry-types
 const CONFIG: FrameAuditConfig = {
     sampling: { minimumSampleCount: 0, gapMedianMultiplier: 5, gapMadMultiplier: 10 },
     isolatedOutlier: { minimumResidualSampleCount: 5, signalMadMultiplier: 12, driverInputMadMultiplier: 20, minimumReturnRateRatio: 0.25, fallbackIqrMultiplier: 3, minimumResidualBySignalChannel: {} },
-    channelContinuity: { minimumRateSampleCount: 5, rateMadMultiplier: 12, rateIqrMultiplier: 3, windowDurationMultiplier: 5, minimumWindowSamples: 4, minimumShiftToSpreadRatio: 6 },
+    channelContinuity: { minimumRateSampleCount: 5, rateMadMultiplier: 12, rateIqrMultiplier: 3, windowDurationMultiplier: 5, minimumWindowSamples: 4, minimumBoundaryShareOfPersistentShift: 0.5, minimumShiftToSpreadRatio: 6 },
 }
 
 const SAMPLING_BASELINE: SamplingBaseline = { sampleCount: 10, medianDeltaMs: 50, madDeltaMs: 0, scaledMadDeltaMs: 0, maximumGapMs: 250 }

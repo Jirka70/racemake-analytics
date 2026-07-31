@@ -50,15 +50,15 @@ export function findChannelDiscontinuities(timeline: UsableTimeline, samplingBas
         const candidateEvidence: ChannelDiscontinuityEvidence[] = []
 
         for (const channel of PERSISTENCE_AUDITED_CHANNELS) {
-            const threshold = rateThresholds.get(channel)
-            if (threshold === undefined) continue
+            const rateThreshold = rateThresholds.get(channel)
+            if (rateThreshold === undefined) continue // has not enough samples e.g.
             if (channel === 'engineRpm' && transition.previous.gear !== transition.current.gear) continue
             const absoluteRatePerSecond = calculateAbsoluteRate(transition, channel)
-            if (absoluteRatePerSecond <= threshold) continue
+            if (absoluteRatePerSecond <= rateThreshold) continue
             const persistentShiftEvidence = createPersistentShiftEvidence(timeline, transitionIndex, channel, samplingBaseline, config)
             if (persistentShiftEvidence === null) continue
 
-            candidateEvidence.push({ channel, absoluteRatePerSecond, rateThresholdPerSecond: threshold, ...persistentShiftEvidence })
+            candidateEvidence.push({ channel, absoluteRatePerSecond, rateThresholdPerSecond: rateThreshold, ...persistentShiftEvidence })
         }
 
         const confirmedEvidence = confirmCandidateEvidence(candidateEvidence)
@@ -160,7 +160,8 @@ function calculateAbsoluteRate(transition: AuditedTimelineTransition, channel: P
     return Math.abs(currentValue - previousValue) / durationSeconds
 }
 
-function createPersistentShiftEvidence(timeline: UsableTimeline, transitionIndex: number, channel: PersistenceAuditedChannel, samplingBaseline: SamplingBaseline, config: ChannelContinuityConfig) : PersistentShiftEvidence | null {
+function createPersistentShiftEvidence(timeline: UsableTimeline, transitionIndex: number, channel: PersistenceAuditedChannel,
+    samplingBaseline: SamplingBaseline, config: ChannelContinuityConfig) : PersistentShiftEvidence | null {
     const windowDurationMs = samplingBaseline.medianDeltaMs * config.windowDurationMultiplier
     const previousFrameIndex = transitionIndex
     const currentFrameIndex = transitionIndex + 1
@@ -174,14 +175,16 @@ function createPersistentShiftEvidence(timeline: UsableTimeline, transitionIndex
     const leftMedian = median(leftValues)
     const rightMedian = median(rightValues)
     const persistentShift = rightMedian - leftMedian
-    if (persistentShift === 0) return null
+    if (persistentShift === 0) return null // no shift
 
     const previousValue = readChannelValue(timeline.frames[previousFrameIndex].frame, channel)
     const currentValue = readChannelValue(timeline.frames[currentFrameIndex].frame, channel)
     const boundaryDelta = currentValue - previousValue
 
     if (Math.sign(boundaryDelta) !== Math.sign(persistentShift)) return null
-    if (Math.abs(boundaryDelta) < Math.abs(persistentShift) * 0.5) return null
+    const minimumBoundaryShare = config.minimumBoundaryShareOfPersistentShift
+    const minimumBoundaryDelta = Math.abs(persistentShift) * minimumBoundaryShare
+    if (Math.abs(boundaryDelta) < minimumBoundaryDelta) return null
 
     const leftSpread = calculateWindowSpread(leftValues)
     const rightSpread = calculateWindowSpread(rightValues)
@@ -191,15 +194,19 @@ function createPersistentShiftEvidence(timeline: UsableTimeline, transitionIndex
     return { previousValue, currentValue, boundaryDelta, leftMedian, rightMedian, persistentShift, leftSpread, rightSpread }
 }
 
-function collectWindow(timeline: UsableTimeline, startIndex: number, direction: -1 | 1, durationMs: number) : AuditedFrame[] {
+function collectWindow(timeline: UsableTimeline, startIndex: number, direction: -1 | 1, maximumWindowDurationMs: number) : AuditedFrame[] {
     const window: AuditedFrame[] = []
-    const startTimestampMs = timeline.frames[startIndex].frame.timestampMs
+    const windowStartFrame = timeline.frames[startIndex].frame
+    const startTimestampMs = windowStartFrame.timestampMs
 
     for (let index = startIndex; index >= 0 && index < timeline.frames.length; index += direction) {
-        if (index !== startIndex && crossedTransition(timeline, index, direction).timeContinuity !== 'continuous') break
+        const crossedTransition = findTransition(timeline, index, direction)
+        const isCrossedTransitionContinuous = crossedTransition.timeContinuity === "continuous"
+        if (index !== startIndex && isCrossedTransitionContinuous) break
 
         const frame = timeline.frames[index]
-        if (Math.abs(frame.frame.timestampMs - startTimestampMs) > durationMs) break
+        const timestampChangeFromWindowStart = Math.abs(frame.frame.timestampMs - startTimestampMs)
+        if (timestampChangeFromWindowStart > maximumWindowDurationMs) break
 
         window.push(frame)
     }
@@ -209,8 +216,10 @@ function collectWindow(timeline: UsableTimeline, startIndex: number, direction: 
     return window
 }
 
-function crossedTransition(timeline: UsableTimeline, frameIndex: number, direction: -1 | 1) : AuditedTimelineTransition {
-    const transitionIndex = direction === -1 ? frameIndex : frameIndex - 1
+function findTransition(timeline: UsableTimeline, frameIndex: number, direction: -1 | 1) : AuditedTimelineTransition {
+    const transitionIndex = direction === -1 
+        ? frameIndex 
+        : frameIndex - 1
     const transition = timeline.transitions[transitionIndex]
     if (!transition) throw new Error('Timeline is missing a transition between adjacent frames')
 
@@ -236,7 +245,10 @@ function confirmCandidateEvidence(candidates: readonly ChannelDiscontinuityEvide
     const groups = new Set(candidates.map((item) => channelGroup(item.channel)))
     const hasCrossGroupEvidence = groups.size >= 2
 
-    return candidates.filter((item) => isTyreTemperatureChannel(item.channel) || hasCrossGroupEvidence).sort((left, right) => left.channel.localeCompare(right.channel))
+    return candidates
+        // tyre temperature changes slower -- we want to be able to record any bigger shift in this channel
+        .filter((item) => isTyreTemperatureChannel(item.channel) || hasCrossGroupEvidence)
+        .sort((left, right) => left.channel.localeCompare(right.channel))
 }
 
 function channelGroup(channel: PersistenceAuditedChannel) : ChannelGroup {

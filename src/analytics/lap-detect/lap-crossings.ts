@@ -49,19 +49,19 @@ export function detectLapCrossings(timeline: UsableTimeline, sampling: SamplingB
         if (!looksLikeForwardPositionWrap(transition)) continue
         if (!canUsePositionTransition(transition, auditedFrameBySourceIndex)) continue
 
-        const circularPositionDelta = calculateForwardPositionDelta(transition)
-        const exactEndpointCrossing = transition.previous.normalizedTrackPosition === 1
+        const positionDelta = calculateForwardPositionDelta(transition)
+        const isFrameCrossingExactLapEnd = transition.previous.normalizedTrackPosition === 1
             && transition.current.normalizedTrackPosition === 0
         const hasExactCrossingPosition = transition.previous.normalizedTrackPosition === 1
             || transition.current.normalizedTrackPosition === 0
-        const interpolationIsSafe = exactEndpointCrossing
-            || circularPositionDelta > 0 && circularPositionDelta <= calibration.maximumInterpolationSpan
+        const interpolationIsSafe = isFrameCrossingExactLapEnd
+            || positionDelta > 0 && positionDelta <= calibration.maximumInterpolationSpan
 
         if (!interpolationIsSafe) continue
 
-        const positionRatePerSecond = exactEndpointCrossing
+        const positionRatePerSecond = isFrameCrossingExactLapEnd
             ? 0
-            : circularPositionDelta / (transition.timestampDeltaMs / 1_000)
+            : positionDelta / (transition.timestampDeltaMs / 1_000)
         if (positionRatePerSecond > calibration.globalPositionRateLimitPerSecond) continue
 
         const sharedLocalArguments = {
@@ -105,7 +105,7 @@ export function detectLapCrossings(timeline: UsableTimeline, sampling: SamplingB
         const crossing = createLapCrossing({
             transition,
             sampling,
-            circularPositionDelta,
+            circularPositionDelta: positionDelta,
             positionRatePerSecond,
             localMedianPositionRate,
             localRateConsistency,
@@ -262,11 +262,11 @@ function calculateCrossingConfidence(args: CreateLapCrossingArguments, timestamp
     }
 }
 
-function calculateRateConsistency(positionRate: number, referencePositionRate: number): number {
-    if (referencePositionRate <= 0) return 0
+function calculateRateConsistency(observedValue: number, expectedValue: number): number {
+    if (expectedValue <= 0) return 0
 
-    const relativeDifference = Math.abs(positionRate - referencePositionRate) / referencePositionRate
-    return clamp01(1 - relativeDifference)
+    const relativeError = Math.abs(observedValue - expectedValue) / expectedValue
+    return clamp01(1 - relativeError)
 }
 
 function calculateTemporalResolution(bracketDurationMs: number, sampling: SamplingBaseline): number {

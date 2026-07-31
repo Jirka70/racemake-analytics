@@ -181,6 +181,7 @@ export interface ChannelContinuityConfig {
   readonly rateIqrMultiplier: number
   readonly windowDurationMultiplier: number
   readonly minimumWindowSamples: number
+  readonly minimumBoundaryShareOfPersistentShift: number
   readonly minimumShiftToSpreadRatio: number
 }
 
