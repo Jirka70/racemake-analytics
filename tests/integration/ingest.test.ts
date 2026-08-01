@@ -1,11 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { createApp } from '../../src/app'
 import type { ProcessingIssue } from '../../src/analytics/frame-audit-types'
-import type {
-  DetectedLap,
-  LapDetectionDiagnostics,
-  LapFragment,
-} from '../../src/analytics/lap-detect/lap-detect-types'
+import type { PositionCalibration } from '../../src/analytics/lap-detect/lap-detect-types'
 import { HTTP_STATUS } from '../../src/http/http-status'
 
 const stintPath = `${import.meta.dir}/../../data/stint.telemetry.json`
@@ -40,20 +36,13 @@ interface IngestResponse {
     readonly issues: readonly ProcessingIssue[]
   }
   readonly lapDetection: {
-    readonly crossingCount: number
-    readonly detectedLapCount: number
-    readonly includedRacingLapCount: number
-    readonly excludedLapCount: number
-    readonly fragmentCount: number
+    readonly positionCalibrationAvailable: boolean
   }
 }
 
 interface LapsResponse {
   readonly sessionId: string
-  readonly laps: readonly DetectedLap[]
-  readonly excludedLaps: readonly DetectedLap[]
-  readonly fragments: readonly LapFragment[]
-  readonly diagnostics: LapDetectionDiagnostics
+  readonly positionCalibration: PositionCalibration | null
 }
 
 describe('POST /ingest', () => {
@@ -98,18 +87,10 @@ describe('POST /ingest', () => {
     expect(body.audit.issueCount).toBe(body.audit.issues.length)
     expect(body.audit.issues.length).toBeGreaterThan(0)
     expect(new Set(body.audit.issues.map((issue) => issue.id)).size).toBe(body.audit.issues.length)
-    expect(body.lapDetection.crossingCount).toBeGreaterThanOrEqual(2)
-    expect(body.lapDetection.detectedLapCount).toBe(
-      body.lapDetection.crossingCount - 1,
-    )
-    expect(body.lapDetection.includedRacingLapCount).toBeGreaterThan(0)
-    expect(
-      body.lapDetection.includedRacingLapCount +
-        body.lapDetection.excludedLapCount,
-    ).toBe(body.lapDetection.detectedLapCount)
+    expect(body.lapDetection.positionCalibrationAvailable).toBeTrue()
   })
 
-  test('exposes detected laps and keeps them active after a failed ingest', async () => {
+  test('exposes position calibration and keeps it active after a failed ingest', async () => {
     const app = createApp()
     const stintJson = await Bun.file(stintPath).text()
     const stint = JSON.parse(stintJson) as StintEnvelope
@@ -127,9 +108,7 @@ describe('POST /ingest', () => {
 
     const firstLaps = (await firstLapsResponse.json()) as LapsResponse
     expect(firstLaps.sessionId).toBe(stint.session_id)
-    expect(firstLaps.laps.length).toBeGreaterThan(0)
-    expect(firstLaps.laps.every(({ realRacingLap }) => realRacingLap)).toBeTrue()
-    expect(firstLaps.excludedLaps.every(({ realRacingLap }) => !realRacingLap)).toBeTrue()
+    expect(firstLaps.positionCalibration).not.toBeNull()
 
     const invalidIngestResponse = await app.request('/ingest', {
       method: 'POST',

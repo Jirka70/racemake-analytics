@@ -1,11 +1,7 @@
 import type { AuditedFrame, AuditedTimelineTransition, UsableTimeline } from '../frame-audit-types'
 import { interquartileRange, median, quantile, scaledMedianAbsoluteDeviation } from '../robust-statistics'
 import type { LapDetectionConfig, PositionCalibration } from './lap-detect-types'
-import { canUsePositionTransition, isChannelUsable, POSITION_CHANNEL } from './util/usable-channels'
-
-export { POSITION_CHANNEL }
-export const STEERING_CHANNEL = 'steeringDegrees'
-export const SPEED_CHANNEL = 'speedKmh'
+import { canUsePositionTransition } from './util/usable-channels'
 
 interface PositionMovementSample {
     readonly positionStep: number
@@ -64,21 +60,12 @@ export function derivePositionCalibration(timeline: UsableTimeline, auditedFrame
     }
 }
 
-export function isPositionFrameUsable(auditedFrame: AuditedFrame): boolean {
-    return isChannelUsable(auditedFrame, POSITION_CHANNEL)
-}
-
-export function calculateForwardPositionDelta(transition: AuditedTimelineTransition): number {
+function calculateForwardPositionDelta(transition: AuditedTimelineTransition): number {
     const rawDelta = transition.current.normalizedTrackPosition - transition.previous.normalizedTrackPosition
     return rawDelta < -0.5 ? rawDelta + 1 : rawDelta
 }
 
-export function looksLikeForwardPositionWrap(transition: AuditedTimelineTransition): boolean {
-    const rawDelta = transition.current.normalizedTrackPosition - transition.previous.normalizedTrackPosition
-    return rawDelta < -0.5
-}
-
-export function robustUpperLimit(values: readonly number[], madMultiplier: number, iqrMultiplier: number): number {
+function robustUpperLimit(values: readonly number[], madMultiplier: number, iqrMultiplier: number): number {
     const center = median(values)
     const scaledMad = scaledMedianAbsoluteDeviation(values)
 

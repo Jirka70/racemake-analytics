@@ -25,11 +25,10 @@ export interface TelemetryAuditPipelineResult {
 }
 
 /**
- * Runs the production pipeline through lap detection.
+ * Runs the production pipeline through the current lap-detection scaffold.
  *
  * Keeping these stages together gives the CLI runner and integration tests one
- * path to exercise while the individual operations remain independently
- * testable.
+ * path to exercise while position calibration is rebuilt into lap detection.
  */
 export function runTelemetryAuditPipeline(
   input: unknown,

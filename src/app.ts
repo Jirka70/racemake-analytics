@@ -86,16 +86,8 @@ export function createApp(): Hono {
           issues: auditResult.issues,
         },
         lapDetection: {
-          crossingCount:
-            lapDetectionResult.crossings.length,
-          detectedLapCount:
-            lapDetectionResult.laps.length,
-          includedRacingLapCount:
-            lapDetectionResult.includedRacingLaps.length,
-          excludedLapCount:
-            lapDetectionResult.excludedLaps.length,
-          fragmentCount:
-            lapDetectionResult.fragments.length,
+          positionCalibrationAvailable:
+            lapDetectionResult.positionCalibration !== null,
         },
       },
       HTTP_STATUS.OK,
@@ -122,10 +114,8 @@ export function createApp(): Hono {
     return context.json(
       {
         sessionId: activeSessionId,
-        laps: activeLapDetection.includedRacingLaps,
-        excludedLaps: activeLapDetection.excludedLaps,
-        fragments: activeLapDetection.fragments,
-        diagnostics: activeLapDetection.diagnostics,
+        positionCalibration:
+          activeLapDetection.positionCalibration,
       },
       HTTP_STATUS.OK,
     )
