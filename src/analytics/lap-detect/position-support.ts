@@ -43,14 +43,17 @@ export function derivePositionCalibration(timeline: UsableTimeline, auditedFrame
     const positionSteps = calibrationSamples.map(({ positionStep }) => positionStep)
     const positionRates = calibrationSamples.map(({ positionRatePerSecond }) => positionRatePerSecond)
     const medianPositionStep = median(positionSteps)
-    const dataDerivedInterpolationSpan = medianPositionStep * config.interpolation.positionGapMedianMultiplier
+
+    // Derive interpolation support from observed clean position steps instead of a fixed span cap.
+    const maximumSupportedPositionSpan = robustUpperLimit(
+        positionSteps,
+        config.calibration.positionStepMadMultiplier,
+        config.calibration.positionStepIqrMultiplier,
+    )
 
     return {
         medianPositionStep,
-        maximumInterpolationSpan: Math.min(
-            dataDerivedInterpolationSpan,
-            config.interpolation.maximumAbsolutePositionSpan,
-        ),
+        maximumSupportedPositionSpan,
         medianPositionRatePerSecond: median(positionRates),
         globalPositionRateLimitPerSecond: robustUpperLimit(
             positionRates,
@@ -60,7 +63,7 @@ export function derivePositionCalibration(timeline: UsableTimeline, auditedFrame
     }
 }
 
-function calculateForwardPositionDelta(transition: AuditedTimelineTransition): number {
+export function calculateForwardPositionDelta(transition: AuditedTimelineTransition): number {
     const rawDelta = transition.current.normalizedTrackPosition - transition.previous.normalizedTrackPosition
     return rawDelta < -0.5 ? rawDelta + 1 : rawDelta
 }

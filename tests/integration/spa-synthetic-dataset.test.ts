@@ -31,5 +31,10 @@ describe("synthetic Spa-like telemetry dataset", () => {
 		expect(issueCodes).toContain("LOCAL_OUTLIER");
 		expect(issueCodes).toContain("SAMPLING_GAP");
 		expect(result.lapDetectionResult.positionCalibration).not.toBeNull();
+		expect(result.lapDetectionResult.linearizedLaps).toHaveLength(result.lapDetectionResult.laps.length);
+		for (const lap of result.lapDetectionResult.linearizedLaps) {
+			expect(lap.elapsedTimestampsMs).toHaveLength(result.lapDetectionResult.linearGrid?.positions.length ?? 0);
+			expect(lap.steeringDegrees).toHaveLength(result.lapDetectionResult.linearGrid?.positions.length ?? 0);
+		}
 	});
 });

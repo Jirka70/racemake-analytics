@@ -14,10 +14,12 @@ export function findLapCrossingCandidates(timeline: UsableTimeline, auditedFrame
         if (!canUsePositionTransition(transition, auditedFrameBySourceIndex)) continue
         if (!hasForwardPositionWrap(transition)) continue
 
+        const lapCounterEvidence = evaluateLapCounterEvidence(timeline, transitionIndex, lapCounterSearchRadiusFrames)
+
         candidates.push({
             transitionIndex,
             transition,
-            lapCounterEvidence: evaluateLapCounterEvidence(timeline, transitionIndex, lapCounterSearchRadiusFrames),
+            lapCounterEvidence
         })
     }
 

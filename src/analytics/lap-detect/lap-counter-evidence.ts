@@ -54,7 +54,7 @@ function collectSurroundingLapCounterIncrements(timeline: UsableTimeline, candid
     for (const direction of [1, -1] as const) {
         for (let distance = 1; distance <= searchRadiusFrames; distance++) {
             const transition = timeline.transitions[candidateTransitionIndex + direction * distance]
-            if (!transition || transition.timeContinuity !== 'continuous') break
+            if (!transition || transition.timeContinuity !== 'continuous') break // is "gap" or "break"
 
             const lapIncrement = calculateLapCounterIncrement(transition)
             if (lapIncrement === 0) continue
