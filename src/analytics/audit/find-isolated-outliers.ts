@@ -1,6 +1,7 @@
 import type { DriverInputChannel, IsolatedChannelOutlier, IsolatedOutlierConfig, LocallyAuditedSignalChannel, SamplingBaseline, SignalResidualSample } from "../frame-audit-types";
 import { interquartileRange, median, quantile, scaledMedianAbsoluteDeviation } from "../robust-statistics";
 import type { NormalizedTelemetryFrame } from "../telemetry-types";
+import { linearInterpolate } from "../util/linear-interpolation";
 import { readChannelValue } from "./util/read-channel-value";
 
 const LOCALLY_AUDITED_SIGNAL_CHANNELS:
@@ -310,10 +311,6 @@ function createSignalResidualSample(previousFrame: NormalizedTelemetryFrame,
         incomingDurationMs,
         outgoingDurationMs,
     }
-}
-
-function linearInterpolate(startValue: number, endValue: number, fraction: number): number {
-    return startValue + fraction * (endValue - startValue)
 }
 
 function unwrapTrackPosition(position: number, reference: number) {

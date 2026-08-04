@@ -1,3 +1,5 @@
+import { linearInterpolate } from './util/linear-interpolation'
+
 const NORMAL_DISTRIBUTION_MAD_SCALE_FACTOR = 1.4826
 
 function sortFiniteSample(values: readonly number[]): number[] {
@@ -26,7 +28,7 @@ function quantileFromSortedSample(
     return lowerValue
   }
 
-  return lowerValue + (position - lowerIndex) * (upperValue - lowerValue)
+  return linearInterpolate(lowerValue, upperValue, position - lowerIndex)
 }
 
 /**

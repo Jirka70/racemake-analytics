@@ -1,4 +1,5 @@
 import type { AuditedFrame, AuditedTimelineTransition, UsableTimeline } from '../frame-audit-types'
+import { linearInterpolate } from '../util/linear-interpolation'
 import { createLinearizedLapCoverage } from './create-lap-grid-coverage'
 import type { DetectedLap, LapLinearizationIssue, LapLinearizationIssueCode, LinearizedLap, LinearLapGrid, PositionCalibration } from './lap-detect-types'
 import { canUseChannelTransition, canUsePositionTransition } from './util/usable-channels'
@@ -54,8 +55,8 @@ function linearizeGridPoint(bracket: LapInterpolationBracket | null, lap: Detect
 
 function linearizeLapPoint(bracket: LapInterpolationBracket, lap: DetectedLap): InterpolatedLapPoint {
     const fraction = (bracket.targetPosition - bracket.fromPosition) / (bracket.toPosition - bracket.fromPosition)
-    const timestampMs = interpolate(bracket.transition.previous.timestampMs, bracket.transition.current.timestampMs, fraction)
-    const steeringDegrees = interpolate(bracket.transition.previous.steeringDegrees, bracket.transition.current.steeringDegrees, fraction)
+    const timestampMs = linearInterpolate(bracket.transition.previous.timestampMs, bracket.transition.current.timestampMs, fraction)
+    const steeringDegrees = linearInterpolate(bracket.transition.previous.steeringDegrees, bracket.transition.current.steeringDegrees, fraction)
 
     return { elapsedTimestampMs: timestampMs - lap.startCrossing.timestampMs, steeringDegrees }
 }
@@ -109,8 +110,4 @@ function createLapInterpolationBracketFinder(timeline: UsableTimeline, lap: Dete
 
 function unsupportedGridPoint(issueCode: LapLinearizationIssueCode): LinearizedGridPointResult {
     return { elapsedTimestampMs: null, steeringDegrees: null, issueCodes: [issueCode] }
-}
-
-function interpolate(from: number, to: number, fraction: number): number {
-    return from + fraction * (to - from)
 }

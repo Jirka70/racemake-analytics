@@ -1,8 +1,9 @@
 import type { AuditedFrame, AuditedTimelineTransition, SamplingBaseline, UsableTimeline } from '../frame-audit-types'
 import { median } from '../robust-statistics'
+import { linearInterpolate } from '../util/linear-interpolation'
+import { calculateForwardPositionDelta } from '../util/normalized-position'
 import { findLapCrossingCandidates } from './lap-crossing-candidates'
 import type { LapCrossing, LapCrossingCandidate, LapCrossingConfidence, LapCrossingLimitation, LapCrossingPositionInterpolation, LapDetectionConfig, PositionCalibration } from './lap-detect-types'
-import { calculateForwardPositionDelta } from './position-support'
 import { canUsePositionTransition } from './util/usable-channels'
 
 const LAP_END_POSITION = 1
@@ -15,8 +16,7 @@ export function findLapCrossings(timeline: UsableTimeline, sampling: SamplingBas
 function createLapCrossing(candidate: LapCrossingCandidate, timeline: UsableTimeline, sampling: SamplingBaseline, calibration: PositionCalibration, auditedFrameBySourceIndex: ReadonlyMap<number, AuditedFrame>, config: LapDetectionConfig): LapCrossing {
     const positionInterpolation = createPositionInterpolation(candidate.transition, calibration)
     const previousFrame =  candidate.transition.previous
-    const timestampMs = previousFrame.timestampMs
-        + positionInterpolation.crossingFraction * candidate.transition.timestampDeltaMs
+    const timestampMs = linearInterpolate(previousFrame.timestampMs, candidate.transition.current.timestampMs, positionInterpolation.crossingFraction)
     const localRatesBefore = collectLocalPositionRates(timeline, candidate.transitionIndex, -1, sampling, auditedFrameBySourceIndex, config)
     const localRatesAfter = collectLocalPositionRates(timeline, candidate.transitionIndex, 1, sampling, auditedFrameBySourceIndex, config)
     const confidence = calculateLapCrossingConfidence(candidate, positionInterpolation, localRatesBefore, localRatesAfter, sampling, config)
@@ -157,7 +157,7 @@ function collectLocalPositionRates(timeline: UsableTimeline, candidateTransition
             : transition.previous.timestampMs - anchorTimestampMs
         if (distanceFromCrossingMs > maximumWindowDurationMs) break
 
-        const positionDelta = calculateForwardPositionDelta(transition)
+        const positionDelta = calculateForwardPositionDelta(transition.previous.normalizedTrackPosition, transition.current.normalizedTrackPosition)
         if (positionDelta <= 0 || transition.timestampDeltaMs <= 0) continue
         rates.push(positionDelta / (transition.timestampDeltaMs / 1_000))
     }

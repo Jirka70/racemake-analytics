@@ -1,4 +1,8 @@
 import { auditTelemetry } from '../analytics/audit-telemetry'
+import {
+  detectCorners,
+  type CornerDetectionResult,
+} from '../analytics/corner-detect/detect-corners'
 import { detectLaps } from '../analytics/lap-detect/detect-laps'
 import type {
   FrameAuditConfig,
@@ -22,6 +26,7 @@ export interface TelemetryAuditPipelineResult {
   readonly normalizedTelemetry: NormalizedTelemetryStint
   readonly auditResult: TelemetryAuditResult
   readonly lapDetectionResult: LapDetectionResult
+  readonly cornerDetectionResult: CornerDetectionResult
 }
 
 /**
@@ -43,11 +48,16 @@ export function runTelemetryAuditPipeline(
     auditResult,
     lapDetectionConfig,
   )
+  const cornerDetectionResult = detectCorners(
+    auditResult,
+    lapDetectionResult,
+  )
 
   return Object.freeze({
     validatedWirePayload,
     normalizedTelemetry,
     auditResult,
     lapDetectionResult,
+    cornerDetectionResult,
   })
 }

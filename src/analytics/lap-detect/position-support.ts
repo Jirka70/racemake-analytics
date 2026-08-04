@@ -1,5 +1,6 @@
-import type { AuditedFrame, AuditedTimelineTransition, UsableTimeline } from '../frame-audit-types'
+import type { AuditedFrame, UsableTimeline } from '../frame-audit-types'
 import { interquartileRange, median, quantile, scaledMedianAbsoluteDeviation } from '../robust-statistics'
+import { calculateForwardPositionDelta } from '../util/normalized-position'
 import type { LapDetectionConfig, PositionCalibration } from './lap-detect-types'
 import { canUsePositionTransition } from './util/usable-channels'
 
@@ -14,7 +15,7 @@ export function derivePositionCalibration(timeline: UsableTimeline, auditedFrame
     for (const transition of timeline.transitions) {
         if (!canUsePositionTransition(transition, auditedFrameBySourceIndex)) continue
 
-        const positionStep = calculateForwardPositionDelta(transition)
+        const positionStep = calculateForwardPositionDelta(transition.previous.normalizedTrackPosition, transition.current.normalizedTrackPosition)
         if (positionStep <= 0) continue
 
         const durationSeconds = transition.timestampDeltaMs / 1_000
@@ -61,11 +62,6 @@ export function derivePositionCalibration(timeline: UsableTimeline, auditedFrame
             config.calibration.positionRateIqrMultiplier,
         ),
     }
-}
-
-export function calculateForwardPositionDelta(transition: AuditedTimelineTransition): number {
-    const rawDelta = transition.current.normalizedTrackPosition - transition.previous.normalizedTrackPosition
-    return rawDelta < -0.5 ? rawDelta + 1 : rawDelta
 }
 
 function robustUpperLimit(values: readonly number[], madMultiplier: number, iqrMultiplier: number): number {
