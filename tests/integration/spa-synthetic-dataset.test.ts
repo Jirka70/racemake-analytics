@@ -66,6 +66,11 @@ describe("synthetic Spa-like telemetry dataset", () => {
 		expect(strengthProfile.cells.every(({ signedSteeringDegrees, steeringStrengthDegrees }) => signedSteeringDegrees === null
 			? steeringStrengthDegrees === null
 			: steeringStrengthDegrees === Math.abs(signedSteeringDegrees))).toBeTrue();
+		const logStrengthProfile = result.cornerDetectionResult.logSteeringStrengthProfile;
+		expect(logStrengthProfile.cells).toEqual(strengthProfile.cells.map(({ cellCenter, steeringStrengthDegrees }) => ({
+			cellCenter,
+			logSteeringStrength: steeringStrengthDegrees === null ? null : Math.log1p(steeringStrengthDegrees),
+		})));
 		const otsu = result.cornerDetectionResult.steeringStrengthOtsuResult;
 		expect(otsu.status).toBe("calculated");
 		if (otsu.status !== "calculated") throw new Error("Expected a steering-strength Otsu threshold");
@@ -75,7 +80,7 @@ describe("synthetic Spa-like telemetry dataset", () => {
 		const thresholds = result.cornerDetectionResult.steeringStrengthThresholdResult;
 		expect(thresholds.status).toBe("calculated");
 		if (thresholds.status !== "calculated") throw new Error("Expected steering-strength hysteresis thresholds");
-		expect(thresholds.highThresholdDegrees).toBe(otsu.threshold);
+		expect(thresholds.highThresholdDegrees).toBeCloseTo(Math.expm1(otsu.threshold));
 		expect(thresholds.lowThresholdDegrees).toBeLessThanOrEqual(thresholds.highThresholdDegrees);
 		for (const candidate of result.cornerDetectionResult.cornerCandidates) {
 			expect(candidate.cellIndexes).not.toHaveLength(0);
@@ -83,6 +88,9 @@ describe("synthetic Spa-like telemetry dataset", () => {
 			expect(candidate.endCellIndexExclusive).toBe(((candidate.cellIndexes.at(-1) ?? -1) + 1) % strengthProfile.cells.length);
 		}
 		expect(result.cornerDetectionResult.confirmedCornerCandidates.every(({ confidence }) => confidence > 0.5)).toBeTrue();
+		expect(result.cornerDetectionResult.confirmedCornerCandidateShapes.map(({ candidate }) => candidate)).toEqual(
+			[...result.cornerDetectionResult.confirmedCornerCandidates],
+		);
 
 		const sampleLap = aligned.laps[0];
 		const detectedLap = result.lapDetectionResult.laps.find(({ lapNumber }) => lapNumber === sampleLap?.lapNumber);

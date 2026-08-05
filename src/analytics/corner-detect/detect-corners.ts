@@ -4,25 +4,33 @@ import type { OtsuResult } from '../otsu'
 import { calculateSteeringStrengthOtsu } from './calculate-steering-strength-otsu'
 import { confirmCornerCandidates, type ConfirmedCornerCandidate } from './confirm-corner-candidates'
 import { createCellAlignedSteering, type CellAlignedSteering } from './create-cell-aligned-steering'
+import { createDetectedCorners, type ConfirmedInnerValley, type DetectedCorner } from './create-detected-corners'
+import { createLogSteeringStrengthProfile, type LogSteeringStrengthProfile } from './create-log-steering-strength-profile'
 import { createSteeringStrengthProfile, type SteeringStrengthProfile } from './create-steering-strength-profile'
 import { createTrackSteeringProfile, type TrackSteeringProfile } from './create-track-steering-profile'
 import { deriveSteeringStrengthThresholds, type SteeringStrengthThresholdResult } from './derive-steering-strength-thresholds'
 import { findCornerCandidates, type CornerCandidate } from './find-corner-candidates'
+import { findInnerCornersInCandidates, type ConfirmedCornerCandidateShape } from './find-inner-corners-in-candidates'
 import { smoothTrackSteeringProfile, type SmoothedTrackSteeringProfile } from './smooth-track-steering-profile'
 
 const SAVITZKY_GOLAY_POLYNOMIAL_ORDER = 2
 const SAVITZKY_GOLAY_WINDOW_SIZE = 5
 const MINIMUM_CORNER_CANDIDATE_CONFIDENCE = 0.5
+const PROFILE_RESIDUAL_NOISE_MULTIPLIER = 3
 
 export interface CornerDetectionResult {
     readonly cellAlignedSteering: CellAlignedSteering
     readonly trackSteeringProfile: TrackSteeringProfile
     readonly smoothedTrackSteeringProfile: SmoothedTrackSteeringProfile
     readonly steeringStrengthProfile: SteeringStrengthProfile
+    readonly logSteeringStrengthProfile: LogSteeringStrengthProfile
     readonly steeringStrengthOtsuResult: OtsuResult
     readonly steeringStrengthThresholdResult: SteeringStrengthThresholdResult
     readonly cornerCandidates: readonly CornerCandidate[]
     readonly confirmedCornerCandidates: readonly ConfirmedCornerCandidate[]
+    readonly confirmedCornerCandidateShapes: readonly ConfirmedCornerCandidateShape[]
+    readonly confirmedInnerValleys: readonly ConfirmedInnerValley[]
+    readonly corners: readonly DetectedCorner[]
 }
 
 export function detectCorners(audit: TelemetryAuditResult, lapDetection: LapDetectionResult): CornerDetectionResult {
@@ -35,9 +43,12 @@ export function detectCorners(audit: TelemetryAuditResult, lapDetection: LapDete
         minimumLapSupport,
     })
     const steeringStrengthProfile = createSteeringStrengthProfile(smoothedTrackSteeringProfile)
-    const steeringStrengthOtsuResult = calculateSteeringStrengthOtsu(steeringStrengthProfile)
+    const logSteeringStrengthProfile = createLogSteeringStrengthProfile(steeringStrengthProfile)
+    const steeringStrengthOtsuResult = calculateSteeringStrengthOtsu(logSteeringStrengthProfile)
     const steeringStrengthThresholdResult = deriveSteeringStrengthThresholds(steeringStrengthProfile, steeringStrengthOtsuResult)
     const cornerCandidates = findCornerCandidates(steeringStrengthProfile, steeringStrengthThresholdResult)
     const confirmedCornerCandidates = confirmCornerCandidates(cornerCandidates, cellAlignedSteering, steeringStrengthThresholdResult, MINIMUM_CORNER_CANDIDATE_CONFIDENCE)
-    return { cellAlignedSteering, trackSteeringProfile, smoothedTrackSteeringProfile, steeringStrengthProfile, steeringStrengthOtsuResult, steeringStrengthThresholdResult, cornerCandidates, confirmedCornerCandidates }
+    const confirmedCornerCandidateShapes = findInnerCornersInCandidates(confirmedCornerCandidates, steeringStrengthProfile, trackSteeringProfile, smoothedTrackSteeringProfile, PROFILE_RESIDUAL_NOISE_MULTIPLIER)
+    const { confirmedInnerValleys, corners } = createDetectedCorners(confirmedCornerCandidateShapes, cellAlignedSteering, SAVITZKY_GOLAY_WINDOW_SIZE)
+    return { cellAlignedSteering, trackSteeringProfile, smoothedTrackSteeringProfile, steeringStrengthProfile, logSteeringStrengthProfile, steeringStrengthOtsuResult, steeringStrengthThresholdResult, cornerCandidates, confirmedCornerCandidates, confirmedCornerCandidateShapes, confirmedInnerValleys, corners }
 }
