@@ -17,6 +17,10 @@ describe('telemetry audit pipeline', () => {
     const normalizedFrames = result.normalizedTelemetry.frames
     const audit = result.auditResult
 
+    expect(result.coachCallsResult.racingLapComparison).not.toBeNull()
+    expect(result.coachCallsResult.racingLapComparison?.bestLap.lapTimeMs)
+      .toBeLessThanOrEqual(result.coachCallsResult.racingLapComparison?.worstLap.lapTimeMs ?? Number.NEGATIVE_INFINITY)
+
     expect(normalizedFrames).toHaveLength(wireFrames.length)
     expect(audit.frameTransitions).toHaveLength(
       normalizedFrames.length - 1,

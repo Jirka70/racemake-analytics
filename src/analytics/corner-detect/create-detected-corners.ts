@@ -9,16 +9,16 @@ export interface ConfirmedInnerValley extends ValleyVoteResult {
     readonly valleyWidth: ValleyWidth
 }
 
-export interface DetectedCorner extends CornerCandidate {}
+export interface DetectedCornerSegment extends CornerCandidate {}
 
 export interface DetectedCornersResult {
     readonly confirmedInnerValleys: readonly ConfirmedInnerValley[]
-    readonly corners: readonly DetectedCorner[]
+    readonly corners: readonly DetectedCornerSegment[]
 }
 
 export function createDetectedCorners(candidateShapes: readonly ConfirmedCornerCandidateShape[], cellAlignedSteering: CellAlignedSteering, windowSize: number): DetectedCornersResult {
     const confirmedInnerValleys: ConfirmedInnerValley[] = []
-    const corners: DetectedCorner[] = []
+    const corners: DetectedCornerSegment[] = []
     for (const candidateShape of candidateShapes) {
         const candidateValleys = confirmInnerValleys(candidateShape, cellAlignedSteering, windowSize)
         confirmedInnerValleys.push(...candidateValleys)
@@ -38,12 +38,12 @@ function confirmInnerValleys(candidateShape: ConfirmedCornerCandidateShape, cell
     })
 }
 
-function splitCandidateAtValleys(candidate: ConfirmedCornerCandidate, valleys: readonly ConfirmedInnerValley[], cellCount: number): DetectedCorner[] {
+function splitCandidateAtValleys(candidate: ConfirmedCornerCandidate, valleys: readonly ConfirmedInnerValley[], cellCount: number): DetectedCornerSegment[] {
     const splitPositions = valleys
         .map(({ valleyWidth }) => candidate.cellIndexes.indexOf(valleyWidth.valleyDepth.peakValleyPeak.valley.cellIndex))
         .filter((position) => position > 0 && position < candidate.cellIndexes.length)
         .sort((first, second) => first - second)
-    const corners: DetectedCorner[] = []
+    const corners: DetectedCornerSegment[] = []
     let startPosition = 0
     for (const splitPosition of new Set(splitPositions)) {
         corners.push(createDetectedCorner(candidate.cellIndexes.slice(startPosition, splitPosition), cellCount))
@@ -53,7 +53,7 @@ function splitCandidateAtValleys(candidate: ConfirmedCornerCandidate, valleys: r
     return corners
 }
 
-function createDetectedCorner(cellIndexes: readonly number[], cellCount: number): DetectedCorner {
+function createDetectedCorner(cellIndexes: readonly number[], cellCount: number): DetectedCornerSegment {
     return {
         startCellIndex: cellIndexes[0]!,
         endCellIndexExclusive: (cellIndexes[cellIndexes.length - 1]! + 1) % cellCount,

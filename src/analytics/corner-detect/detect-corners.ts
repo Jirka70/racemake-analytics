@@ -4,7 +4,8 @@ import type { OtsuResult } from '../otsu'
 import { calculateSteeringStrengthOtsu } from './calculate-steering-strength-otsu'
 import { confirmCornerCandidates, type ConfirmedCornerCandidate } from './confirm-corner-candidates'
 import { createCellAlignedSteering, type CellAlignedSteering } from './create-cell-aligned-steering'
-import { createDetectedCorners, type ConfirmedInnerValley, type DetectedCorner } from './create-detected-corners'
+import { createDetectedCornerMetadata, type DetectedCorner } from './create-detected-corner-metadata'
+import { createDetectedCorners, type ConfirmedInnerValley } from './create-detected-corners'
 import { createLogSteeringStrengthProfile, type LogSteeringStrengthProfile } from './create-log-steering-strength-profile'
 import { createSteeringStrengthProfile, type SteeringStrengthProfile } from './create-steering-strength-profile'
 import { createTrackSteeringProfile, type TrackSteeringProfile } from './create-track-steering-profile'
@@ -49,6 +50,9 @@ export function detectCorners(audit: TelemetryAuditResult, lapDetection: LapDete
     const cornerCandidates = findCornerCandidates(steeringStrengthProfile, steeringStrengthThresholdResult)
     const confirmedCornerCandidates = confirmCornerCandidates(cornerCandidates, cellAlignedSteering, steeringStrengthThresholdResult, MINIMUM_CORNER_CANDIDATE_CONFIDENCE)
     const confirmedCornerCandidateShapes = findInnerCornersInCandidates(confirmedCornerCandidates, steeringStrengthProfile, trackSteeringProfile, smoothedTrackSteeringProfile, PROFILE_RESIDUAL_NOISE_MULTIPLIER)
-    const { confirmedInnerValleys, corners } = createDetectedCorners(confirmedCornerCandidateShapes, cellAlignedSteering, SAVITZKY_GOLAY_WINDOW_SIZE)
+    const { confirmedInnerValleys, corners: cornerSegments } = createDetectedCorners(confirmedCornerCandidateShapes, cellAlignedSteering, SAVITZKY_GOLAY_WINDOW_SIZE)
+    const corners = steeringStrengthThresholdResult.status === 'calculated'
+        ? createDetectedCornerMetadata(cornerSegments, steeringStrengthProfile, steeringStrengthThresholdResult.lowThresholdDegrees)
+        : []
     return { cellAlignedSteering, trackSteeringProfile, smoothedTrackSteeringProfile, steeringStrengthProfile, logSteeringStrengthProfile, steeringStrengthOtsuResult, steeringStrengthThresholdResult, cornerCandidates, confirmedCornerCandidates, confirmedCornerCandidateShapes, confirmedInnerValleys, corners }
 }

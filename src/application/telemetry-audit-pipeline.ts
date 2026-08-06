@@ -3,6 +3,10 @@ import {
   detectCorners,
   type CornerDetectionResult,
 } from '../analytics/corner-detect/detect-corners'
+import {
+  createCoachCalls,
+  type CoachCallsResult,
+} from '../analytics/coach/create-coach-calls'
 import { detectLaps } from '../analytics/lap-detect/detect-laps'
 import type {
   FrameAuditConfig,
@@ -27,6 +31,7 @@ export interface TelemetryAuditPipelineResult {
   readonly auditResult: TelemetryAuditResult
   readonly lapDetectionResult: LapDetectionResult
   readonly cornerDetectionResult: CornerDetectionResult
+  readonly coachCallsResult: CoachCallsResult
 }
 
 /**
@@ -52,6 +57,9 @@ export function runTelemetryAuditPipeline(
     auditResult,
     lapDetectionResult,
   )
+  const coachCallsResult = createCoachCalls(
+    lapDetectionResult,
+  )
 
   return Object.freeze({
     validatedWirePayload,
@@ -59,5 +67,6 @@ export function runTelemetryAuditPipeline(
     auditResult,
     lapDetectionResult,
     cornerDetectionResult,
+    coachCallsResult,
   })
 }

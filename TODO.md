@@ -55,3 +55,24 @@ If all related channels jump together, treat that as evidence of a shared teleme
 Expose typed helpers or final eligibility flags from the audit layer, such as `canAggregateChannel`, `canInterpolateChannel`, and `canCalculateDerivative`. Downstream lap, corner, and coaching analyzers must consume those decisions without defining their own confidence thresholds.
 
 Add focused tests for status transitions, epoch boundaries, recovery, repeated-fault escalation, zero-scale MAD/IQR data, and preservation of unaffected channels.
+
+## Corner detection limitations
+
+Add typed `CornerDetectionLimitation` diagnostics instead of interpreting every empty or weak result as evidence that the track has no corners. Cover at least:
+
+- too few real-racing laps to verify repeatability;
+- Otsu threshold unavailable for an empty, constant, or nearly constant steering-strength profile;
+- weak Otsu class separability or an implausibly small threshold class;
+- insufficient position or steering support over part of the track;
+- a whole-track steering profile without a defensible straight baseline;
+- an inner-corner boundary that is deep in the median profile but not repeatable across laps;
+- sensitivity of the minimum recognizable valley width to grid and Savitzky–Golay resolution.
+
+Store the threshold diagnostics and limitation reasons in the corner-detection result. A limitation must describe uncertainty; it must not silently invent a fallback corner layout.
+
+### Final corner metadata
+
+- Preserve candidate confidence when a candidate is split into final detected corners.
+- Derive each corner's direction (`left`, `right`, or `mixed`) from the signed representative steering profile.
+- Assign every final corner a stable deterministic ID for findings and coaching references.
+- Expose the normalized apex-proxy center position in addition to its cell index and interval.

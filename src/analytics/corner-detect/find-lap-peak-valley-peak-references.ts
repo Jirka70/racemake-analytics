@@ -48,75 +48,101 @@ export interface ValleyVoteResult extends ConfirmedPeakValleyPeak {
     readonly confirmed: boolean
 }
 
-export function findLapPeakValleyPeakReferencesInRacingLaps(peakValleyPeak: PeakValleyPeak, racingLapsSteering: readonly CellAlignedLapSteering[], windowSize: number): readonly LapPeakValleyPeakReference[] {
-    const halfWindowSize = Math.floor(windowSize / 2)
+export function findLapPeakValleyPeakReferencesInRacingLaps(peakValleyPeak: PeakValleyPeak, racingLapsSteering: readonly CellAlignedLapSteering[], findingAreaSize: number): readonly LapPeakValleyPeakReference[] {
+    const halfAreaSize = Math.floor(findingAreaSize / 2)
     return racingLapsSteering.map((lapSteering) => ({
         lapNumber: lapSteering.lapNumber,
         leftPeakCellIndex: findLocalMaximum(lapSteering, 
-            peakValleyPeak.leftPeak.cellIndex - halfWindowSize, 
-            peakValleyPeak.leftPeak.cellIndex + halfWindowSize),
+            peakValleyPeak.leftPeak.cellIndex - halfAreaSize, 
+            peakValleyPeak.leftPeak.cellIndex + halfAreaSize),
         valleyCellIndex: findLocalMinimum(lapSteering, 
-            peakValleyPeak.valley.cellIndex - halfWindowSize, 
-            peakValleyPeak.valley.cellIndex + halfWindowSize),
+            peakValleyPeak.valley.cellIndex - halfAreaSize, 
+            peakValleyPeak.valley.cellIndex + halfAreaSize),
         rightPeakCellIndex: findLocalMaximum(lapSteering, 
-            peakValleyPeak.rightPeak.cellIndex - halfWindowSize, 
-            peakValleyPeak.rightPeak.cellIndex + halfWindowSize),
+            peakValleyPeak.rightPeak.cellIndex - halfAreaSize, 
+            peakValleyPeak.rightPeak.cellIndex + halfAreaSize),
     }))
 }
 
 export function createPeakValleyPeaksInRacingLaps(peakValleyPeak: PeakValleyPeak, cellAlignedSteering: CellAlignedSteering, windowSize: number): readonly RacingLapPeakValleyPeak[] {
     const lapByNumber = new Map(cellAlignedSteering.laps.map((lap) => [lap.lapNumber, lap]))
-    return findLapPeakValleyPeakReferencesInRacingLaps(peakValleyPeak, cellAlignedSteering.laps, windowSize).map((reference) => ({
-        lapNumber: reference.lapNumber,
-        peakValleyPeak: createPeakValleyPeak(reference, lapByNumber.get(reference.lapNumber), cellAlignedSteering.cellCenters),
+    const lapPeakValleyPeaks = findLapPeakValleyPeakReferencesInRacingLaps(peakValleyPeak, cellAlignedSteering.laps, windowSize)
+    return lapPeakValleyPeaks.map((lapPeakValleyPeak) => ({
+        lapNumber: lapPeakValleyPeak.lapNumber,
+        peakValleyPeak: createPeakValleyPeak(lapPeakValleyPeak, 
+            lapByNumber.get(lapPeakValleyPeak.lapNumber), 
+            cellAlignedSteering.cellCenters),
     }))
 }
 
-export function computeValleysInRacingLaps(racingLapPeakValleyPeaks: readonly RacingLapPeakValleyPeak[], cellAlignedSteering: CellAlignedSteering): readonly RacingLapValley[] {
+export function computeValleysInRacingLaps(racingLapPeakValleyPeaks: readonly RacingLapPeakValleyPeak[],
+    cellAlignedSteering: CellAlignedSteering): readonly RacingLapValley[] {
     const lapByNumber = new Map(cellAlignedSteering.laps.map((lap) => [lap.lapNumber, lap]))
     return racingLapPeakValleyPeaks.map(({ lapNumber, peakValleyPeak }) => computeRacingLapValley(lapNumber, peakValleyPeak, lapByNumber.get(lapNumber), cellAlignedSteering.cellCenters.length))
 }
 
 export function confirmValleysAcrossRacingLaps(peakValleyPeak: PeakValleyPeak, racingLapValleys: readonly RacingLapValley[], profileResidualRequirementLog: number): ConfirmedPeakValleyPeak {
-    const lapSupport = racingLapValleys.flatMap(({ lapNumber, peakValleyPeak: racingLapPeakValleyPeak, depthLog, valleyCellMask }): PeakValleyPeakLapSupport[] => {
-        if (!racingLapPeakValleyPeak || depthLog === null || depthLog <= profileResidualRequirementLog) return []
-        return [{ lapNumber, peakValleyPeak: racingLapPeakValleyPeak, valleyCellMask }]
-    })
+    const lapSupport = racingLapValleys
+        .flatMap((racingLapValley) => 
+            createLapSupportIfValleyIsDeepEnough(racingLapValley, profileResidualRequirementLog))
+
     return { peakValleyPeak, lapSupport }
 }
 
 export function calculateValleyVotes(confirmedPeakValleyPeak: ConfirmedPeakValleyPeak, referenceValleyCellIndexes: readonly number[], cellAlignedSteering: CellAlignedSteering): ValleyVoteResult {
     const lapSupportByLapNumber = new Map(confirmedPeakValleyPeak.lapSupport.map((lapSupport) => [lapSupport.lapNumber, lapSupport]))
-    const lapVotes = cellAlignedSteering.laps.map((lap) => calculateRacingLapValleyVote(lap, lapSupportByLapNumber.get(lap.lapNumber), referenceValleyCellIndexes))
+    const lapVotes = cellAlignedSteering.laps
+        .map((lap) => calculateRacingLapValleyVote(lap, lapSupportByLapNumber.get(lap.lapNumber), referenceValleyCellIndexes))
     const voteCount = lapVotes.filter(({ isVoteFor }) => isVoteFor).length
     return { ...confirmedPeakValleyPeak, lapVotes, voteCount, racingLapCount: lapVotes.length, confirmed: voteCount > lapVotes.length / 2 }
 }
 
-function calculateRacingLapValleyVote(lap: CellAlignedLapSteering, lapSupport: PeakValleyPeakLapSupport | undefined, referenceValleyCellIndexes: readonly number[]): RacingLapValleyVote {
-    if (!lapSupport || referenceValleyCellIndexes.length === 0) return { lapNumber: lap.lapNumber, confidence: 0, isVoteFor: false }
+function createLapSupportIfValleyIsDeepEnough(racingLapValley: RacingLapValley, profileResidualRequirementLog: number): PeakValleyPeakLapSupport[] {
+    const { lapNumber, peakValleyPeak, depthLog, valleyCellMask } = racingLapValley
+    if (!peakValleyPeak 
+        || depthLog === null 
+        || depthLog <= profileResidualRequirementLog) return []
+
+    return [{ lapNumber, peakValleyPeak, valleyCellMask }]
+}
+
+function calculateRacingLapValleyVote(lap: CellAlignedLapSteering, 
+    lapSupport: PeakValleyPeakLapSupport | undefined, 
+    medianProfileValleyCellIndexes: readonly number[]): RacingLapValleyVote {
+    if (!lapSupport || medianProfileValleyCellIndexes.length === 0) {
+        return { lapNumber: lap.lapNumber, confidence: 0, isVoteFor: false }
+    }
     let supportedCellCount = 0
     let overlappingValleyCellCount = 0
-    for (const cellIndex of referenceValleyCellIndexes) {
+    for (const cellIndex of medianProfileValleyCellIndexes) {
         if (!lap.cornerDetectionSupportedCellMask[cellIndex]) continue
         supportedCellCount++
         if (lapSupport.valleyCellMask[cellIndex]) overlappingValleyCellCount++
     }
-    const dataCoverage = supportedCellCount / referenceValleyCellIndexes.length
-    const valleyOverlap = supportedCellCount === 0 ? 0 : overlappingValleyCellCount / supportedCellCount
+    const dataCoverage = supportedCellCount / medianProfileValleyCellIndexes.length
+    const valleyOverlap = supportedCellCount === 0 
+        ? 0 
+        : overlappingValleyCellCount / supportedCellCount
     const confidence = dataCoverage * valleyOverlap
     return { lapNumber: lap.lapNumber, confidence, isVoteFor: confidence > MINIMUM_RACING_LAP_VALLEY_CONFIDENCE }
 }
 
-function computeRacingLapValley(lapNumber: number, peakValleyPeak: PeakValleyPeak | null, lap: CellAlignedLapSteering | undefined, cellCount: number): RacingLapValley {
+function computeRacingLapValley(lapNumber: number, lapPeakValleyPeak: PeakValleyPeak | null, lap: CellAlignedLapSteering | undefined, cellCount: number): RacingLapValley {
     const emptyValley = { lapNumber, peakValleyPeak: null, depthLog: null, halfDepthStrengthDegrees: null, valleyWidthCellCount: 0, valleyCellMask: Array.from({ length: cellCount }, () => false) }
-    if (!peakValleyPeak || !lap) return emptyValley
+    if (!lapPeakValleyPeak || !lap) return emptyValley
 
-    const weakerPeakStrengthDegrees = Math.min(peakValleyPeak.leftPeak.steeringStrengthDegrees, peakValleyPeak.rightPeak.steeringStrengthDegrees)
-    const valleyLog = Math.log1p(peakValleyPeak.valley.steeringStrengthDegrees)
-    const depthLog = Math.log1p(weakerPeakStrengthDegrees) - valleyLog
-    const halfDepthStrengthDegrees = Math.expm1(valleyLog + depthLog / 2)
-    const valleyCellMask = createValleyCellMask(lap, peakValleyPeak, halfDepthStrengthDegrees)
-    return { lapNumber, peakValleyPeak, depthLog, halfDepthStrengthDegrees, valleyWidthCellCount: valleyCellMask.filter(Boolean).length, valleyCellMask }
+    const weakerPeakStrengthDegrees = Math.min(lapPeakValleyPeak.leftPeak.steeringStrengthDegrees,
+        lapPeakValleyPeak.rightPeak.steeringStrengthDegrees)
+    const valleySteeringStrengthLog = Math.log1p(lapPeakValleyPeak.valley.steeringStrengthDegrees)
+    const depthLog = Math.log1p(weakerPeakStrengthDegrees) - valleySteeringStrengthLog
+    const halfDepthStrengthDegrees = Math.expm1(valleySteeringStrengthLog + depthLog / 2)
+    const valleyCellMask = createValleyCellMask(lap, lapPeakValleyPeak, halfDepthStrengthDegrees)
+    return { lapNumber, 
+        peakValleyPeak: lapPeakValleyPeak, 
+        depthLog, 
+        halfDepthStrengthDegrees, 
+        valleyWidthCellCount: valleyCellMask.filter(Boolean).length, 
+        valleyCellMask }
 }
 
 function createValleyCellMask(lap: CellAlignedLapSteering, peakValleyPeak: PeakValleyPeak, halfDepthStrengthDegrees: number): boolean[] {
@@ -124,12 +150,26 @@ function createValleyCellMask(lap: CellAlignedLapSteering, peakValleyPeak: PeakV
     const valleyCellIndex = peakValleyPeak.valley.cellIndex
     if (!isAtOrBelowHalfDepth(lap, valleyCellIndex, halfDepthStrengthDegrees)) return valleyCellMask
     valleyCellMask[valleyCellIndex] = true
-    markValleyCells(lap, valleyCellMask, valleyCellIndex, peakValleyPeak.leftPeak.cellIndex, -1, halfDepthStrengthDegrees)
-    markValleyCells(lap, valleyCellMask, valleyCellIndex, peakValleyPeak.rightPeak.cellIndex, 1, halfDepthStrengthDegrees)
+    const leftDirection = -1
+    const rightDirection = 1
+    markValleyCellsBelowHalfDepthAsTrue(lap, 
+        valleyCellMask, valleyCellIndex, 
+        peakValleyPeak.leftPeak.cellIndex, leftDirection, 
+        halfDepthStrengthDegrees)
+    markValleyCellsBelowHalfDepthAsTrue(lap, 
+        valleyCellMask, valleyCellIndex, 
+        peakValleyPeak.rightPeak.cellIndex, rightDirection, 
+        halfDepthStrengthDegrees)
     return valleyCellMask
 }
 
-function markValleyCells(lap: CellAlignedLapSteering, valleyCellMask: boolean[], valleyCellIndex: number, boundaryCellIndex: number, direction: -1 | 1, halfDepthStrengthDegrees: number): void {
+function markValleyCellsBelowHalfDepthAsTrue(lap: CellAlignedLapSteering, 
+    valleyCellMask: boolean[], 
+    valleyCellIndex: number, 
+    boundaryCellIndex: number, 
+    direction: -1 | 1, 
+    halfDepthStrengthDegrees: number): void {
+
     const cellCount = lap.steeringDegreesByCell.length
     for (let offset = 1; offset <= cellCount; offset++) {
         const cellIndex = (valleyCellIndex + direction * offset + cellCount) % cellCount
@@ -141,16 +181,22 @@ function markValleyCells(lap: CellAlignedLapSteering, valleyCellMask: boolean[],
 
 function isAtOrBelowHalfDepth(lap: CellAlignedLapSteering, cellIndex: number, halfDepthStrengthDegrees: number): boolean {
     const steeringDegrees = lap.steeringDegreesByCell[cellIndex]
-    return steeringDegrees !== null && steeringDegrees !== undefined && Math.abs(steeringDegrees) <= halfDepthStrengthDegrees
+    return steeringDegrees !== null 
+        && steeringDegrees !== undefined 
+        && Math.abs(steeringDegrees) <= halfDepthStrengthDegrees
 }
 
 function createPeakValleyPeak(reference: LapPeakValleyPeakReference, lap: CellAlignedLapSteering | undefined, cellCenters: readonly number[]): PeakValleyPeak | null {
     const { leftPeakCellIndex, valleyCellIndex, rightPeakCellIndex } = reference
-    if (!lap || leftPeakCellIndex === null || valleyCellIndex === null || rightPeakCellIndex === null) return null
+    if (!lap || leftPeakCellIndex === null 
+        || valleyCellIndex === null 
+        || rightPeakCellIndex === null) return null
     const leftPeak = createSteeringShapeCell(leftPeakCellIndex, lap, cellCenters)
     const valley = createSteeringShapeCell(valleyCellIndex, lap, cellCenters)
     const rightPeak = createSteeringShapeCell(rightPeakCellIndex, lap, cellCenters)
-    return leftPeak && valley && rightPeak ? { leftPeak, valley, rightPeak } : null
+    return leftPeak && valley && rightPeak 
+        ? { leftPeak, valley, rightPeak } 
+        : null
 }
 
 function createSteeringShapeCell(cellIndex: number, lap: CellAlignedLapSteering, cellCenters: readonly number[]) {
@@ -163,25 +209,36 @@ function createSteeringShapeCell(cellIndex: number, lap: CellAlignedLapSteering,
 
 function findLocalMinimum(lapSteeringProfile: CellAlignedLapSteering, from: number, to: number): number | null {
     let localMinimum: { cellIndex: number, strength: number } | null = null
+    const lapSteeringGrid = lapSteeringProfile.steeringDegreesByCell
+    const numberOfCells = lapSteeringGrid.length
     for (let unwrappedCellIndex = from; unwrappedCellIndex <= to; unwrappedCellIndex++) {
-        const cellIndex = (unwrappedCellIndex + lapSteeringProfile.steeringDegreesByCell.length) % lapSteeringProfile.steeringDegreesByCell.length
-        const steeringDegrees = lapSteeringProfile.steeringDegreesByCell[cellIndex]
+        const cellIndex = (unwrappedCellIndex + numberOfCells) % numberOfCells // (+ numberOfCells) getting rid of negative indices
+        const steeringDegrees = lapSteeringGrid[cellIndex]
         if (steeringDegrees === null || steeringDegrees === undefined) continue
         const strength = Math.abs(steeringDegrees)
-        if (!localMinimum || strength <= localMinimum.strength) localMinimum = { cellIndex, strength }
+        if (!localMinimum || strength <= localMinimum.strength) {
+            localMinimum = { cellIndex, strength }
+        }
     }
-    return localMinimum?.cellIndex ?? null
+
+    if (localMinimum) return localMinimum.cellIndex
+    else return null
 }
 
 function findLocalMaximum(lapSteeringProfile: CellAlignedLapSteering, from: number, to: number): number | null {
     let localMaximum: { cellIndex: number, strength: number } | null = null
-    const numberOfCells = lapSteeringProfile.steeringDegreesByCell.length
+    const lapSteeringGrid = lapSteeringProfile.steeringDegreesByCell
+    const numberOfCells = lapSteeringGrid.length
     for (let unwrappedCellIndex = from; unwrappedCellIndex <= to; unwrappedCellIndex++) {
-        const cellIndex = (unwrappedCellIndex + numberOfCells) % numberOfCells
-        const steeringDegrees = lapSteeringProfile.steeringDegreesByCell[cellIndex]
+        const cellIndex = (unwrappedCellIndex + numberOfCells) % numberOfCells // (+ numberOfCells) getting rid of negative indices
+        const steeringDegrees = lapSteeringGrid[cellIndex]
         if (steeringDegrees === null || steeringDegrees === undefined) continue
         const strength = Math.abs(steeringDegrees)
-        if (!localMaximum || strength >= localMaximum.strength) localMaximum = { cellIndex, strength }
+        if (!localMaximum || strength >= localMaximum.strength) {
+            localMaximum = { cellIndex, strength }
+        }
     }
-    return localMaximum?.cellIndex ?? null  
+
+    if (localMaximum) return localMaximum.cellIndex
+    else return null
 }

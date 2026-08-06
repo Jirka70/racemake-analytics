@@ -3,6 +3,7 @@ import { calculateSteeringStrengthOtsu } from '../../../src/analytics/corner-det
 import { computeProfileResidualRequirement } from '../../../src/analytics/corner-detect/compute-profile-residual-requirement'
 import { calculateCornerCandidateConfidence, collectCornerCandidateConfidenceData, confirmCornerCandidates } from '../../../src/analytics/corner-detect/confirm-corner-candidates'
 import { findGridCellCenters } from '../../../src/analytics/corner-detect/create-cell-aligned-steering'
+import { calculateApexProxyThreshold, createDetectedCornerMetadata } from '../../../src/analytics/corner-detect/create-detected-corner-metadata'
 import { createDetectedCorners } from '../../../src/analytics/corner-detect/create-detected-corners'
 import { createLogSteeringStrengthProfile } from '../../../src/analytics/corner-detect/create-log-steering-strength-profile'
 import { createSteeringStrengthProfile } from '../../../src/analytics/corner-detect/create-steering-strength-profile'
@@ -24,6 +25,63 @@ describe('findGridCellCenters', () => {
         }
 
         expect(findGridCellCenters(grid)).toEqual([0.125, 0.375, 0.625, 0.875])
+    })
+})
+
+describe('calculateApexProxyThreshold', () => {
+    test('returns the half-prominence strength between the low threshold and peak', () => {
+        expect(calculateApexProxyThreshold(2, 10)).toBe(6)
+    })
+
+    test('creates one contiguous apex proxy around the peak across start-finish', () => {
+        const corner = { startCellIndex: 6, endCellIndexExclusive: 3, cellIndexes: [6, 7, 0, 1, 2] }
+        const result = createDetectedCornerMetadata([corner], createStrengthProfile([10, 6, 2, 0, 0, 0, 2, 7]), 2)
+
+        expect(result).toEqual([{
+            ...corner,
+            entry: {
+                startCellIndex: 6,
+                endCellIndexExclusive: 7,
+                cellIndexes: [6],
+                startNormalizedPosition: 6 / 8,
+                endNormalizedPosition: 7 / 8,
+            },
+            apexProxy: {
+                peakCellIndex: 0,
+                steeringStrengthThresholdDegrees: 6,
+                startCellIndex: 7,
+                endCellIndexExclusive: 2,
+                cellIndexes: [7, 0, 1],
+                startNormalizedPosition: 7 / 8,
+                endNormalizedPosition: 2 / 8,
+            },
+            exit: {
+                startCellIndex: 2,
+                endCellIndexExclusive: 3,
+                cellIndexes: [2],
+                startNormalizedPosition: 2 / 8,
+                endNormalizedPosition: 3 / 8,
+            },
+        }])
+    })
+
+    test('returns null entry and exit when the apex proxy covers the whole corner', () => {
+        const corner = { startCellIndex: 0, endCellIndexExclusive: 2, cellIndexes: [0, 1] }
+
+        expect(createDetectedCornerMetadata([corner], createStrengthProfile([10, 10]), 0)).toEqual([{
+            ...corner,
+            entry: null,
+            apexProxy: {
+                peakCellIndex: 1,
+                steeringStrengthThresholdDegrees: 5,
+                startCellIndex: 0,
+                endCellIndexExclusive: 0,
+                cellIndexes: [0, 1],
+                startNormalizedPosition: 0,
+                endNormalizedPosition: 0,
+            },
+            exit: null,
+        }])
     })
 })
 
