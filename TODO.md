@@ -76,3 +76,18 @@ Store the threshold diagnostics and limitation reasons in the corner-detection r
 - Derive each corner's direction (`left`, `right`, or `mixed`) from the signed representative steering profile.
 - Assign every final corner a stable deterministic ID for findings and coaching references.
 - Expose the normalized apex-proxy center position in addition to its cell index and interval.
+
+## Coaching phenomena
+
+Implement evidence-backed coaching phenomena in this order:
+
+1. `LATE_BRAKING` and `EARLY_BRAKING` using shared dataset-derived brake-activity thresholds and hysteresis.
+2. `EARLY_THROTTLE_LIFT` and `LATE_THROTTLE_APPLICATION`.
+3. `LOWER_ENTRY_SPEED`, `LOWER_APEX_PROXY_SPEED`, `LOWER_EXIT_SPEED`, and `LATE_SPEED_RECOVERY`.
+4. `LATE_BRAKE_RELEASE`, `EARLY_BRAKE_RELEASE`, and `LONGER_BRAKING_DURATION`.
+5. `DIFFERENT_GEAR_SELECTION`, `EXTRA_GEAR_CHANGE`, `EARLIER_DOWNSHIFT`, `LATER_UPSHIFT`, and `GEAR_OSCILLATION`.
+6. `EARLIER_STEERING_INPUT`, `LATER_STEERING_INPUT`, `HIGHER_STEERING_DEMAND`, and `STEERING_CORRECTION`.
+
+Also localize `TIME_LOSS_BEFORE_CORNER`, `TIME_LOSS_IN_CORNER`, and `TIME_LOSS_ON_EXIT` so driver-input differences can be connected to an observed consequence.
+
+Treat a control-input difference as descriptive until supporting telemetry shows a defensible adverse outcome. For example, later braking is not automatically a mistake. Do not turn different gear choice into a claim that the gear was wrong, and do not infer racing line, understeer, oversteer, or driving technique from steering shape alone.

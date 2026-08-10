@@ -58,7 +58,9 @@ export function runTelemetryAuditPipeline(
     lapDetectionResult,
   )
   const coachCallsResult = createCoachCalls(
+    auditResult.usableTimeline,
     lapDetectionResult,
+    cornerDetectionResult.corners,
   )
 
   return Object.freeze({
