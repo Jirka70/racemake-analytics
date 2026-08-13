@@ -1,7 +1,9 @@
 import { describe, expect, test } from 'bun:test'
 import { createApp } from '../../src/app'
-import type { ProcessingIssue } from '../../src/analytics/frame-audit-types'
-import type { PositionCalibration } from '../../src/analytics/lap-detect/lap-detect-types'
+import type { AnalysisResponseContext } from '../../src/http/contracts/analysis'
+import type { IngestResponse } from '../../src/http/contracts/ingest'
+import type { LapsResponse } from '../../src/http/contracts/laps'
+import type { SeriesResponse } from '../../src/http/contracts/series'
 import { HTTP_STATUS } from '../../src/http/http-status'
 
 const stintPath = `${import.meta.dir}/../../data/stint.telemetry.json`
@@ -22,48 +24,74 @@ interface ErrorResponse {
   }
 }
 
-interface IngestResponse {
-  readonly schema: string
-  readonly sessionId: string
-  readonly receivedFrames: number
-  readonly normalizedFrames: number
-  readonly audit: {
-    readonly isolatedOutlierCount: number
-    readonly excludedTimelineFrameCount: number
-    readonly continuousTimelineSegmentCount: number
-    readonly channelDiscontinuityCount: number
-    readonly issueCount: number
-    readonly issues: readonly ProcessingIssue[]
-  }
-  readonly lapDetection: {
-    readonly positionCalibrationAvailable: boolean
-  }
-}
-
-interface LapsResponse {
-  readonly sessionId: string
-  readonly positionCalibration: PositionCalibration | null
-}
+const analysisEndpointPaths = [
+  '/laps',
+  '/track',
+  '/time-loss',
+  '/coaching',
+  '/series',
+  '/diagnostics',
+] as const
 
 describe('POST /ingest', () => {
-  test('returns conflict from GET /laps before a successful ingest', async () => {
-    const response = await createApp().request('/laps')
+  test('requires analysisId for every analysis endpoint', async () => {
+    const app = createApp()
 
-    expect(response.status).toBe(HTTP_STATUS.CONFLICT)
-    expect(await response.json()).toEqual({
-      error: {
-        code: 'NO_ACTIVE_DATASET',
-        message:
-          'Ingest a valid telemetry dataset before requesting laps',
-      },
-    })
+    for (const path of analysisEndpointPaths) {
+      const response = await app.request(path)
+
+      expect(response.status).toBe(HTTP_STATUS.BAD_REQUEST)
+      expect(await response.json()).toEqual({
+        error: {
+          code: 'ANALYSIS_ID_REQUIRED',
+          message: 'Provide an analysisId returned by POST /ingest',
+        },
+      })
+    }
+  })
+
+  test('Zod-validates analysis IDs for every analysis endpoint', async () => {
+    const app = createApp()
+
+    for (const path of analysisEndpointPaths) {
+      const invalidResponse = await app.request(`${path}?analysisId=invalid`)
+
+      expect(invalidResponse.status).toBe(HTTP_STATUS.BAD_REQUEST)
+      expect(await invalidResponse.json()).toEqual({
+        error: {
+          code: 'INVALID_QUERY',
+          message: 'Request query parameters are invalid',
+          issues: [
+            {
+              path: 'analysisId',
+              message:
+                'analysisId must use the format sha256:<64 lowercase hexadecimal characters>',
+            },
+          ],
+        },
+      })
+
+      const unknownAnalysisId = `sha256:${'0'.repeat(64)}`
+      const unknownResponse = await app.request(
+        `${path}?analysisId=${unknownAnalysisId}`,
+      )
+
+      expect(unknownResponse.status).toBe(HTTP_STATUS.NOT_FOUND)
+      expect(await unknownResponse.json()).toEqual({
+        error: {
+          code: 'ANALYSIS_NOT_FOUND',
+          message: 'The requested analysis does not exist',
+        },
+      })
+    }
   })
 
   test('validates the complete official telemetry stint', async () => {
     const stintJson = await Bun.file(stintPath).text()
     const stint = JSON.parse(stintJson) as StintEnvelope
+    const app = createApp()
 
-    const response = await createApp().request('/ingest', {
+    const response = await app.request('/ingest', {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -75,22 +103,39 @@ describe('POST /ingest', () => {
     const body = (await response.json()) as IngestResponse
 
     expect(body).toMatchObject({
-      schema: stint.schema,
       sessionId: stint.session_id,
-      receivedFrames: stint.frames.length,
-      normalizedFrames: stint.frames.length,
+      telemetrySchema: stint.schema,
+      status: 'ready',
+      cacheHit: false,
+      receivedFrameCount: stint.frames.length,
     })
-    expect(body.audit.isolatedOutlierCount).toBeGreaterThanOrEqual(0)
-    expect(body.audit.excludedTimelineFrameCount).toBeGreaterThanOrEqual(0)
-    expect(body.audit.continuousTimelineSegmentCount).toBeGreaterThan(0)
-    expect(body.audit.channelDiscontinuityCount).toBeGreaterThanOrEqual(0)
-    expect(body.audit.issueCount).toBe(body.audit.issues.length)
-    expect(body.audit.issues.length).toBeGreaterThan(0)
-    expect(new Set(body.audit.issues.map((issue) => issue.id)).size).toBe(body.audit.issues.length)
-    expect(body.lapDetection.positionCalibrationAvailable).toBeTrue()
+    expect(body.analysisId).toMatch(/^sha256:[0-9a-f]{64}$/)
+    expect(
+      body.retainedTimelineFrameCount + body.excludedTimelineFrameCount,
+    ).toBe(body.receivedFrameCount)
+    expect(body.detectedLapCount).toBeGreaterThan(0)
+    expect(body.racingLapCount).toBeGreaterThan(0)
+    expect(body.racingLapCount).toBeLessThanOrEqual(body.detectedLapCount)
+    expect(body.detectedCornerCount).toBeGreaterThan(0)
+    expect(body.rankedPhenomenonCount).toBeGreaterThanOrEqual(0)
+    expect(body.detectorFailureCount).toBeGreaterThanOrEqual(0)
+
+    const cachedResponse = await app.request('/ingest', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: stintJson,
+    })
+    const cachedBody = (await cachedResponse.json()) as IngestResponse
+
+    expect(cachedBody).toEqual({
+      ...body,
+      cacheHit: true,
+    })
   })
 
-  test('exposes position calibration and keeps it active after a failed ingest', async () => {
+  test('returns lap analysis by ID after a later failed ingest', async () => {
     const app = createApp()
     const stintJson = await Bun.file(stintPath).text()
     const stint = JSON.parse(stintJson) as StintEnvelope
@@ -102,13 +147,28 @@ describe('POST /ingest', () => {
     })
 
     expect(ingestResponse.status).toBe(HTTP_STATUS.OK)
+    const ingest = (await ingestResponse.json()) as IngestResponse
+    const lapsUrl = `/laps?analysisId=${encodeURIComponent(ingest.analysisId)}`
 
-    const firstLapsResponse = await app.request('/laps')
+    const firstLapsResponse = await app.request(lapsUrl)
     expect(firstLapsResponse.status).toBe(HTTP_STATUS.OK)
 
     const firstLaps = (await firstLapsResponse.json()) as LapsResponse
+    expect(firstLaps.analysisId).toBe(ingest.analysisId)
     expect(firstLaps.sessionId).toBe(stint.session_id)
-    expect(firstLaps.positionCalibration).not.toBeNull()
+    expect(firstLaps.laps.length).toBeGreaterThan(0)
+    expect(
+      firstLaps.laps.every(
+        (lap) =>
+          lap.lapNumber > 0 &&
+          lap.lapTimeMs > 0 &&
+          lap.confidence.overall >= 0 &&
+          lap.confidence.overall <= 1,
+      ),
+    ).toBeTrue()
+    expect(
+      firstLaps.laps.some((lap) => lap.eligibility === 'racing'),
+    ).toBeTrue()
 
     const invalidIngestResponse = await app.request('/ingest', {
       method: 'POST',
@@ -118,9 +178,123 @@ describe('POST /ingest', () => {
 
     expect(invalidIngestResponse.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY)
 
-    const retainedLapsResponse = await app.request('/laps')
+    const retainedLapsResponse = await app.request(lapsUrl)
     expect(retainedLapsResponse.status).toBe(HTTP_STATUS.OK)
     expect(await retainedLapsResponse.json()).toEqual(firstLaps)
+  })
+
+  test('serves every analysis response from the ingested analysis ID', async () => {
+    const app = createApp()
+    const stintJson = await Bun.file(stintPath).text()
+    const stint = JSON.parse(stintJson) as StintEnvelope
+    const ingestResponse = await app.request('/ingest', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: stintJson,
+    })
+    const ingest = (await ingestResponse.json()) as IngestResponse
+
+    for (const path of analysisEndpointPaths) {
+      const response = await app.request(
+        `${path}?analysisId=${encodeURIComponent(ingest.analysisId)}`,
+      )
+
+      expect(response.status).toBe(HTTP_STATUS.OK)
+      const body = (await response.json()) as AnalysisResponseContext
+      expect(body.analysisId).toBe(ingest.analysisId)
+      expect(body.sessionId).toBe(stint.session_id)
+    }
+  })
+
+  test('filters series by racing lap, channel, and track position', async () => {
+    const app = createApp()
+    const stintJson = await Bun.file(stintPath).text()
+    const ingestResponse = await app.request('/ingest', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: stintJson,
+    })
+    const ingest = (await ingestResponse.json()) as IngestResponse
+    const lapsResponse = await app.request(
+      `/laps?analysisId=${encodeURIComponent(ingest.analysisId)}`,
+    )
+    const laps = (await lapsResponse.json()) as LapsResponse
+    const racingLap = laps.laps.find(
+      (lap) => lap.eligibility === 'racing',
+    )
+    if (!racingLap) throw new Error('Expected at least one racing lap')
+
+    const response = await app.request(
+      `/series?analysisId=${encodeURIComponent(ingest.analysisId)}`
+      + `&laps=${racingLap.lapNumber}`
+      + '&channels=speedKmh,brakeRatio'
+      + '&positionFrom=0.18&positionTo=0.26',
+    )
+
+    expect(response.status).toBe(HTTP_STATUS.OK)
+    const series = (await response.json()) as SeriesResponse
+    expect(series.selection).toEqual({
+      lapNumbers: [racingLap.lapNumber],
+      channels: ['speedKmh', 'brakeRatio'],
+      positionFrom: 0.18,
+      positionTo: 0.26,
+    })
+    expect(series.laps).toHaveLength(1)
+    expect(Object.keys(series.laps[0]?.channels ?? {})).toEqual([
+      'speedKmh',
+      'brakeRatio',
+    ])
+    expect(series.grid.normalizedTrackPositions.length).toBeGreaterThan(0)
+    expect(
+      series.grid.normalizedTrackPositions.every(
+        (position) => position >= 0.18 && position <= 0.26,
+      ),
+    ).toBeTrue()
+    expect(series.laps[0]?.lapElapsedMs).toHaveLength(
+      series.grid.normalizedTrackPositions.length,
+    )
+    expect(series.laps[0]?.channels.speedKmh).toHaveLength(
+      series.grid.normalizedTrackPositions.length,
+    )
+    expect(series.laps[0]?.channels.brakeRatio).toHaveLength(
+      series.grid.normalizedTrackPositions.length,
+    )
+  })
+
+  test('rejects invalid series filters and unavailable racing laps', async () => {
+    const app = createApp()
+    const stintJson = await Bun.file(stintPath).text()
+    const ingestResponse = await app.request('/ingest', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: stintJson,
+    })
+    const ingest = (await ingestResponse.json()) as IngestResponse
+    const analysisId = encodeURIComponent(ingest.analysisId)
+
+    const invalidChannelResponse = await app.request(
+      `/series?analysisId=${analysisId}&channels=speedKmh,unknown`,
+    )
+    expect(invalidChannelResponse.status).toBe(HTTP_STATUS.BAD_REQUEST)
+    expect(
+      (await invalidChannelResponse.json() as ErrorResponse).error.code,
+    ).toBe('INVALID_QUERY')
+
+    const unavailableLapResponse = await app.request(
+      `/series?analysisId=${analysisId}&laps=999999`,
+    )
+    expect(unavailableLapResponse.status).toBe(HTTP_STATUS.BAD_REQUEST)
+    expect(await unavailableLapResponse.json()).toEqual({
+      error: {
+        code: 'INVALID_QUERY',
+        message: 'Request query parameters are invalid',
+        issues: [{
+          path: 'laps',
+          message:
+            'Lap 999999 is not available as a racing lap in this analysis',
+        }],
+      },
+    })
   })
 
   test('returns unprocessable entity for an invalid payload', async () => {

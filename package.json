@@ -2,14 +2,25 @@
   "name": "racemake-hard",
   "scripts": {
     "dev": "bun run --hot src/index.ts",
+    "typecheck": "bunx tsc --noEmit",
+    "lint": "bunx @biomejs/biome lint .",
+    "analyze:data": "bun scripts/analyze-data.ts",
     "generate:spa-data": "bun scripts/generate-spa-dataset.ts",
     "test:data-audit": "bun test tests/integration/data-audit-pipeline.test.ts"
   },
   "dependencies": {
     "hono": "^4.12.32",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "concurrently": "^10.0.4",
+    "vite": "^8.2.1"
   }
 }

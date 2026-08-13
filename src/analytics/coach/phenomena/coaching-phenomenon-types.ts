@@ -7,6 +7,8 @@ import type { CornerPhaseRegionId, TrackRegion } from '../track-region-types'
 export type CoachingPhenomenon =
     | 'LATE_BRAKING'
     | 'EARLY_BRAKING'
+    | 'UNNECESSARY_BRAKING'
+    | 'LATE_BRAKE_RELEASE'
     | 'EARLY_THROTTLE_LIFT'
     | 'LATE_THROTTLE_APPLICATION'
     | 'LOWER_ENTRY_SPEED'
@@ -27,11 +29,26 @@ export interface CoachingPhenomenonInput {
     readonly fastestObservedLap: CellAlignedRacingLap
 }
 
+export interface CoachingEvidenceMargins {
+    readonly minimumTimeLossMs: number
+    readonly minimumSpeedDifferenceKmh: number
+}
+
+export interface CoachingDetectorFailure {
+    readonly code: 'COACHING_DETECTOR_FAILED'
+    readonly phenomena: readonly CoachingPhenomenon[]
+    readonly lapNumber: number
+    readonly trackRegionId: TrackRegion['id']
+    readonly errorName: string
+}
+
 export interface AnalysisLimitation {
     readonly code: 'TIMELINE_DISCONTINUITY' 
         | 'CHANNEL_DISCONTINUITY' 
         | 'BRAKE_ACTIVITY_THRESHOLD_UNAVAILABLE' 
         | 'BRAKE_ONSET_DETECTION_UNAVAILABLE'
+        | 'BRAKE_RELEASE_DETECTION_UNAVAILABLE'
+        | 'UNRELIABLE_BENCHMARK_BRAKE_DATA'
     readonly message: string
 }
 
@@ -46,7 +63,8 @@ export interface CoachingFinding {
     readonly comparedWithLapNumber: number
     readonly analysisRegionId: CoachingAnalysisRegionId
     readonly occurredAtLapElapsedMs: number
-    readonly confidence: number
+    /** Travel-time loss over the most specific reliable window measured by the detector. */
+    readonly impactTimeLossMs: number
     readonly message: string
     readonly evidence: readonly CoachingFindingEvidence[]
     readonly limitations: readonly AnalysisLimitation[]

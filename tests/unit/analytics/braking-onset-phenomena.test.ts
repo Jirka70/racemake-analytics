@@ -1,10 +1,108 @@
 import { describe, expect, test } from 'bun:test'
 import type { DetectedCorner } from '../../../src/analytics/corner-detect/create-detected-corner-metadata'
 import type { CellAlignedRacingLap, CellAlignedRacingLapCell } from '../../../src/analytics/coach/cell-aligned-racing-telemetry-types'
-import type { CornerTrackRegion } from '../../../src/analytics/coach/track-region-types'
-import type { CoachingPhenomenonInput } from '../../../src/analytics/coach/phenomena/coaching-phenomenon-types'
+import type { CornerTrackRegion, StraightTrackRegion } from '../../../src/analytics/coach/track-region-types'
+import type { CoachingEvidenceMargins, CoachingPhenomenonInput } from '../../../src/analytics/coach/phenomena/coaching-phenomenon-types'
 import type { BrakeActivityThresholdResult } from '../../../src/analytics/coach/phenomena/braking/brake-activity-thresholds'
-import { calculateBrakingOnsetDifferenceMs, classifyBrakingOnsetDifference, createBrakingOnsetDetector, findRelevantBrakeOnset } from '../../../src/analytics/coach/phenomena/braking/braking-onset-phenomena'
+import {
+    calculateBrakingOnsetDifferenceMs,
+    classifyBrakingOnsetDifference,
+    createBrakingOnsetDetector,
+    createUnnecessaryBrakingReportMessage,
+    findRelevantBrakeOnset,
+    hasLowerEntrySpeed,
+    hasLowerSteeringPeakSpeed,
+    hasMeasuredBrakePressure,
+    hasSignificantTimeLoss,
+    hasSlowerExit,
+    selectUnnecessaryBrakingReportVariant,
+    type UnnecessaryBrakingReportFacts,
+} from '../../../src/analytics/coach/phenomena/braking/braking-onset-phenomena'
+
+describe('unnecessary braking report facts', () => {
+    test('recognizes significant time loss at the configured boundary', () => {
+        expect(hasSignificantTimeLoss(createUnnecessaryBrakingReportFacts({
+            timeLossSinceBrakingStartedMs: 50,
+        }), EVIDENCE_MARGINS)).toBeTrue()
+        expect(hasSignificantTimeLoss(createUnnecessaryBrakingReportFacts({
+            timeLossSinceBrakingStartedMs: 49,
+        }), EVIDENCE_MARGINS)).toBeFalse()
+    })
+
+    test('recognizes lower entry, steering-peak, and exit speeds', () => {
+        expect(hasLowerEntrySpeed(createUnnecessaryBrakingReportFacts({
+            entrySpeedDifferenceKmh: -1,
+        }), EVIDENCE_MARGINS)).toBeTrue()
+        expect(hasLowerSteeringPeakSpeed(createUnnecessaryBrakingReportFacts({
+            steeringPeakSpeedDifferenceKmh: -1,
+        }), EVIDENCE_MARGINS)).toBeTrue()
+        expect(hasSlowerExit(createUnnecessaryBrakingReportFacts({
+            exitSpeedDifferenceKmh: -1,
+        }), EVIDENCE_MARGINS)).toBeTrue()
+
+        expect(hasLowerEntrySpeed(createUnnecessaryBrakingReportFacts({
+            entrySpeedDifferenceKmh: -0.9,
+        }), EVIDENCE_MARGINS)).toBeFalse()
+        expect(hasLowerSteeringPeakSpeed(createUnnecessaryBrakingReportFacts({
+            steeringPeakSpeedDifferenceKmh: null,
+        }), EVIDENCE_MARGINS)).toBeFalse()
+        expect(hasSlowerExit(createUnnecessaryBrakingReportFacts({
+            exitSpeedDifferenceKmh: 2,
+        }), EVIDENCE_MARGINS)).toBeFalse()
+    })
+
+    test('recognizes available measured brake pressure, including zero', () => {
+        expect(hasMeasuredBrakePressure(createUnnecessaryBrakingReportFacts({
+            maximumBrakeRatio: 0,
+        }))).toBeTrue()
+        expect(hasMeasuredBrakePressure(createUnnecessaryBrakingReportFacts({
+            maximumBrakeRatio: null,
+        }))).toBeFalse()
+    })
+
+    test('creates a corner-speed-cost report from the official-stint facts', () => {
+        const facts = createUnnecessaryBrakingReportFacts()
+
+        expect(selectUnnecessaryBrakingReportVariant(facts, EVIDENCE_MARGINS))
+            .toBe('BRAKING_WITH_CORNER_SPEED_COST')
+        expect(createUnnecessaryBrakingReportMessage(facts, EVIDENCE_MARGINS)).toBe(
+            'On lap 3, you applied up to 45% brake before C2 entry, while your fastest pass through the corner stayed off the brake. You entered 20.2 km/h slower and carried 30.7 km/h less speed through the steering-peak zone. From braking onset through C2, you lost 459 ms. Keep C2 brake-free and protect momentum through the corner.',
+        )
+    })
+
+    test('adds a slower-exit consequence only when it exceeds the speed margin', () => {
+        const facts = createUnnecessaryBrakingReportFacts({
+            exitSpeedDifferenceKmh: -4.2,
+        })
+
+        expect(createUnnecessaryBrakingReportMessage(facts, EVIDENCE_MARGINS)).toContain(
+            'You also exited 4.2 km/h slower.',
+        )
+    })
+
+    test('creates a time-loss fallback without significant speed evidence', () => {
+        const facts = createUnnecessaryBrakingReportFacts({
+            maximumBrakeRatio: null,
+            entrySpeedDifferenceKmh: null,
+            steeringPeakSpeedDifferenceKmh: null,
+        })
+
+        expect(selectUnnecessaryBrakingReportVariant(facts, EVIDENCE_MARGINS))
+            .toBe('BRAKING_WITH_TIME_LOSS')
+        expect(createUnnecessaryBrakingReportMessage(facts, EVIDENCE_MARGINS)).toBe(
+            'On lap 3, you applied the brake before C2 entry, while your fastest pass through the corner stayed off the brake. From braking onset through C2, you lost 459 ms. Use the brake-free pass as your reference through C2.',
+        )
+    })
+
+    test('does not create a report below the time-loss margin', () => {
+        const facts = createUnnecessaryBrakingReportFacts({
+            timeLossSinceBrakingStartedMs: 49,
+        })
+
+        expect(selectUnnecessaryBrakingReportVariant(facts, EVIDENCE_MARGINS)).toBe('NONE')
+        expect(createUnnecessaryBrakingReportMessage(facts, EVIDENCE_MARGINS)).toBeNull()
+    })
+})
 
 describe('findRelevantBrakeOnset', () => {
     test('finds the first new braking run in context order', () => {
@@ -194,7 +292,7 @@ describe('createBrakingOnsetDetector', () => {
             150,
         )
 
-        expect(detector.phenomena).toEqual(['LATE_BRAKING', 'EARLY_BRAKING'])
+        expect(detector.phenomena).toEqual(['LATE_BRAKING', 'EARLY_BRAKING', 'UNNECESSARY_BRAKING'])
         expect(detector.find(input)).toMatchObject({
             status: 'detected',
             finding: {
@@ -263,6 +361,68 @@ describe('createBrakingOnsetDetector', () => {
             }],
         })
     })
+
+    test('detects unnecessary braking that starts on the straight before a corner', () => {
+        const detector = createBrakingOnsetDetector(CALCULATED_BRAKE_THRESHOLDS)
+        const input = createDetectorInputWithStraightBeforeCorner(
+            [100, 150, 150, 150, 150],
+            [100, 100, 100, 100, 100],
+            [0, 0.6, 0.2, 0, 0],
+            [0, 0, 0, 0, 0],
+        )
+
+        expect(detector.find(input)).toMatchObject({
+            status: 'detected',
+            finding: {
+                phenomenon: 'UNNECESSARY_BRAKING',
+                lapNumber: 2,
+                comparedWithLapNumber: 1,
+                analysisRegionId: 'C1-entry',
+                occurredAtLapElapsedMs: 100,
+                message: 'On lap 2, you applied up to 60% brake before C1 entry, while your fastest pass through the corner stayed off the brake. From braking onset through C1, you lost 200 ms. Use the brake-free pass as your reference through C1.',
+            },
+        })
+    })
+
+    test('does not report unnecessary braking when no time was lost after braking started', () => {
+        const detector = createBrakingOnsetDetector(CALCULATED_BRAKE_THRESHOLDS)
+        const input = createDetectorInputWithStraightBeforeCorner(
+            [100, 100, 100, 100, 100],
+            [100, 100, 100, 100, 100],
+            [0, 0.6, 0.2, 0, 0],
+            [0, 0, 0, 0, 0],
+        )
+
+        expect(detector.find(input)).toEqual({
+            status: 'not-detected',
+            phenomenon: 'UNNECESSARY_BRAKING',
+            lapNumber: 2,
+            comparedWithLapNumber: 1,
+            analysisRegionId: 'C1-entry',
+        })
+    })
+
+    test('does not interpret missing benchmark brake data as a brake-free region pass', () => {
+        const detector = createBrakingOnsetDetector(CALCULATED_BRAKE_THRESHOLDS)
+        const input = createDetectorInputWithStraightBeforeCorner(
+            [100, 150, 150, 150, 150],
+            [100, 100, 100, 100, 100],
+            [0, 0.6, 0.2, 0, 0],
+            [0, null, 0, 0, 0],
+        )
+
+        expect(detector.find(input)).toEqual({
+            status: 'unavailable',
+            phenomenon: 'UNNECESSARY_BRAKING',
+            lapNumber: 2,
+            comparedWithLapNumber: 1,
+            analysisRegionId: 'C1-entry',
+            limitations: [{
+                code: 'UNRELIABLE_BENCHMARK_BRAKE_DATA',
+                message: 'The fastest observed region pass does not have reliable brake data throughout the preceding straight and current corner.',
+            }],
+        })
+    })
 })
 
 const CALCULATED_BRAKE_THRESHOLDS: BrakeActivityThresholdResult = {
@@ -277,6 +437,27 @@ const CALCULATED_BRAKE_THRESHOLDS: BrakeActivityThresholdResult = {
         lowerClassCount: 5,
         upperClassCount: 5,
     },
+}
+
+const EVIDENCE_MARGINS: CoachingEvidenceMargins = {
+    minimumTimeLossMs: 50,
+    minimumSpeedDifferenceKmh: 1,
+}
+
+function createUnnecessaryBrakingReportFacts(
+    overrides: Partial<UnnecessaryBrakingReportFacts> = {},
+): UnnecessaryBrakingReportFacts {
+    return {
+        lapNumber: 3,
+        cornerId: 'C2',
+        hasBrakingStartedBeforeCorner: true,
+        maximumBrakeRatio: 0.45,
+        timeLossSinceBrakingStartedMs: 459,
+        entrySpeedDifferenceKmh: -20.2,
+        steeringPeakSpeedDifferenceKmh: -30.7,
+        exitSpeedDifferenceKmh: -0.2,
+        ...overrides,
+    }
 }
 
 interface CellOptions {
@@ -336,7 +517,66 @@ function createDetectorInput(comparedBrakeRatios: readonly number[], fastestObse
     }
 }
 
-function createLapWithBrakeRatios(lapNumber: number, cellDurationsMs: readonly number[], brakeRatios: readonly number[]): CellAlignedRacingLap {
+function createDetectorInputWithStraightBeforeCorner(
+    comparedCellDurationsMs: readonly number[],
+    fastestObservedCellDurationsMs: readonly number[],
+    comparedBrakeRatios: readonly (number | null)[],
+    fastestObservedBrakeRatios: readonly (number | null)[],
+): CoachingPhenomenonInput {
+    const comparedLap = createLapWithBrakeRatios(2, comparedCellDurationsMs, comparedBrakeRatios)
+    const fastestObservedLap = createLapWithBrakeRatios(1, fastestObservedCellDurationsMs, fastestObservedBrakeRatios)
+    const straightBeforeCurrentCorner: StraightTrackRegion = {
+        type: 'straight',
+        id: 'C2-C1',
+        previousCornerId: 'C2',
+        nextCornerId: 'C1',
+        cellIndexes: [0, 1],
+    }
+    const currentCorner: CornerTrackRegion = {
+        type: 'corner',
+        id: 'C1',
+        corner: {} as DetectedCorner,
+        cellIndexes: [2, 3, 4],
+        phases: [
+            { id: 'C1-entry', cornerId: 'C1', phase: 'entry', cellIndexes: [2] },
+            { id: 'C1-apex-proxy', cornerId: 'C1', phase: 'apex-proxy', cellIndexes: [3] },
+            { id: 'C1-exit', cornerId: 'C1', phase: 'exit', cellIndexes: [4] },
+        ],
+    }
+    const comparedCornerDurationMs = sumCellDurations(comparedCellDurationsMs, currentCorner.cellIndexes)
+    const fastestObservedCornerDurationMs = sumCellDurations(fastestObservedCellDurationsMs, currentCorner.cellIndexes)
+
+    return {
+        comparison: {
+            trackRegionId: 'C1',
+            comparedLapNumber: 2,
+            comparedLapRegionDurationMs: comparedCornerDurationMs,
+            fastestObserved: {
+                lapNumber: 1,
+                regionDurationMs: fastestObservedCornerDurationMs,
+                comparedLapMinusObservedPassMs: comparedCornerDurationMs - fastestObservedCornerDurationMs,
+            },
+            slowestObserved: {
+                lapNumber: 2,
+                regionDurationMs: comparedCornerDurationMs,
+                comparedLapMinusObservedPassMs: 0,
+            },
+        },
+        regionContext: {
+            previousTrackRegion: straightBeforeCurrentCorner,
+            currentTrackRegion: currentCorner,
+            contextCellIndexes: [...straightBeforeCurrentCorner.cellIndexes, ...currentCorner.cellIndexes],
+        },
+        comparedLap,
+        fastestObservedLap,
+    }
+}
+
+function sumCellDurations(cellDurationsMs: readonly number[], cellIndexes: readonly number[]): number {
+    return cellIndexes.reduce((sum, cellIndex) => sum + (cellDurationsMs[cellIndex] ?? 0), 0)
+}
+
+function createLapWithBrakeRatios(lapNumber: number, cellDurationsMs: readonly number[], brakeRatios: readonly (number | null)[]): CellAlignedRacingLap {
     const lap = createLap(cellDurationsMs)
     const cells = lap.cells.map((cell, cellIndex) => ({
         ...cell,

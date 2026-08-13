@@ -1,124 +1,114 @@
 import { Hono } from 'hono'
 import { ZodError } from 'zod'
-import type { LapDetectionResult } from './analytics/lap-detect/lap-detect-types'
-import { runTelemetryAuditPipeline } from './application/telemetry-audit-pipeline'
 import { DEFAULT_FRAME_AUDIT_CONFIG } from './config/frame-audit-config'
+import { createInMemoryAnalysisStore } from './http/analysis-store'
+import { API_ERRORS } from './http/api-errors'
+import { ApiRequestError } from './http/api-request-error'
+import { getCoaching } from './http/get-coaching'
+import { getDiagnostics } from './http/get-diagnostics'
+import { getLaps } from './http/get-laps'
+import { getSeries } from './http/get-series'
+import { getTimeLoss } from './http/get-time-loss'
+import { getTrack } from './http/get-track'
 import { HTTP_STATUS } from './http/http-status'
+import { ingestTelemetryAnalysis } from './http/ingest-telemetry-analysis'
 
 export function createApp(): Hono {
   const app = new Hono()
-  let activeSessionId: string | null = null
-  let activeLapDetection: LapDetectionResult | null = null
+  const analysisStore = createInMemoryAnalysisStore({
+    maximumEntryCount: 5,
+  })
 
   app.onError((error, context) => {
-    if (error instanceof SyntaxError) {
+    if (error instanceof ApiRequestError) {
+      const { status, ...apiError } = API_ERRORS[error.code]
       return context.json(
         {
           error: {
-            code: 'MALFORMED_JSON',
-            message: 'Request body must contain valid JSON',
+            ...apiError,
+            ...(error.issues ? { issues: error.issues } : {}),
           },
         },
-        HTTP_STATUS.BAD_REQUEST,
+        status,
+      )
+    }
+
+    if (error instanceof SyntaxError) {
+      const { status, ...apiError } = API_ERRORS.MALFORMED_JSON
+      return context.json(
+        {
+          error: apiError,
+        },
+        status,
       )
     }
 
     if (error instanceof ZodError) {
+      const { status, ...apiError } = API_ERRORS.INVALID_TELEMETRY_PAYLOAD
       return context.json(
         {
           error: {
-            code: 'INVALID_TELEMETRY_PAYLOAD',
-            message: 'Telemetry payload does not match the wire contract',
+            ...apiError,
             issues: error.issues.map((issue) => ({
               path: issue.path.join('.'),
               message: issue.message,
             })),
           },
         },
-        HTTP_STATUS.UNPROCESSABLE_ENTITY,
+        status,
       )
     }
 
+    const { status, ...apiError } = API_ERRORS.INTERNAL_ERROR
     return context.json(
       {
-        error: {
-          code: 'INTERNAL_ERROR',
-          message: 'Unexpected internal error',
-        },
+        error: apiError,
       },
-      HTTP_STATUS.INTERNAL_SERVER_ERROR,
+      status,
     )
   })
 
   app.post('/ingest', async (context) => {
-    const unknownPayload: unknown = await context.req.json()
-    const {
-      validatedWirePayload,
-      normalizedTelemetry,
-      auditResult,
-      lapDetectionResult,
-    } =
-      runTelemetryAuditPipeline(
-        unknownPayload,
-        DEFAULT_FRAME_AUDIT_CONFIG,
-      )
-
-    activeSessionId = normalizedTelemetry.sessionId
-    activeLapDetection = lapDetectionResult
-
-    return context.json(
+    const input: unknown = await context.req.json()
+    const response = ingestTelemetryAnalysis(
+      input,
       {
-        schema: normalizedTelemetry.schemaVersion,
-        sessionId: normalizedTelemetry.sessionId,
-        receivedFrames: validatedWirePayload.frames.length,
-        normalizedFrames: normalizedTelemetry.frames.length,
-        audit: {
-          isolatedOutlierCount:
-            auditResult.isolatedOutliers.length,
-          excludedTimelineFrameCount:
-            auditResult.usableTimeline
-              ?.excludedFrames.length ?? 0,
-          continuousTimelineSegmentCount:
-            auditResult.continuousTimelineSegments.length,
-          channelDiscontinuityCount:
-            auditResult.channelDiscontinuities.length,
-          issueCount: auditResult.issues.length,
-          issues: auditResult.issues,
-        },
-        lapDetection: {
-          positionCalibrationAvailable:
-            lapDetectionResult.positionCalibration !== null,
-        },
+        analysisStore,
+        frameAuditConfig: DEFAULT_FRAME_AUDIT_CONFIG,
       },
-      HTTP_STATUS.OK,
     )
+
+    return context.json(response, HTTP_STATUS.OK)
   })
 
   app.get('/laps', (context) => {
-    if (
-      activeSessionId === null ||
-      activeLapDetection === null
-    ) {
-      return context.json(
-        {
-          error: {
-            code: 'NO_ACTIVE_DATASET',
-            message:
-              'Ingest a valid telemetry dataset before requesting laps',
-          },
-        },
-        HTTP_STATUS.CONFLICT,
-      )
-    }
+    const response = getLaps(context.req.query(), analysisStore)
+    return context.json(response, HTTP_STATUS.OK)
+  })
 
-    return context.json(
-      {
-        sessionId: activeSessionId,
-        positionCalibration:
-          activeLapDetection.positionCalibration,
-      },
-      HTTP_STATUS.OK,
-    )
+  app.get('/track', (context) => {
+    const response = getTrack(context.req.query(), analysisStore)
+    return context.json(response, HTTP_STATUS.OK)
+  })
+
+  app.get('/time-loss', (context) => {
+    const response = getTimeLoss(context.req.query(), analysisStore)
+    return context.json(response, HTTP_STATUS.OK)
+  })
+
+  app.get('/coaching', (context) => {
+    const response = getCoaching(context.req.query(), analysisStore)
+    return context.json(response, HTTP_STATUS.OK)
+  })
+
+  app.get('/series', (context) => {
+    const response = getSeries(context.req.query(), analysisStore)
+    return context.json(response, HTTP_STATUS.OK)
+  })
+
+  app.get('/diagnostics', (context) => {
+    const response = getDiagnostics(context.req.query(), analysisStore)
+    return context.json(response, HTTP_STATUS.OK)
   })
 
   return app

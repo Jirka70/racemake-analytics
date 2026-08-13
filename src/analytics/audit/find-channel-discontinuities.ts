@@ -1,4 +1,4 @@
-import { AuditedFrame, AuditedTimelineTransition, ChannelContinuityConfig, ChannelDiscontinuity, ChannelDiscontinuityEvidence, DerivableTelemetryChannel, LocallyAuditedSignalChannel, PersistenceAuditedChannel, SamplingBaseline, TelemetryChannel, UsableTimeline } from "../frame-audit-types";
+import type { AuditedFrame, AuditedTimelineTransition, ChannelContinuityConfig, ChannelDiscontinuity, ChannelDiscontinuityEvidence, DerivableTelemetryChannel, LocallyAuditedSignalChannel, PersistenceAuditedChannel, SamplingBaseline, TelemetryChannel, UsableTimeline } from "../frame-audit-types";
 import { interquartileRange, median, quantile, scaledMedianAbsoluteDeviation } from "../robust-statistics";
 import { readChannelValue } from "./util/read-channel-value";
 
@@ -202,7 +202,7 @@ function collectWindow(timeline: UsableTimeline, startIndex: number, direction: 
     for (let index = startIndex; index >= 0 && index < timeline.frames.length; index += direction) {
         const crossedTransition = findTransition(timeline, index, direction)
         const isCrossedTransitionContinuous = crossedTransition.timeContinuity === "continuous"
-        if (index !== startIndex && isCrossedTransitionContinuous) break
+        if (index !== startIndex && !isCrossedTransitionContinuous) break
 
         const frame = timeline.frames[index]
         const timestampChangeFromWindowStart = Math.abs(frame.frame.timestampMs - startTimestampMs)

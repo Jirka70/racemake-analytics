@@ -21,6 +21,15 @@ describe('telemetry audit pipeline', () => {
     expect(result.coachCallsResult.racingLapComparison?.bestLap.lapTimeMs)
       .toBeLessThanOrEqual(result.coachCallsResult.racingLapComparison?.worstLap.lapTimeMs ?? Number.NEGATIVE_INFINITY)
 
+    const { rankedPhenomena } = result.coachCallsResult.coachingPhenomena
+    expect(rankedPhenomena.map(({ rank }) => rank)).toEqual(
+      rankedPhenomena.map((_, index) => index + 1),
+    )
+    expect(rankedPhenomena.every(({ priority }) => priority >= 0 && priority <= 1)).toBeTrue()
+    expect(rankedPhenomena.every((phenomenon, index) =>
+      index === 0 || rankedPhenomena[index - 1]!.priority >= phenomenon.priority,
+    )).toBeTrue()
+
     expect(normalizedFrames).toHaveLength(wireFrames.length)
     expect(audit.frameTransitions).toHaveLength(
       normalizedFrames.length - 1,

@@ -28,24 +28,27 @@ describe('findCoachingPhenomena', () => {
             ]),
         }
 
-        const results = findCoachingPhenomena(
+        const result = findCoachingPhenomena(
             [createBrakingOnsetDetector({ status: 'unavailable', reason: 'EMPTY_SAMPLE', sampleCount: 0 })],
             comparisonIndex,
             regionContextIndex,
             { laps: [createLap(1), createLap(2)] },
         )
 
-        expect(results).toEqual([{
-            status: 'unavailable',
-            phenomenon: 'LATE_BRAKING',
-            lapNumber: 2,
-            comparedWithLapNumber: 1,
-            analysisRegionId: 'C1-entry',
-            limitations: [{
-                code: 'BRAKE_ACTIVITY_THRESHOLD_UNAVAILABLE',
-                message: 'Brake activity threshold is unavailable: EMPTY_SAMPLE.',
+        expect(result).toEqual({
+            phenomenonResults: [{
+                status: 'unavailable',
+                phenomenon: 'LATE_BRAKING',
+                lapNumber: 2,
+                comparedWithLapNumber: 1,
+                analysisRegionId: 'C1-entry',
+                limitations: [{
+                    code: 'BRAKE_ACTIVITY_THRESHOLD_UNAVAILABLE',
+                    message: 'Brake activity threshold is unavailable: EMPTY_SAMPLE.',
+                }],
             }],
-        }])
+            detectorFailures: [],
+        })
     })
 
     test('lets each detector decide whether a fastest observed pass can be evaluated', () => {
@@ -76,6 +79,60 @@ describe('findCoachingPhenomena', () => {
         findCoachingPhenomena([detector], comparisonIndex, regionContextIndex, { laps: [createLap(1)] })
 
         expect(evaluatedLapNumbers).toEqual([1])
+    })
+
+    test('records an internal detector failure and continues with the remaining detectors', () => {
+        const failedDetector: CoachingPhenomenonDetector = {
+            phenomena: ['EARLY_BRAKING'],
+            channelRequirements: { requiredChannels: [], supportingChannels: [] },
+            isApplicable: () => true,
+            find: () => {
+                throw new RangeError('Internal detector contract was violated')
+            },
+        }
+        const workingDetector: CoachingPhenomenonDetector = {
+            phenomena: ['LATE_BRAKING'],
+            channelRequirements: { requiredChannels: [], supportingChannels: [] },
+            isApplicable: () => true,
+            find: (input) => ({
+                status: 'not-detected',
+                phenomenon: 'LATE_BRAKING',
+                lapNumber: input.comparedLap.lapNumber,
+                comparedWithLapNumber: input.fastestObservedLap.lapNumber,
+                analysisRegionId: input.regionContext.currentTrackRegion.id,
+            }),
+        }
+        const corner = createCornerRegion()
+        const comparisonIndex: RacingLapRegionComparisonIndex = {
+            byLapNumber: new Map([[1, new Map([['C1', createComparison('C1', 1)]])]]),
+        }
+        const regionContextIndex: RegionContextIndex = {
+            byTrackRegionId: new Map([['C1', { previousTrackRegion: null, currentTrackRegion: corner, contextCellIndexes: [1, 2] }]]),
+        }
+
+        const result = findCoachingPhenomena(
+            [failedDetector, workingDetector],
+            comparisonIndex,
+            regionContextIndex,
+            { laps: [createLap(1)] },
+        )
+
+        expect(result).toEqual({
+            phenomenonResults: [{
+                status: 'not-detected',
+                phenomenon: 'LATE_BRAKING',
+                lapNumber: 1,
+                comparedWithLapNumber: 1,
+                analysisRegionId: 'C1',
+            }],
+            detectorFailures: [{
+                code: 'COACHING_DETECTOR_FAILED',
+                phenomena: ['EARLY_BRAKING'],
+                lapNumber: 1,
+                trackRegionId: 'C1',
+                errorName: 'RangeError',
+            }],
+        })
     })
 })
 
