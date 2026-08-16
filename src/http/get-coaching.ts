@@ -29,6 +29,7 @@ export function getCoaching(
             channels: evidence.channels,
             message: evidence.message,
           })),
+          metrics: finding.metrics,
           limitations: finding.limitations.map((limitation) => ({
             code: limitation.code,
             message: limitation.message,

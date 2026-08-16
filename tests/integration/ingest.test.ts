@@ -2,6 +2,10 @@ import { describe, expect, test } from 'bun:test'
 import { createApp } from '../../src/app'
 import type { AnalysisResponseContext } from '../../src/http/contracts/analysis'
 import type { IngestResponse } from '../../src/http/contracts/ingest'
+import {
+  ANALYSIS_STAGES,
+  type IngestStreamEvent,
+} from '../../src/http/contracts/ingest-progress'
 import type { LapsResponse } from '../../src/http/contracts/laps'
 import type { SeriesResponse } from '../../src/http/contracts/series'
 import { HTTP_STATUS } from '../../src/http/http-status'
@@ -28,8 +32,8 @@ const analysisEndpointPaths = [
   '/laps',
   '/track',
   '/time-loss',
+  '/ideal-lap',
   '/coaching',
-  '/series',
   '/diagnostics',
 ] as const
 
@@ -48,6 +52,15 @@ describe('POST /ingest', () => {
         },
       })
     }
+
+    const seriesResponse = await app.request('/series?laps=1')
+    expect(seriesResponse.status).toBe(HTTP_STATUS.BAD_REQUEST)
+    expect(await seriesResponse.json()).toEqual({
+      error: {
+        code: 'ANALYSIS_ID_REQUIRED',
+        message: 'Provide an analysisId returned by POST /ingest',
+      },
+    })
   })
 
   test('Zod-validates analysis IDs for every analysis endpoint', async () => {
@@ -84,6 +97,17 @@ describe('POST /ingest', () => {
         },
       })
     }
+
+    const invalidSeriesResponse = await app.request(
+      '/series?analysisId=invalid&laps=1',
+    )
+    expect(invalidSeriesResponse.status).toBe(HTTP_STATUS.BAD_REQUEST)
+
+    const unknownAnalysisId = `sha256:${'0'.repeat(64)}`
+    const unknownSeriesResponse = await app.request(
+      `/series?analysisId=${unknownAnalysisId}&laps=1`,
+    )
+    expect(unknownSeriesResponse.status).toBe(HTTP_STATUS.NOT_FOUND)
   })
 
   test('validates the complete official telemetry stint', async () => {
@@ -133,6 +157,60 @@ describe('POST /ingest', () => {
       ...body,
       cacheHit: true,
     })
+  })
+
+  test('streams actual pipeline progress before the completed analysis', async () => {
+    const stintJson = await Bun.file(stintPath).text()
+    const app = createApp()
+
+    const response = await app.request('/ingest/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: stintJson,
+    })
+
+    expect(response.status).toBe(HTTP_STATUS.OK)
+    expect(response.headers.get('content-type')).toBe(
+      'application/x-ndjson; charset=utf-8',
+    )
+    expect(response.headers.get('cache-control')).toBe('no-store')
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+
+    const events = (await response.text())
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as IngestStreamEvent)
+    const progressEvents = events.filter((event) => event.type === 'progress')
+    const completedStages = progressEvents
+      .filter((event) => event.status === 'completed')
+      .map((event) => event.stage)
+
+    expect(completedStages).toEqual([...ANALYSIS_STAGES])
+    expect(progressEvents.map((event) => event.completedStageCount)).toEqual([
+      1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6,
+    ])
+
+    const lapProgress = progressEvents.find(
+      (event) =>
+        event.stage === 'DETECTING_LAPS' && event.status === 'completed',
+    )
+    if (!lapProgress?.details?.detectedLapCount) {
+      throw new TypeError('Expected detected lap progress details')
+    }
+    expect(lapProgress.details.detectedLapCount).toBeGreaterThan(0)
+
+    const completedEvent = events.at(-1)
+    expect(completedEvent?.type).toBe('completed')
+    if (completedEvent?.type !== 'completed') {
+      throw new TypeError('Expected a completed ingest stream event')
+    }
+
+    expect(completedEvent.response.status).toBe('ready')
+    expect(completedEvent.response.detectedLapCount).toBe(
+      lapProgress?.details?.detectedLapCount,
+    )
   })
 
   test('returns lap analysis by ID after a later failed ingest', async () => {
@@ -273,11 +351,27 @@ describe('POST /ingest', () => {
     const analysisId = encodeURIComponent(ingest.analysisId)
 
     const invalidChannelResponse = await app.request(
-      `/series?analysisId=${analysisId}&channels=speedKmh,unknown`,
+      `/series?analysisId=${analysisId}&laps=1&channels=speedKmh,unknown`,
     )
     expect(invalidChannelResponse.status).toBe(HTTP_STATUS.BAD_REQUEST)
     expect(
       (await invalidChannelResponse.json() as ErrorResponse).error.code,
+    ).toBe('INVALID_QUERY')
+
+    const missingLapsResponse = await app.request(
+      `/series?analysisId=${analysisId}`,
+    )
+    expect(missingLapsResponse.status).toBe(HTTP_STATUS.BAD_REQUEST)
+    expect(
+      (await missingLapsResponse.json() as ErrorResponse).error.code,
+    ).toBe('INVALID_QUERY')
+
+    const tooManyLapsResponse = await app.request(
+      `/series?analysisId=${analysisId}&laps=1,2,3,4,5,6`,
+    )
+    expect(tooManyLapsResponse.status).toBe(HTTP_STATUS.BAD_REQUEST)
+    expect(
+      (await tooManyLapsResponse.json() as ErrorResponse).error.code,
     ).toBe('INVALID_QUERY')
 
     const unavailableLapResponse = await app.request(
@@ -324,5 +418,28 @@ describe('POST /ingest', () => {
       'frames',
       'frame_count',
     ])
+
+    const streamedResponse = await createApp().request('/ingest/stream', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        schema: 'racemake.telemetry.stint.v1',
+        recorder: {
+          name: 'racemake-agent',
+          version: '0.1.2874',
+        },
+        session_id: '7f3a9c1e-0b52-4d84-9a6e-2c1d5f8b41a0',
+        note: 'invalid test payload',
+        frame_count: 1,
+        frames: [],
+      }),
+    })
+
+    expect(streamedResponse.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY)
+    expect(streamedResponse.headers.get('content-type')).toContain(
+      'application/json',
+    )
   })
 })

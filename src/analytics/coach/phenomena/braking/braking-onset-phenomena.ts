@@ -1,8 +1,9 @@
 import type { CellAlignedRacingLap, CellAlignedRacingLapCell } from '../../cell-aligned-racing-telemetry-types'
 import type { CornerTrackRegion, StraightTrackRegion, TrackRegion } from '../../track-region-types'
-import type { AnalysisLimitation, CoachingAnalysisRegionId, CoachingEvidenceMargins, CoachingPhenomenon, CoachingPhenomenonDetector, CoachingPhenomenonInput, CoachingPhenomenonResult } from '../coaching-phenomenon-types'
+import type { AnalysisLimitation, CoachingAnalysisRegionId, CoachingEvidenceMargins, CoachingFindingMetric, CoachingPhenomenon, CoachingPhenomenonDetector, CoachingPhenomenonInput, CoachingPhenomenonResult } from '../coaching-phenomenon-types'
 import type { BrakeActivityThresholdResult } from './brake-activity-thresholds'
 import { DEFAULT_BRAKING_ONSET_PHENOMENON_CONFIG, DEFAULT_UNNECESSARY_BRAKING_EVIDENCE_MARGINS, type BrakingOnsetPhenomenonConfig } from './braking-onset-config'
+import { createEventPositionMetric, createSpeedMetric } from './braking-finding-metrics'
 import { createBrakeActivityMask } from './create-brake-activity-mask'
 
 interface BrakingActivityMasks {
@@ -108,11 +109,11 @@ export function createUnnecessaryBrakingReportMessage(
                 ? ` You also exited ${Math.abs(facts.exitSpeedDifferenceKmh).toFixed(1)} km/h slower.`
                 : ''
 
-            return `On lap ${facts.lapNumber}, you ${brakeUsage} ${brakingLocation}, while your fastest pass through the corner stayed off the brake. You entered ${entrySpeedDifferenceKmh} km/h slower and carried ${steeringPeakSpeedDifferenceKmh} km/h less speed through the steering-peak zone.${slowerExitSentence} From braking onset through ${facts.cornerId}, you lost ${roundedTimeLossMs} ms. Keep ${facts.cornerId} brake-free and protect momentum through the corner.`
+            return `On lap ${facts.lapNumber}, you ${brakeUsage} ${brakingLocation}, while your quickest ${facts.cornerId} pass stayed off the brake. You entered ${entrySpeedDifferenceKmh} km/h slower and were ${steeringPeakSpeedDifferenceKmh} km/h slower in the part of ${facts.cornerId} where you used the most steering.${slowerExitSentence} From the moment you started braking to the ${facts.cornerId} exit, you lost ${roundedTimeLossMs} ms. Keep ${facts.cornerId} brake-free and protect momentum through the corner.`
         }
 
         case 'BRAKING_WITH_TIME_LOSS':
-            return `On lap ${facts.lapNumber}, you ${brakeUsage} ${brakingLocation}, while your fastest pass through the corner stayed off the brake. From braking onset through ${facts.cornerId}, you lost ${roundedTimeLossMs} ms. Use the brake-free pass as your reference through ${facts.cornerId}.`
+            return `On lap ${facts.lapNumber}, you ${brakeUsage} ${brakingLocation}, while your quickest ${facts.cornerId} pass stayed off the brake. From the moment you started braking to the ${facts.cornerId} exit, you lost ${roundedTimeLossMs} ms. Use the brake-free pass as your reference through ${facts.cornerId}.`
 
         case 'NONE':
             return null
@@ -566,6 +567,11 @@ function createDetectedUnnecessaryBrakingResult(
     }
 
     const roundedTimeLossMs = Math.round(facts.timeLossSinceBrakingStartedMs)
+    const metrics = createUnnecessaryBrakingMetrics(
+        input,
+        onsetCellIndex,
+        facts,
+    )
 
     return {
         status: 'detected',
@@ -581,9 +587,91 @@ function createDetectedUnnecessaryBrakingResult(
                 channels: ['brakeRatio', 'speedKmh', 'normalizedTrackPosition'],
                 message: `Compared region braking onset cell ${onsetCellIndex}; travel-time loss from that cell through ${facts.cornerId}: ${roundedTimeLossMs} ms.`,
             }],
+            metrics,
             limitations: [],
         },
     }
+}
+
+function createUnnecessaryBrakingMetrics(
+    input: CoachingPhenomenonInput,
+    onsetCellIndex: number,
+    facts: UnnecessaryBrakingReportFacts,
+): readonly CoachingFindingMetric[] {
+    const metrics: CoachingFindingMetric[] = []
+    const analysisRegionId = findBrakingOnsetAnalysisRegionId(input)
+    const eventPosition = createEventPositionMetric(
+        input.comparedLap,
+        onsetCellIndex,
+        'braking-onset',
+        analysisRegionId,
+        facts.hasBrakingStartedBeforeCorner ? 'before-region' : 'in-region',
+    )
+    if (eventPosition) metrics.push(eventPosition)
+
+    const onsetOffset = input.regionContext.contextCellIndexes.indexOf(
+        onsetCellIndex,
+    )
+    if (onsetOffset === -1) {
+        throw new RangeError(
+            'Brake onset cell must belong to the coaching region context',
+        )
+    }
+    const eventCellIndexes = input.regionContext.contextCellIndexes.slice(
+        onsetOffset,
+    )
+    const fastestRegionMaximumBrakeRatio =
+        calculateMaximumUsableBrakeRatio(
+            input.fastestObservedLap,
+            eventCellIndexes,
+        )
+    if (
+        facts.maximumBrakeRatio !== null
+        && fastestRegionMaximumBrakeRatio !== null
+    ) {
+        metrics.push({
+            kind: 'brake-application',
+            role: 'evidence',
+            analyzedPass: {
+                lapNumber: input.comparedLap.lapNumber,
+                maximumBrakeRatio: facts.maximumBrakeRatio,
+            },
+            fastestRegionPass: {
+                lapNumber: input.fastestObservedLap.lapNumber,
+                maximumBrakeRatio: fastestRegionMaximumBrakeRatio,
+            },
+        })
+    }
+
+    const currentCorner = input.regionContext.currentTrackRegion
+    if (currentCorner.type === 'corner') {
+        const minimumSpeedMetric = createSpeedMetric(
+            input.comparedLap,
+            input.fastestObservedLap,
+            'minimum',
+            currentCorner.cellIndexes,
+        )
+        if (minimumSpeedMetric) metrics.push(minimumSpeedMetric)
+    }
+
+    return metrics
+}
+
+function calculateMaximumUsableBrakeRatio(
+    lap: CellAlignedRacingLap,
+    cellIndexes: readonly number[],
+): number | null {
+    if (cellIndexes.length === 0) return null
+
+    let maximumBrakeRatio = Number.NEGATIVE_INFINITY
+    for (const cellIndex of cellIndexes) {
+        const cell = lap.cells[cellIndex]
+        if (!cell || !hasUsableBrakeData(cell)) return null
+        const brakeRatio = cell.center.brakeRatio
+        if (brakeRatio === null) return null
+        maximumBrakeRatio = Math.max(maximumBrakeRatio, brakeRatio)
+    }
+    return maximumBrakeRatio
 }
 
 function createUnnecessaryBrakingNotDetectedResult(input: CoachingPhenomenonInput): CoachingPhenomenonResult {
@@ -643,6 +731,36 @@ function createDetectedBrakingOnsetResult(input: CoachingPhenomenonInput, phenom
 
     const absoluteDifferenceMs = Math.round(Math.abs(differenceMs))
     const direction = phenomenon === 'LATE_BRAKING' ? 'later' : 'earlier'
+    const metrics: CoachingFindingMetric[] = [{
+        kind: 'timing-difference',
+        role: 'evidence',
+        event: 'braking-onset',
+        differenceMs,
+    }]
+    const eventPosition = createEventPositionMetric(
+        input.comparedLap,
+        comparedOnsetCellIndex,
+        'braking-onset',
+        findBrakingOnsetAnalysisRegionId(input),
+        input.regionContext.currentTrackRegion.cellIndexes.includes(
+            comparedOnsetCellIndex,
+        )
+            ? 'in-region'
+            : 'before-region',
+    )
+    if (eventPosition) metrics.unshift(eventPosition)
+
+    const currentTrackRegion = input.regionContext.currentTrackRegion
+    if (currentTrackRegion.type === 'corner') {
+        const minimumSpeedMetric = createSpeedMetric(
+            input.comparedLap,
+            input.fastestObservedLap,
+            'minimum',
+            currentTrackRegion.cellIndexes,
+        )
+        if (minimumSpeedMetric) metrics.push(minimumSpeedMetric)
+    }
+
     return {
         status: 'detected',
         finding: {
@@ -652,11 +770,12 @@ function createDetectedBrakingOnsetResult(input: CoachingPhenomenonInput, phenom
             analysisRegionId: findBrakingOnsetAnalysisRegionId(input),
             occurredAtLapElapsedMs,
             impactTimeLossMs: input.comparison.fastestObserved.comparedLapMinusObservedPassMs,
-            message: `Braking started approximately ${absoluteDifferenceMs} ms ${direction} than the fastest observed pass in lap ${input.comparison.fastestObserved.lapNumber}.`,
+            message: `On lap ${input.comparison.comparedLapNumber}, you started braking for ${currentTrackRegion.id} approximately ${absoluteDifferenceMs} ms ${direction} than on the quickest ${currentTrackRegion.id} pass (Lap ${input.comparison.fastestObserved.lapNumber}).`,
             evidence: [{
                 channels: ['brakeRatio', 'normalizedTrackPosition'],
                 message: `Compared lap onset cell ${comparedOnsetCellIndex}; fastest observed onset cell ${fastestObservedOnsetCellIndex}; benchmark travel-time difference ${Math.round(differenceMs)} ms.`,
             }],
+            metrics,
             limitations: [],
         },
     }

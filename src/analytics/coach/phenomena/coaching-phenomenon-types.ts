@@ -57,6 +57,51 @@ export interface CoachingFindingEvidence {
     readonly message: string
 }
 
+export type CoachingFindingMetric =
+    | {
+        readonly kind: 'event-position'
+        readonly role: 'evidence'
+        readonly event: 'braking-onset' | 'brake-release'
+        readonly regionId: CoachingAnalysisRegionId
+        readonly location: 'before-region' | 'in-region'
+        readonly analyzedPass: {
+            readonly lapNumber: number
+            readonly normalizedTrackPosition: number
+        }
+    }
+    | {
+        readonly kind: 'brake-application'
+        readonly role: 'evidence'
+        readonly analyzedPass: {
+            readonly lapNumber: number
+            readonly maximumBrakeRatio: number
+        }
+        readonly fastestRegionPass: {
+            readonly lapNumber: number
+            readonly maximumBrakeRatio: number
+        }
+    }
+    | {
+        readonly kind: 'timing-difference'
+        readonly role: 'evidence'
+        readonly event: 'braking-onset' | 'brake-release'
+        /** Analyzed-pass event time minus fastest-region-pass event time. */
+        readonly differenceMs: number
+    }
+    | {
+        readonly kind: 'speed'
+        readonly role: 'related'
+        readonly measurement: 'entry' | 'minimum' | 'steering-peak' | 'exit'
+        readonly analyzedPass: {
+            readonly lapNumber: number
+            readonly speedKmh: number
+        }
+        readonly fastestRegionPass: {
+            readonly lapNumber: number
+            readonly speedKmh: number
+        }
+    }
+
 export interface CoachingFinding {
     readonly phenomenon: CoachingPhenomenon
     readonly lapNumber: number
@@ -67,6 +112,7 @@ export interface CoachingFinding {
     readonly impactTimeLossMs: number
     readonly message: string
     readonly evidence: readonly CoachingFindingEvidence[]
+    readonly metrics: readonly CoachingFindingMetric[]
     readonly limitations: readonly AnalysisLimitation[]
 }
 

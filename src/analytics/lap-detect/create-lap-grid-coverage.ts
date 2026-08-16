@@ -28,5 +28,27 @@ function calculateLongestUnsupportedPositionSpan(supportMask: readonly boolean[]
         longestUnsupportedGridPointCount = Math.max(longestUnsupportedGridPointCount, currentUnsupportedGridPointCount)
     }
 
-    return Math.min(1, longestUnsupportedGridPointCount * positionStep)
+    const unsupportedGridPointCountAfterStart = countUnsupportedGridPointsFromStart(supportMask)
+    const unsupportedGridPointCountBeforeFinish = countUnsupportedGridPointsFromFinish(supportMask)
+    const unsupportedGridPointCountAcrossStartFinish = unsupportedGridPointCountAfterStart > 0
+        && unsupportedGridPointCountBeforeFinish > 0
+        ? unsupportedGridPointCountAfterStart + unsupportedGridPointCountBeforeFinish - 1
+        : 0
+
+    return Math.min(
+        1,
+        Math.max(longestUnsupportedGridPointCount, unsupportedGridPointCountAcrossStartFinish) * positionStep,
+    )
+}
+
+function countUnsupportedGridPointsFromStart(supportMask: readonly boolean[]): number {
+    let count = 0
+    while (count < supportMask.length && supportMask[count] === false) count++
+    return count
+}
+
+function countUnsupportedGridPointsFromFinish(supportMask: readonly boolean[]): number {
+    let count = 0
+    while (count < supportMask.length && supportMask[supportMask.length - 1 - count] === false) count++
+    return count
 }

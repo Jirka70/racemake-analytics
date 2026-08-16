@@ -5,6 +5,7 @@ import { SERIES_CHANNELS } from '../../src/http/contracts/series'
 import { getAnalysis } from '../../src/http/get-analysis'
 import { getCoaching } from '../../src/http/get-coaching'
 import { getDiagnostics } from '../../src/http/get-diagnostics'
+import { getIdealLap } from '../../src/http/get-ideal-lap'
 import { getSeries } from '../../src/http/get-series'
 import { getTimeLoss } from '../../src/http/get-time-loss'
 import { getTrack } from '../../src/http/get-track'
@@ -76,6 +77,11 @@ describe('analysis response functions', () => {
     expect(coaching.detectorFailures).toEqual(
       analysis.coachCallsResult.coachingPhenomena.detectorFailures,
     )
+    expect(
+      coaching.rankedPhenomena.every(
+        ({ finding }) => finding.metrics.length > 0,
+      ),
+    ).toBeTrue()
 
     const alignedLaps =
       analysis.coachCallsResult.cellAlignedRacingTelemetry.laps
@@ -133,7 +139,10 @@ describe('analysis response functions', () => {
       ).toHaveLength(pointCount)
     }
 
-    const defaultSeries = getSeries(query, analysisStore)
+    const defaultSeries = getSeries({
+      ...query,
+      laps: selectedLapNumbers.join(','),
+    }, analysisStore)
     expect(defaultSeries.selection.channels).toEqual([
       'speedKmh',
       'throttleRatio',
@@ -171,6 +180,58 @@ describe('analysis response functions', () => {
             && position < previousPosition
         },
       ),
+    ).toBeTrue()
+
+    const idealLap = getIdealLap(
+      {
+        ...query,
+        channels: 'speedKmh,brakeRatio',
+        positionFrom: '0.18',
+        positionTo: '0.26',
+      },
+      analysisStore,
+    )
+    expect(idealLap.status).toBe('available')
+    if (idealLap.status !== 'available') {
+      throw new TypeError('Expected an available ideal lap')
+    }
+
+    expect(idealLap.durationMs).toBeCloseTo(
+      timeLoss.idealLap?.durationMs ?? 0,
+      6,
+    )
+    expect(idealLap.regionSources).toHaveLength(
+      analysis.coachCallsResult.trackRegions.length,
+    )
+    expect(idealLap.selection).toEqual({
+      channels: ['speedKmh', 'brakeRatio'],
+      positionFrom: 0.18,
+      positionTo: 0.26,
+    })
+    expect(
+      idealLap.grid.normalizedTrackPositions.every(
+        (position) => position >= 0.18 && position <= 0.26,
+      ),
+    ).toBeTrue()
+    expect(idealLap.lapElapsedMs).toHaveLength(
+      idealLap.grid.normalizedTrackPositions.length,
+    )
+    expect(idealLap.channels.speedKmh).toHaveLength(
+      idealLap.grid.normalizedTrackPositions.length,
+    )
+    expect(idealLap.channels.brakeRatio).toHaveLength(
+      idealLap.grid.normalizedTrackPositions.length,
+    )
+    expect(Object.keys(idealLap.channels)).toEqual(['speedKmh', 'brakeRatio'])
+    const availableIdealElapsedMs = idealLap.lapElapsedMs.filter(
+      (elapsedMs): elapsedMs is number => elapsedMs !== null,
+    )
+    expect(availableIdealElapsedMs.length).toBeGreaterThan(0)
+    expect(
+      availableIdealElapsedMs.every((elapsedMs, index) => {
+        const previousElapsedMs = availableIdealElapsedMs[index - 1]
+        return previousElapsedMs === undefined || elapsedMs > previousElapsedMs
+      }),
     ).toBeTrue()
 
     const diagnostics = getDiagnostics(query, analysisStore)

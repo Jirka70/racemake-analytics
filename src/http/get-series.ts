@@ -84,8 +84,6 @@ function selectLaps(
   alignedLaps: readonly CellAlignedRacingLap[],
   query: SeriesQuery,
 ): readonly CellAlignedRacingLap[] {
-  if (!query.laps) return alignedLaps
-
   const lapsByNumber = new Map(
     alignedLaps.map((lap) => [lap.lapNumber, lap]),
   )

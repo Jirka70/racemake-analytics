@@ -1,9 +1,10 @@
 import type { CellAlignedRacingLap, CellAlignedRacingLapCell } from '../../cell-aligned-racing-telemetry-types'
 import type { CornerTrackRegion } from '../../track-region-types'
-import type { AnalysisLimitation, CoachingPhenomenonDetector, CoachingPhenomenonInput, CoachingPhenomenonResult } from '../coaching-phenomenon-types'
+import type { AnalysisLimitation, CoachingFindingMetric, CoachingPhenomenonDetector, CoachingPhenomenonInput, CoachingPhenomenonResult } from '../coaching-phenomenon-types'
 import type { BrakeActivityThresholdResult } from './brake-activity-thresholds'
 import { DEFAULT_BRAKE_RELEASE_PHENOMENON_CONFIG, type BrakeReleasePhenomenonConfig } from './brake-release-config'
 import { findRelevantBrakeOnset } from './braking-onset-phenomena'
+import { createEventPositionMetric, createSpeedMetric } from './braking-finding-metrics'
 import { createBrakeActivityMask } from './create-brake-activity-mask'
 
 type BrakeReleaseResult =
@@ -38,6 +39,7 @@ interface RegionBrakeReleases {
 export interface BrakeReleaseReportFacts {
     readonly lapNumber: number
     readonly cornerId: string
+    readonly fastestRegionPassLapNumber: number
     /** Compared-region release time minus fastest-region release time. */
     readonly brakeReleaseDifferenceMs: number
     /** Compared-region entry speed minus fastest-region entry speed. */
@@ -118,7 +120,7 @@ export function createBrakeReleaseReportMessage(
             const entrySpeedDifferenceKmh = Math.abs(facts.entrySpeedDifferenceKmh).toFixed(1)
             const timeLossFromFastestReleaseMs = Math.round(facts.timeLossFromFastestReleaseMs)
             const exitSpeedDifferenceKmh = Math.abs(facts.exitSpeedDifferenceKmh).toFixed(1)
-            return `On lap ${facts.lapNumber}, you entered ${facts.cornerId} ${entrySpeedDifferenceKmh} km/h faster than on your fastest pass through the corner, but carried the brake ${brakeReleaseDifferenceMs} ms deeper. From the brake-release point used on your fastest pass to corner exit, you lost ${timeLossFromFastestReleaseMs} ms and exited ${exitSpeedDifferenceKmh} km/h slower. The additional entry speed did not pay off — finish the braking earlier and protect the exit.`
+            return `On lap ${facts.lapNumber}, you entered ${facts.cornerId} ${entrySpeedDifferenceKmh} km/h faster than on your quickest ${facts.cornerId} pass, but kept braking for ${brakeReleaseDifferenceMs} ms longer. From the point where Lap ${facts.fastestRegionPassLapNumber} stopped braking to the ${facts.cornerId} exit, you lost ${timeLossFromFastestReleaseMs} ms and exited ${exitSpeedDifferenceKmh} km/h slower. The additional entry speed did not pay off — finish braking earlier and protect the exit.`
         }
 
         case 'LATE_RELEASE_WITH_SLOWER_EXIT': {
@@ -127,14 +129,14 @@ export function createBrakeReleaseReportMessage(
 
             const timeLossFromFastestReleaseMs = Math.round(facts.timeLossFromFastestReleaseMs)
             const exitSpeedDifferenceKmh = Math.abs(facts.exitSpeedDifferenceKmh).toFixed(1)
-            return `On lap ${facts.lapNumber}, you carried the brake ${brakeReleaseDifferenceMs} ms deeper into ${facts.cornerId} than on your fastest pass through the corner. From the brake-release point used on that pass to corner exit, you lost ${timeLossFromFastestReleaseMs} ms and exited ${exitSpeedDifferenceKmh} km/h slower. Release the brake earlier and protect the exit.`
+            return `On lap ${facts.lapNumber}, you kept braking for ${brakeReleaseDifferenceMs} ms longer into ${facts.cornerId} than on your quickest ${facts.cornerId} pass. From the point where Lap ${facts.fastestRegionPassLapNumber} stopped braking to the ${facts.cornerId} exit, you lost ${timeLossFromFastestReleaseMs} ms and exited ${exitSpeedDifferenceKmh} km/h slower. Finish braking earlier and protect the exit.`
         }
 
         case 'LATE_RELEASE_WITH_TIME_LOSS': {
             if (!hasLostTimeAfterFastestRelease(facts, margins)) throw new TypeError('Time-loss report requires measured time loss')
 
             const timeLossFromFastestReleaseMs = Math.round(facts.timeLossFromFastestReleaseMs)
-            return `On lap ${facts.lapNumber}, you carried the brake ${brakeReleaseDifferenceMs} ms deeper into ${facts.cornerId} than on your fastest pass through the corner. From the brake-release point used on that pass to corner exit, you lost ${timeLossFromFastestReleaseMs} ms. Use the earlier release as your reference through ${facts.cornerId}.`
+            return `On lap ${facts.lapNumber}, you kept braking for ${brakeReleaseDifferenceMs} ms longer into ${facts.cornerId} than on your quickest ${facts.cornerId} pass. From the point where Lap ${facts.fastestRegionPassLapNumber} stopped braking to the ${facts.cornerId} exit, you lost ${timeLossFromFastestReleaseMs} ms. Finish braking earlier through ${facts.cornerId}.`
         }
 
         case 'NONE':
@@ -311,6 +313,12 @@ function createDetectedBrakeReleaseResult(
         })
     }
 
+    const metrics = createBrakeReleaseMetrics(
+        input,
+        facts.brakeReleaseDifferenceMs,
+        comparedRegionReleaseCellIndex,
+    )
+
     return {
         status: 'detected',
         finding: {
@@ -325,9 +333,69 @@ function createDetectedBrakeReleaseResult(
                 channels: ['brakeRatio', 'speedKmh', 'normalizedTrackPosition'],
                 message: `Compared region release cell ${comparedRegionReleaseCellIndex}; fastest region release cell ${fastestRegionReleaseCellIndex}; release difference ${Math.round(facts.brakeReleaseDifferenceMs)} ms; time loss to corner exit ${Math.round(facts.timeLossFromFastestReleaseMs)} ms.`,
             }],
+            metrics,
             limitations: [],
         },
     }
+}
+
+function createBrakeReleaseMetrics(
+    input: CoachingPhenomenonInput,
+    brakeReleaseDifferenceMs: number,
+    comparedRegionReleaseCellIndex: number,
+): readonly CoachingFindingMetric[] {
+    const currentCorner = input.regionContext.currentTrackRegion
+    if (currentCorner.type !== 'corner') {
+        throw new TypeError('Brake release metrics require a corner region')
+    }
+
+    const metrics: CoachingFindingMetric[] = []
+    const eventPosition = createEventPositionMetric(
+        input.comparedLap,
+        comparedRegionReleaseCellIndex,
+        'brake-release',
+        currentCorner.id,
+        'in-region',
+    )
+    if (eventPosition) metrics.push(eventPosition)
+    metrics.push({
+        kind: 'timing-difference',
+        role: 'evidence',
+        event: 'brake-release',
+        differenceMs: brakeReleaseDifferenceMs,
+    })
+
+    const entryCellIndex = currentCorner.cellIndexes[0]
+    const exitCellIndex = currentCorner.cellIndexes.at(-1)
+    if (entryCellIndex !== undefined) {
+        const entrySpeedMetric = createSpeedMetric(
+            input.comparedLap,
+            input.fastestObservedLap,
+            'entry',
+            [entryCellIndex],
+        )
+        if (entrySpeedMetric) metrics.push(entrySpeedMetric)
+    }
+
+    const minimumSpeedMetric = createSpeedMetric(
+        input.comparedLap,
+        input.fastestObservedLap,
+        'minimum',
+        currentCorner.cellIndexes,
+    )
+    if (minimumSpeedMetric) metrics.push(minimumSpeedMetric)
+
+    if (exitCellIndex !== undefined) {
+        const exitSpeedMetric = createSpeedMetric(
+            input.comparedLap,
+            input.fastestObservedLap,
+            'exit',
+            [exitCellIndex],
+        )
+        if (exitSpeedMetric) metrics.push(exitSpeedMetric)
+    }
+
+    return metrics
 }
 
 function createBrakeReleaseNotDetectedResult(input: CoachingPhenomenonInput): CoachingPhenomenonResult {
@@ -369,6 +437,7 @@ function createBrakeReleaseReportFacts(
     return {
         lapNumber: input.comparedLap.lapNumber,
         cornerId: currentCorner.id,
+        fastestRegionPassLapNumber: input.fastestObservedLap.lapNumber,
         brakeReleaseDifferenceMs,
         entrySpeedDifferenceKmh: calculateSpeedDifferenceKmh(
             input.comparedLap.cells[cornerEntryCellIndex],

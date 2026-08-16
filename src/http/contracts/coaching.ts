@@ -1,6 +1,7 @@
 import type {
   AnalysisLimitation,
   CoachingAnalysisRegionId,
+  CoachingFindingMetric,
   CoachingPhenomenon,
 } from '../../analytics/coach/phenomena/coaching-phenomenon-types'
 import type { TrackRegion } from '../../analytics/coach/track-region-types'
@@ -26,6 +27,7 @@ export interface CoachingFindingResponse {
   readonly impactTimeLossMs: number
   readonly message: string
   readonly evidence: readonly CoachingFindingEvidenceResponse[]
+  readonly metrics: readonly CoachingFindingMetric[]
   readonly limitations: readonly CoachingFindingLimitationResponse[]
 }
 

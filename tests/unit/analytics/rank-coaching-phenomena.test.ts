@@ -86,6 +86,7 @@ function createDetectedResult(
             impactTimeLossMs,
             message: 'Synthetic coaching finding.',
             evidence: [],
+            metrics: [],
             limitations: [],
         },
     }

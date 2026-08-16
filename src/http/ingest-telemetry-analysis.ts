@@ -1,5 +1,14 @@
 import type { FrameAuditConfig } from '../analytics/frame-audit-types'
-import { runTelemetryAuditPipeline } from '../application/telemetry-audit-pipeline'
+import {
+  ANALYSIS_STAGES,
+  type ReportAnalysisProgress,
+} from '../application/analysis-progress'
+import {
+  runTelemetryAuditPipeline,
+  runTelemetryAuditPipelineWithProgress,
+  type TelemetryAuditPipelineResult,
+} from '../application/telemetry-audit-pipeline'
+import type { WireTelemetryPayload } from '../analytics/telemetry-types'
 import type { AnalysisStore } from './analysis-store'
 import type { IngestResponse } from './contracts/ingest'
 import { createAnalysisId } from './create-analysis-id'
@@ -16,6 +25,51 @@ export function ingestTelemetryAnalysis(
   dependencies: IngestTelemetryAnalysisDependencies,
 ): IngestResponse {
   const validatedWirePayload = zValidate(telemetryPayloadSchema, input)
+  return ingestValidatedTelemetryAnalysis(
+    validatedWirePayload,
+    dependencies,
+  )
+}
+
+export async function ingestValidatedTelemetryAnalysisWithProgress(
+  validatedWirePayload: WireTelemetryPayload,
+  dependencies: IngestTelemetryAnalysisDependencies,
+  reportProgress: ReportAnalysisProgress,
+): Promise<IngestResponse> {
+  await reportProgress({
+    stage: 'VALIDATING_TELEMETRY',
+    status: 'completed',
+    completedStageCount: 1,
+    totalStageCount: ANALYSIS_STAGES.length,
+    details: {
+      receivedFrameCount: validatedWirePayload.frames.length,
+    },
+  })
+
+  const analysisId = createAnalysisId(validatedWirePayload)
+  const cachedAnalysis = dependencies.analysisStore.get(analysisId)
+  const analysis = cachedAnalysis
+    ?? await runTelemetryAuditPipelineWithProgress(
+      validatedWirePayload,
+      dependencies.frameAuditConfig,
+      reportProgress,
+    )
+
+  if (!cachedAnalysis) {
+    dependencies.analysisStore.set(analysisId, analysis)
+  }
+
+  return createIngestResponse(
+    analysisId,
+    analysis,
+    cachedAnalysis !== null,
+  )
+}
+
+function ingestValidatedTelemetryAnalysis(
+  validatedWirePayload: WireTelemetryPayload,
+  dependencies: IngestTelemetryAnalysisDependencies,
+): IngestResponse {
   const analysisId = createAnalysisId(validatedWirePayload)
   const cachedAnalysis = dependencies.analysisStore.get(analysisId)
   const analysis = cachedAnalysis ?? runTelemetryAuditPipeline(
@@ -27,7 +81,20 @@ export function ingestTelemetryAnalysis(
     dependencies.analysisStore.set(analysisId, analysis)
   }
 
+  return createIngestResponse(
+    analysisId,
+    analysis,
+    cachedAnalysis !== null,
+  )
+}
+
+function createIngestResponse(
+  analysisId: IngestResponse['analysisId'],
+  analysis: TelemetryAuditPipelineResult,
+  cacheHit: boolean,
+): IngestResponse {
   const {
+    validatedWirePayload,
     normalizedTelemetry,
     auditResult,
     lapDetectionResult,
@@ -41,7 +108,7 @@ export function ingestTelemetryAnalysis(
     sessionId: normalizedTelemetry.sessionId,
     telemetrySchema: normalizedTelemetry.schemaVersion,
     status: 'ready',
-    cacheHit: cachedAnalysis !== null,
+    cacheHit,
     receivedFrameCount: validatedWirePayload.frames.length,
     retainedTimelineFrameCount: auditResult.usableTimeline?.frames.length ?? 0,
     excludedTimelineFrameCount:

@@ -29,20 +29,29 @@ describe('seriesQuerySchema', () => {
     })
   })
 
-  test('keeps every filter optional', () => {
+  test('requires laps and keeps the remaining filters optional', () => {
     expect(
       seriesQuerySchema.parse({
         analysisId: VALID_ANALYSIS_ID,
+        laps: '2',
       }),
     ).toEqual({
       analysisId: VALID_ANALYSIS_ID,
+      laps: [2],
     })
+
+    expect(
+      seriesQuerySchema.safeParse({
+        analysisId: VALID_ANALYSIS_ID,
+      }).success,
+    ).toBe(false)
   })
 
   test('allows a position range that crosses the start-finish line', () => {
     expect(
       seriesQuerySchema.parse({
         analysisId: VALID_ANALYSIS_ID,
+        laps: '2',
         positionFrom: '0.95',
         positionTo: '0.05',
       }),
@@ -53,7 +62,14 @@ describe('seriesQuerySchema', () => {
   })
 
   test('rejects invalid or duplicate lap numbers', () => {
-    for (const laps of ['0,2', '2.5,3', '2,2', 'two,3', '']) {
+    for (const laps of [
+      '0,2',
+      '2.5,3',
+      '2,2',
+      'two,3',
+      '',
+      '1,2,3,4,5,6',
+    ]) {
       expect(
         seriesQuerySchema.safeParse({
           analysisId: VALID_ANALYSIS_ID,
@@ -72,6 +88,7 @@ describe('seriesQuerySchema', () => {
       expect(
         seriesQuerySchema.safeParse({
           analysisId: VALID_ANALYSIS_ID,
+          laps: '2',
           channels,
         }).success,
       ).toBe(false)
@@ -87,6 +104,7 @@ describe('seriesQuerySchema', () => {
       expect(
         seriesQuerySchema.safeParse({
           analysisId: VALID_ANALYSIS_ID,
+          laps: '2',
           positionFrom,
           positionTo,
         }).success,
@@ -98,6 +116,7 @@ describe('seriesQuerySchema', () => {
     expect(
       seriesQuerySchema.safeParse({
         analysisId: VALID_ANALYSIS_ID,
+        laps: '2',
         detail: 'medium',
       }).success,
     ).toBe(false)

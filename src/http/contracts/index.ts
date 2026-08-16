@@ -22,6 +22,23 @@ export type {
   SteeringThresholdDiagnosticsResponse,
 } from './diagnostics'
 export type { IngestRequest, IngestResponse } from './ingest'
+export { ANALYSIS_STAGES } from './ingest-progress'
+export type {
+  AnalysisProgress,
+  AnalysisProgressDetails,
+  AnalysisProgressEvent,
+  AnalysisStage,
+  IngestStreamEvent,
+} from './ingest-progress'
+export type {
+  AvailableIdealLapResponse,
+  IdealLapLimitationResponse,
+  IdealLapQuery,
+  IdealLapRegionSourceResponse,
+  IdealLapSelectionResponse,
+  IdealLapSeriesResponse,
+  UnavailableIdealLapResponse,
+} from './ideal-lap'
 export type {
   LapAnalysisEligibilityResponse,
   LapConfidenceResponse,

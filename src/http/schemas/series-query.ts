@@ -15,7 +15,9 @@ const commaSeparatedLapNumbersSchema = z
         .regex(/^\d+$/, 'Lap number must be a positive integer')
         .transform(Number)
         .pipe(z.number().int().positive()),
-    ).min(1),
+    )
+      .min(1)
+      .max(5, 'Select no more than 5 laps'),
   )
   .refine(
     (lapNumbers) =>
@@ -41,7 +43,7 @@ const normalizedTrackPositionSchema = z.coerce
 export const seriesQuerySchema: z.ZodType<SeriesQuery> =
   z.strictObject({
     analysisId: analysisIdSchema,
-    laps: commaSeparatedLapNumbersSchema.optional(),
+    laps: commaSeparatedLapNumbersSchema,
     channels: commaSeparatedChannelsSchema.optional(),
     positionFrom: normalizedTrackPositionSchema.optional(),
     positionTo: normalizedTrackPositionSchema.optional(),

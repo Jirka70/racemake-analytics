@@ -66,7 +66,7 @@ describe('unnecessary braking report facts', () => {
         expect(selectUnnecessaryBrakingReportVariant(facts, EVIDENCE_MARGINS))
             .toBe('BRAKING_WITH_CORNER_SPEED_COST')
         expect(createUnnecessaryBrakingReportMessage(facts, EVIDENCE_MARGINS)).toBe(
-            'On lap 3, you applied up to 45% brake before C2 entry, while your fastest pass through the corner stayed off the brake. You entered 20.2 km/h slower and carried 30.7 km/h less speed through the steering-peak zone. From braking onset through C2, you lost 459 ms. Keep C2 brake-free and protect momentum through the corner.',
+            'On lap 3, you applied up to 45% brake before C2 entry, while your quickest C2 pass stayed off the brake. You entered 20.2 km/h slower and were 30.7 km/h slower in the part of C2 where you used the most steering. From the moment you started braking to the C2 exit, you lost 459 ms. Keep C2 brake-free and protect momentum through the corner.',
         )
     })
 
@@ -90,7 +90,7 @@ describe('unnecessary braking report facts', () => {
         expect(selectUnnecessaryBrakingReportVariant(facts, EVIDENCE_MARGINS))
             .toBe('BRAKING_WITH_TIME_LOSS')
         expect(createUnnecessaryBrakingReportMessage(facts, EVIDENCE_MARGINS)).toBe(
-            'On lap 3, you applied the brake before C2 entry, while your fastest pass through the corner stayed off the brake. From braking onset through C2, you lost 459 ms. Use the brake-free pass as your reference through C2.',
+            'On lap 3, you applied the brake before C2 entry, while your quickest C2 pass stayed off the brake. From the moment you started braking to the C2 exit, you lost 459 ms. Use the brake-free pass as your reference through C2.',
         )
     })
 
@@ -301,7 +301,7 @@ describe('createBrakingOnsetDetector', () => {
                 comparedWithLapNumber: 1,
                 analysisRegionId: 'C1-entry',
                 occurredAtLapElapsedMs: 450,
-                message: 'Braking started approximately 300 ms later than the fastest observed pass in lap 1.',
+                message: 'On lap 2, you started braking for C1 approximately 300 ms later than on the quickest C1 pass (Lap 1).',
             },
         })
     })
@@ -319,7 +319,7 @@ describe('createBrakingOnsetDetector', () => {
             finding: {
                 phenomenon: 'EARLY_BRAKING',
                 occurredAtLapElapsedMs: 150,
-                message: 'Braking started approximately 300 ms earlier than the fastest observed pass in lap 1.',
+                message: 'On lap 2, you started braking for C1 approximately 300 ms earlier than on the quickest C1 pass (Lap 1).',
             },
         })
     })
@@ -379,7 +379,45 @@ describe('createBrakingOnsetDetector', () => {
                 comparedWithLapNumber: 1,
                 analysisRegionId: 'C1-entry',
                 occurredAtLapElapsedMs: 100,
-                message: 'On lap 2, you applied up to 60% brake before C1 entry, while your fastest pass through the corner stayed off the brake. From braking onset through C1, you lost 200 ms. Use the brake-free pass as your reference through C1.',
+                message: 'On lap 2, you applied up to 60% brake before C1 entry, while your quickest C1 pass stayed off the brake. From the moment you started braking to the C1 exit, you lost 200 ms. Use the brake-free pass as your reference through C1.',
+                metrics: [
+                    {
+                        kind: 'event-position',
+                        role: 'evidence',
+                        event: 'braking-onset',
+                        regionId: 'C1-entry',
+                        location: 'before-region',
+                        analyzedPass: {
+                            lapNumber: 2,
+                            normalizedTrackPosition: 1,
+                        },
+                    },
+                    {
+                        kind: 'brake-application',
+                        role: 'evidence',
+                        analyzedPass: {
+                            lapNumber: 2,
+                            maximumBrakeRatio: 0.6,
+                        },
+                        fastestRegionPass: {
+                            lapNumber: 1,
+                            maximumBrakeRatio: 0,
+                        },
+                    },
+                    {
+                        kind: 'speed',
+                        role: 'related',
+                        measurement: 'minimum',
+                        analyzedPass: {
+                            lapNumber: 2,
+                            speedKmh: 200,
+                        },
+                        fastestRegionPass: {
+                            lapNumber: 1,
+                            speedKmh: 200,
+                        },
+                    },
+                ],
             },
         })
     })

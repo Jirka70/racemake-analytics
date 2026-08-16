@@ -19,7 +19,7 @@ export type SeriesChannel = typeof SERIES_CHANNELS[number]
 
 export interface SeriesQuery {
   readonly analysisId: AnalysisId
-  readonly laps?: readonly number[]
+  readonly laps: readonly number[]
   readonly channels?: readonly SeriesChannel[]
   readonly positionFrom?: number
   readonly positionTo?: number

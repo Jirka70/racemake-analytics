@@ -32,7 +32,65 @@ describe('createBrakeReleaseDetector', () => {
                 comparedWithLapNumber: 1,
                 analysisRegionId: 'C1',
                 occurredAtLapElapsedMs: 850,
-                message: 'On lap 2, you entered C1 10.0 km/h faster than on your fastest pass through the corner, but carried the brake 300 ms deeper. From the brake-release point used on your fastest pass to corner exit, you lost 150 ms and exited 10.0 km/h slower. The additional entry speed did not pay off — finish the braking earlier and protect the exit.',
+                message: 'On lap 2, you entered C1 10.0 km/h faster than on your quickest C1 pass, but kept braking for 300 ms longer. From the point where Lap 1 stopped braking to the C1 exit, you lost 150 ms and exited 10.0 km/h slower. The additional entry speed did not pay off — finish braking earlier and protect the exit.',
+                metrics: [
+                    {
+                        kind: 'event-position',
+                        role: 'evidence',
+                        event: 'brake-release',
+                        regionId: 'C1',
+                        location: 'in-region',
+                        analyzedPass: {
+                            lapNumber: 2,
+                            normalizedTrackPosition: 5,
+                        },
+                    },
+                    {
+                        kind: 'timing-difference',
+                        role: 'evidence',
+                        event: 'brake-release',
+                        differenceMs: 300,
+                    },
+                    {
+                        kind: 'speed',
+                        role: 'related',
+                        measurement: 'entry',
+                        analyzedPass: {
+                            lapNumber: 2,
+                            speedKmh: 210,
+                        },
+                        fastestRegionPass: {
+                            lapNumber: 1,
+                            speedKmh: 200,
+                        },
+                    },
+                    {
+                        kind: 'speed',
+                        role: 'related',
+                        measurement: 'minimum',
+                        analyzedPass: {
+                            lapNumber: 2,
+                            speedKmh: 185,
+                        },
+                        fastestRegionPass: {
+                            lapNumber: 1,
+                            speedKmh: 190,
+                        },
+                    },
+                    {
+                        kind: 'speed',
+                        role: 'related',
+                        measurement: 'exit',
+                        analyzedPass: {
+                            lapNumber: 2,
+                            speedKmh: 190,
+                        },
+                        fastestRegionPass: {
+                            lapNumber: 1,
+                            speedKmh: 200,
+                        },
+                    },
+                ],
             },
         })
     })
@@ -77,7 +135,7 @@ describe('brake release report facts', () => {
 
     test('creates the complete late-release report from supported facts', () => {
         expect(createBrakeReleaseReportMessage(createReportFacts(), REPORT_MARGINS)).toBe(
-            'On lap 4, you entered C3 9.1 km/h faster than on your fastest pass through the corner, but carried the brake 294 ms deeper. From the brake-release point used on your fastest pass to corner exit, you lost 155 ms and exited 4.7 km/h slower. The additional entry speed did not pay off — finish the braking earlier and protect the exit.',
+            'On lap 4, you entered C3 9.1 km/h faster than on your quickest C3 pass, but kept braking for 294 ms longer. From the point where Lap 2 stopped braking to the C3 exit, you lost 155 ms and exited 4.7 km/h slower. The additional entry speed did not pay off — finish braking earlier and protect the exit.',
         )
     })
 
@@ -86,7 +144,7 @@ describe('brake release report facts', () => {
 
         expect(selectBrakeReleaseReportVariant(facts, REPORT_MARGINS)).toBe('LATE_RELEASE_WITH_SLOWER_EXIT')
         expect(createBrakeReleaseReportMessage(facts, REPORT_MARGINS)).toBe(
-            'On lap 4, you carried the brake 294 ms deeper into C3 than on your fastest pass through the corner. From the brake-release point used on that pass to corner exit, you lost 155 ms and exited 4.7 km/h slower. Release the brake earlier and protect the exit.',
+            'On lap 4, you kept braking for 294 ms longer into C3 than on your quickest C3 pass. From the point where Lap 2 stopped braking to the C3 exit, you lost 155 ms and exited 4.7 km/h slower. Finish braking earlier and protect the exit.',
         )
     })
 
@@ -95,7 +153,7 @@ describe('brake release report facts', () => {
 
         expect(selectBrakeReleaseReportVariant(facts, REPORT_MARGINS)).toBe('LATE_RELEASE_WITH_TIME_LOSS')
         expect(createBrakeReleaseReportMessage(facts, REPORT_MARGINS)).toBe(
-            'On lap 4, you carried the brake 294 ms deeper into C3 than on your fastest pass through the corner. From the brake-release point used on that pass to corner exit, you lost 155 ms. Use the earlier release as your reference through C3.',
+            'On lap 4, you kept braking for 294 ms longer into C3 than on your quickest C3 pass. From the point where Lap 2 stopped braking to the C3 exit, you lost 155 ms. Finish braking earlier through C3.',
         )
     })
 
@@ -384,6 +442,7 @@ function createReportFacts(
     return {
         lapNumber: 4,
         cornerId: 'C3',
+        fastestRegionPassLapNumber: 2,
         brakeReleaseDifferenceMs: 294,
         entrySpeedDifferenceKmh: 9.1,
         timeLossFromFastestReleaseMs: 155,
