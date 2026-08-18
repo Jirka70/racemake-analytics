@@ -50,6 +50,7 @@ describe("synthetic Spa-like telemetry dataset", () => {
 		for (const lap of aligned.laps) {
 			expect(lap.steeringDegreesByCell).toHaveLength(aligned.cellCenters.length);
 			expect(lap.cornerDetectionSupportedCellMask).toEqual(lap.steeringDegreesByCell.map((value) => value !== null));
+			expect(lap.contribution).toBe(lap.cornerDetectionSupportedCellMask.every(Boolean) ? "whole-track" : "supported-cells");
 			expect(lap.steeringDegreesByCell.every((value) => value === null || Number.isFinite(value))).toBeTrue();
 		}
 

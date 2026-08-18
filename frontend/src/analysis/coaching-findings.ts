@@ -9,6 +9,11 @@ export interface CoachingMeasurementDetails {
 	readonly timeLossLabel: string;
 }
 
+export interface CoachingNextLapGoal {
+	readonly label: "NEXT-LAP GOAL";
+	readonly instruction: string;
+}
+
 export interface CoachingChartMarker {
 	readonly rank: number;
 	readonly priority: CoachingPriorityLabel;
@@ -87,6 +92,21 @@ export function createCoachingMeasurementDetails(
 	};
 }
 
+export function createCoachingNextLapGoal(
+	finding: RankedCoachingPhenomenonResponse["finding"],
+): CoachingNextLapGoal {
+	const regionName = findCoachingBaseRegionId(finding.analysisRegionId);
+
+	return {
+		label: "NEXT-LAP GOAL",
+		instruction: findNextLapInstruction(finding.phenomenon, regionName),
+	};
+}
+
+export function findCoachingBaseRegionId(regionId: string): string {
+	return regionId.replace(/-(entry|apex-proxy|exit)$/, "");
+}
+
 export function formatCoachingTrackPosition(
 	normalizedTrackPosition: number,
 ): string {
@@ -133,7 +153,33 @@ export function formatCoachingRegionId(regionId: string): string {
 }
 
 function findBaseRegionName(regionId: string): string {
-	return regionId.replace(/-(entry|apex-proxy|exit)$/, "");
+	return findCoachingBaseRegionId(regionId);
+}
+
+function findNextLapInstruction(
+	phenomenon: RankedCoachingPhenomenonResponse["finding"]["phenomenon"],
+	regionName: string,
+): string {
+	switch (phenomenon) {
+		case "UNNECESSARY_BRAKING":
+			return `Keep ${regionName} brake-free.`;
+		case "LATE_BRAKE_RELEASE":
+			return `Release the brake earlier through ${regionName}.`;
+		case "LATE_BRAKING":
+			return `Start braking earlier for ${regionName}.`;
+		case "EARLY_BRAKING":
+			return `Brake later for ${regionName}.`;
+		case "EARLY_THROTTLE_LIFT":
+			return `Stay on the throttle longer into ${regionName}.`;
+		case "LATE_THROTTLE_APPLICATION":
+			return `Return to the throttle earlier through ${regionName}.`;
+		case "LOWER_ENTRY_SPEED":
+			return `Carry more speed into ${regionName}.`;
+		case "LOWER_EXIT_SPEED":
+			return `Protect exit speed through ${regionName}.`;
+		case "DIFFERENT_GEAR_SELECTION":
+			return `Match the quickest pass gear choice through ${regionName}.`;
+	}
 }
 
 function findMeasuredSection(

@@ -28,7 +28,7 @@ export interface TelemetryChartLine {
 type TelemetryChartLines = readonly TelemetryChartLine[];
 
 export interface TelemetryChartModel {
-	readonly timeDelta: TelemetryChartLine;
+	readonly timeDelta: TelemetryChartLine | null;
 	readonly idealTimeDelta: TelemetryChartLine | null;
 	readonly speed: TelemetryChartLines | null;
 	readonly pedals: TelemetryChartLines | null;
@@ -59,41 +59,49 @@ const TYRE_SERIES = [
 export function createTelemetryChartModel(
 	series: SeriesResponse,
 	reviewedLapNumber: number,
-	secondLapNumber: number,
+	secondLapNumber: number | null,
 	idealLap: AvailableIdealLapResponse | null = null,
+	reviewedLabel?: string,
 ): TelemetryChartModel | null {
 	const reviewedLap = series.laps.find(
 		(lap) => lap.lapNumber === reviewedLapNumber,
 	);
-	const secondLap = series.laps.find(
-		(lap) => lap.lapNumber === secondLapNumber,
-	);
+	const secondLap =
+		secondLapNumber === null
+			? null
+			: series.laps.find((lap) => lap.lapNumber === secondLapNumber);
 
-	if (!reviewedLap || !secondLap) return null;
+	if (!reviewedLap || (secondLapNumber !== null && !secondLap)) return null;
 
 	const positions = series.grid.normalizedTrackPositions;
+	const reviewedName = reviewedLabel ?? `Lap ${reviewedLapNumber}`;
 	const reviewedPrefix = `reviewed-lap-${reviewedLapNumber}`;
-	const secondPrefix = `second-lap-${secondLapNumber}`;
+	const secondPrefix =
+		secondLapNumber === null ? null : `second-lap-${secondLapNumber}`;
 	const reviewedChannels = reviewedLap.channels;
-	const secondChannels = secondLap.channels;
-	const alignedIdealLap = hasMatchingGrid(series, idealLap) ? idealLap : null;
+	const secondChannels = secondLap?.channels;
+	const alignedIdealLap =
+		secondLap && hasMatchingGrid(series, idealLap) ? idealLap : null;
 	const idealElapsedMs = alignedIdealLap?.lapElapsedMs ?? null;
-	const timeDeltaPoints = createTimeDeltaPoints(
-		positions,
-		reviewedLap.lapElapsedMs,
-		secondLap.lapElapsedMs,
-	);
-	const idealTimeDeltaPoints = idealElapsedMs
-		? createTimeDeltaPoints(positions, idealElapsedMs, secondLap.lapElapsedMs)
+	const timeDeltaPoints = secondLap
+		? createTimeDeltaPoints(
+				positions,
+				reviewedLap.lapElapsedMs,
+				secondLap.lapElapsedMs,
+			)
 		: null;
+	const idealTimeDeltaPoints =
+		idealElapsedMs && secondLap
+			? createTimeDeltaPoints(positions, idealElapsedMs, secondLap.lapElapsedMs)
+			: null;
 	const speed = createLapLines(
 		positions,
 		reviewedChannels.speedKmh,
-		secondChannels.speedKmh,
+		secondChannels?.speedKmh,
 		{
 			reviewedPrefix,
+			reviewedName,
 			secondPrefix,
-			reviewedLapNumber,
 			secondLapNumber,
 			idSuffix: "speed",
 			measurement: "speed",
@@ -108,11 +116,11 @@ export function createTelemetryChartModel(
 	const steering = createLapLines(
 		positions,
 		reviewedChannels.steeringDegrees,
-		secondChannels.steeringDegrees,
+		secondChannels?.steeringDegrees,
 		{
 			reviewedPrefix,
+			reviewedName,
 			secondPrefix,
-			reviewedLapNumber,
 			secondLapNumber,
 			idSuffix: "steering",
 			measurement: "steering",
@@ -127,30 +135,25 @@ export function createTelemetryChartModel(
 	const gear = createLapLines(
 		positions,
 		reviewedChannels.gear,
-		secondChannels.gear,
+		secondChannels?.gear,
 		{
 			reviewedPrefix,
+			reviewedName,
 			secondPrefix,
-			reviewedLapNumber,
 			secondLapNumber,
 			idSuffix: "gear",
 			measurement: "gear",
 		},
-		createIdealLine(
-			positions,
-			alignedIdealLap?.channels.gear,
-			"gear",
-			"gear",
-		),
+		createIdealLine(positions, alignedIdealLap?.channels.gear, "gear", "gear"),
 	);
 	const rpm = createLapLines(
 		positions,
 		reviewedChannels.engineRpm,
-		secondChannels.engineRpm,
+		secondChannels?.engineRpm,
 		{
 			reviewedPrefix,
+			reviewedName,
 			secondPrefix,
-			reviewedLapNumber,
 			secondLapNumber,
 			idSuffix: "rpm",
 			measurement: "rpm",
@@ -166,12 +169,12 @@ export function createTelemetryChartModel(
 		positions,
 		reviewedChannels.throttleRatio,
 		reviewedChannels.brakeRatio,
-		secondChannels.throttleRatio,
-		secondChannels.brakeRatio,
+		secondChannels?.throttleRatio,
+		secondChannels?.brakeRatio,
 		{
 			reviewedPrefix,
+			reviewedName,
 			secondPrefix,
-			reviewedLapNumber,
 			secondLapNumber,
 		},
 		createIdealPedalLine(positions, alignedIdealLap),
@@ -179,11 +182,11 @@ export function createTelemetryChartModel(
 	const tyreTemperatures = createTyreTemperatureLines(
 		positions,
 		reviewedChannels.tyreCoreTemperatureC,
-		secondChannels.tyreCoreTemperatureC,
+		secondChannels?.tyreCoreTemperatureC,
 		{
 			reviewedPrefix,
+			reviewedName,
 			secondPrefix,
-			reviewedLapNumber,
 			secondLapNumber,
 		},
 		createIdealTyreTemperatureLines(positions, alignedIdealLap),
@@ -193,13 +196,16 @@ export function createTelemetryChartModel(
 	);
 
 	return {
-		timeDelta: {
-			id: `${reviewedPrefix}-time-delta`,
-			name: `Lap ${reviewedLapNumber} vs Lap ${secondLapNumber}`,
-			role: "reviewed",
-			measurement: "time-delta",
-			points: timeDeltaPoints,
-		},
+		timeDelta:
+			timeDeltaPoints === null || secondLapNumber === null
+				? null
+				: {
+						id: `${reviewedPrefix}-time-delta`,
+						name: `${reviewedName} vs Lap ${secondLapNumber}`,
+						role: "reviewed",
+						measurement: "time-delta",
+						points: timeDeltaPoints,
+					},
 		idealTimeDelta:
 			idealTimeDeltaPoints === null
 				? null
@@ -210,7 +216,7 @@ export function createTelemetryChartModel(
 						measurement: "time-delta",
 						points: idealTimeDeltaPoints,
 						lineStyle: "dotted",
-						opacity: 0.8,
+						opacity: 0.9,
 					},
 		speed,
 		pedals,
@@ -220,7 +226,7 @@ export function createTelemetryChartModel(
 		tyreTemperatures,
 		maximumAbsoluteTimeDeltaSeconds: roundRange(
 			findMaximumAbsoluteValue([
-				...timeDeltaPoints,
+				...(timeDeltaPoints ?? []),
 				...(idealTimeDeltaPoints ?? []),
 			]),
 			0.1,
@@ -250,33 +256,40 @@ function createLapLines(
 	secondValues: readonly (number | null)[] | undefined,
 	metadata: {
 		readonly reviewedPrefix: string;
-		readonly secondPrefix: string;
-		readonly reviewedLapNumber: number;
-		readonly secondLapNumber: number;
+		readonly reviewedName: string;
+		readonly secondPrefix: string | null;
+		readonly secondLapNumber: number | null;
 		readonly idSuffix: string;
 		readonly measurement: TelemetryChartMeasurement;
 	},
 	idealLine: TelemetryChartLine | null,
 ): TelemetryChartLines | null {
-	if (!reviewedValues || !secondValues) return null;
+	if (!reviewedValues) return null;
+	if (metadata.secondLapNumber !== null && !secondValues) return null;
 
 	return [
 		createLine(
 			`${metadata.reviewedPrefix}-${metadata.idSuffix}`,
-			`Lap ${metadata.reviewedLapNumber}`,
+			metadata.reviewedName,
 			"reviewed",
 			metadata.measurement,
 			positions,
 			reviewedValues,
 		),
-		createLine(
-			`${metadata.secondPrefix}-${metadata.idSuffix}`,
-			`Lap ${metadata.secondLapNumber}`,
-			"second",
-			metadata.measurement,
-			positions,
-			secondValues,
-		),
+		...(metadata.secondPrefix !== null &&
+		metadata.secondLapNumber !== null &&
+		secondValues
+			? [
+					createLine(
+						`${metadata.secondPrefix}-${metadata.idSuffix}`,
+						`Lap ${metadata.secondLapNumber}`,
+						"second",
+						metadata.measurement,
+						positions,
+						secondValues,
+					),
+				]
+			: []),
 		...(idealLine ? [idealLine] : []),
 	];
 }
@@ -289,17 +302,17 @@ function createPedalLines(
 	secondBrakeRatios: readonly (number | null)[] | undefined,
 	metadata: {
 		readonly reviewedPrefix: string;
-		readonly secondPrefix: string;
-		readonly reviewedLapNumber: number;
-		readonly secondLapNumber: number;
+		readonly reviewedName: string;
+		readonly secondPrefix: string | null;
+		readonly secondLapNumber: number | null;
 	},
 	idealLine: TelemetryChartLine | null,
 ): TelemetryChartLines | null {
 	if (
 		!reviewedThrottleRatios ||
 		!reviewedBrakeRatios ||
-		!secondThrottleRatios ||
-		!secondBrakeRatios
+		(metadata.secondLapNumber !== null &&
+			(!secondThrottleRatios || !secondBrakeRatios))
 	) {
 		return null;
 	}
@@ -307,20 +320,27 @@ function createPedalLines(
 	return [
 		createPedalLine(
 			`${metadata.reviewedPrefix}-pedal`,
-			`Lap ${metadata.reviewedLapNumber}`,
+			metadata.reviewedName,
 			"reviewed",
 			positions,
 			reviewedThrottleRatios,
 			reviewedBrakeRatios,
 		),
-		createPedalLine(
-			`${metadata.secondPrefix}-pedal`,
-			`Lap ${metadata.secondLapNumber}`,
-			"second",
-			positions,
-			secondThrottleRatios,
-			secondBrakeRatios,
-		),
+		...(metadata.secondPrefix !== null &&
+		metadata.secondLapNumber !== null &&
+		secondThrottleRatios &&
+		secondBrakeRatios
+			? [
+					createPedalLine(
+						`${metadata.secondPrefix}-pedal`,
+						`Lap ${metadata.secondLapNumber}`,
+						"second",
+						positions,
+						secondThrottleRatios,
+						secondBrakeRatios,
+					),
+				]
+			: []),
 		...(idealLine ? [idealLine] : []),
 	];
 }
@@ -331,20 +351,21 @@ function createTyreTemperatureLines(
 	secondTyres: TyreCoreTemperatureSeriesResponse | undefined,
 	metadata: {
 		readonly reviewedPrefix: string;
-		readonly secondPrefix: string;
-		readonly reviewedLapNumber: number;
-		readonly secondLapNumber: number;
+		readonly reviewedName: string;
+		readonly secondPrefix: string | null;
+		readonly secondLapNumber: number | null;
 	},
 	idealLines: readonly TelemetryChartLine[],
 ): readonly TelemetryChartLine[] | null {
-	if (!reviewedTyres || !secondTyres) return null;
+	if (!reviewedTyres) return null;
+	if (metadata.secondLapNumber !== null && !secondTyres) return null;
 
 	return [
-		...TYRE_SERIES.flatMap(([tyreKey, tyreLabel, lineStyle, opacity]) => [
-			{
+		...TYRE_SERIES.flatMap(([tyreKey, tyreLabel, lineStyle, opacity]) => {
+			const reviewedLine: TelemetryChartLine = {
 				...createLine(
 					`${metadata.reviewedPrefix}-tyre-temperature-${tyreKey}`,
-					`Lap ${metadata.reviewedLapNumber} ${tyreLabel}`,
+					`${metadata.reviewedName} ${tyreLabel}`,
 					"reviewed",
 					"tyre-temperature",
 					positions,
@@ -352,20 +373,31 @@ function createTyreTemperatureLines(
 				),
 				lineStyle,
 				opacity,
-			},
-			{
-				...createLine(
-					`${metadata.secondPrefix}-tyre-temperature-${tyreKey}`,
-					`Lap ${metadata.secondLapNumber} ${tyreLabel}`,
-					"second",
-					"tyre-temperature",
-					positions,
-					secondTyres[tyreKey],
-				),
-				lineStyle,
-				opacity,
-			},
-		]),
+			};
+			if (
+				metadata.secondPrefix === null ||
+				metadata.secondLapNumber === null ||
+				!secondTyres
+			) {
+				return [reviewedLine];
+			}
+
+			return [
+				reviewedLine,
+				{
+					...createLine(
+						`${metadata.secondPrefix}-tyre-temperature-${tyreKey}`,
+						`Lap ${metadata.secondLapNumber} ${tyreLabel}`,
+						"second",
+						"tyre-temperature",
+						positions,
+						secondTyres[tyreKey],
+					),
+					lineStyle,
+					opacity,
+				},
+			];
+		}),
 		...idealLines,
 	];
 }
@@ -388,7 +420,7 @@ function createIdealLine(
 			values,
 		),
 		lineStyle: "dotted",
-		opacity: 0.8,
+		opacity: 0.9,
 	};
 }
 
@@ -444,7 +476,9 @@ function hasMatchingGrid(
 	const idealPositions = idealLap.grid.normalizedTrackPositions;
 	return (
 		seriesPositions.length === idealPositions.length &&
-		seriesPositions.every((position, index) => position === idealPositions[index])
+		seriesPositions.every(
+			(position, index) => position === idealPositions[index],
+		)
 	);
 }
 

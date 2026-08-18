@@ -2,6 +2,7 @@ import type { SteeringStrengthThresholdResult } from '../analytics/corner-detect
 import type { CoachingDetectorFailure } from '../analytics/coach/phenomena/coaching-phenomenon-types'
 import type { BrakeActivityThresholdResult } from '../analytics/coach/phenomena/braking/brake-activity-thresholds'
 import type { ProcessingIssue } from '../analytics/frame-audit-types'
+import { findAnalysisUsability } from '../application/analysis-usability'
 import type { AnalysisStore } from './analysis-store'
 import type { CoachingDetectorFailureResponse } from './contracts/coaching'
 import type {
@@ -27,6 +28,7 @@ export function getDiagnostics(
   return {
     analysisId,
     sessionId: analysis.normalizedTelemetry.sessionId,
+    usability: findAnalysisUsability(analysis),
     frameAudit: {
       receivedFrameCount: analysis.validatedWirePayload.frames.length,
       retainedTimelineFrameCount: audit.usableTimeline?.frames.length ?? 0,

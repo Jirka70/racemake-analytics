@@ -1,12 +1,17 @@
 import type {
+  DetectedLap,
   LapEligibilityDecision,
   LapEligibilityReason,
+  SamplingGapWithinLapLimitation,
 } from '../analytics/lap-detect/lap-detect-types'
 import type { AnalysisStore } from './analysis-store'
 import type {
   LapEligibilityDecisionResponse,
   LapEligibilityReasonResponse,
+  LapLimitationResponse,
   LapResponse,
+  LapSamplingGapLimitationResponse,
+  LapSamplingGapResponse,
   LapsResponse,
 } from './contracts/laps'
 import { getAnalysis } from './get-analysis'
@@ -53,10 +58,22 @@ export function getLaps(
       result.eligibility,
     ]),
   )
+  const samplingGaps = analysis.lapDetectionResult.laps.flatMap((lap) =>
+    lap.limitations.map((limitation) =>
+      createLapSamplingGapResponse(lap.lapNumber, limitation),
+    ),
+  )
 
   return {
     analysisId,
     sessionId: analysis.normalizedTelemetry.sessionId,
+    samplingGaps,
+    fragments: analysis.lapDetectionResult.lapFragments.map(
+      ({ startPosition, endPosition }) => ({
+        startPosition,
+        endPosition,
+      }),
+    ),
     laps: analysis.lapDetectionResult.laps.map((lap): LapResponse => {
       const eligibility = eligibilityByLapNumber.get(lap.lapNumber)
       if (!eligibility) {
@@ -78,8 +95,10 @@ export function getLaps(
           racing: createEligibilityDecisionResponse(
             eligibility.realRacing,
           ),
+          // Kept as an HTTP compatibility field: every racing lap enters corner
+          // detection and contributes only where its steering data is supported.
           cornerDetection: createEligibilityDecisionResponse(
-            eligibility.cornerEligible,
+            eligibility.realRacing,
           ),
         },
         confidence: {
@@ -87,18 +106,55 @@ export function getLaps(
           lapTime: lap.confidence.lapTimeConfidence,
           overall: lap.confidence.overallConfidence,
         },
-        limitations: [
-          ...lap.startCrossing.limitations,
-          ...lap.endCrossing.limitations,
-          ...lap.limitations,
-        ].map(({ code, severity, message }) => ({
-          code,
-          severity,
-          message,
-        })),
+        limitations: createLapLimitationResponses(lap),
       }
     }),
   }
+}
+
+function createLapLimitationResponses(
+  lap: DetectedLap,
+): readonly LapLimitationResponse[] {
+  const crossingLimitations = [
+    ...lap.startCrossing.limitations,
+    ...lap.endCrossing.limitations,
+  ].map(({ code, severity, message }) => ({ code, severity, message }))
+  const samplingGapLimitations = lap.limitations.map((limitation) =>
+    createLapSamplingGapLimitationResponse(lap.lapNumber, limitation),
+  )
+
+  return [...crossingLimitations, ...samplingGapLimitations]
+}
+
+function createLapSamplingGapResponse(
+  lapNumber: number,
+  limitation: SamplingGapWithinLapLimitation,
+): LapSamplingGapResponse {
+  return {
+    lapNumber,
+    ...createLapSamplingGapLimitationResponse(lapNumber, limitation),
+  }
+}
+
+function createLapSamplingGapLimitationResponse(
+  lapNumber: number,
+  limitation: SamplingGapWithinLapLimitation,
+): LapSamplingGapLimitationResponse {
+  return {
+    ...limitation,
+    message: createLapSamplingGapMessage(lapNumber, limitation),
+  }
+}
+
+function createLapSamplingGapMessage(
+  lapNumber: number,
+  limitation: SamplingGapWithinLapLimitation,
+): string {
+  const fromPercent = (limitation.fromPosition * 100).toFixed(1)
+  const toPercent = (limitation.toPosition * 100).toFixed(1)
+  const durationMs = Math.round(limitation.gapDurationMs)
+
+  return `Lap ${lapNumber} has a ${durationMs} ms telemetry gap from ${fromPercent}% to ${toPercent}% of the lap. Calculations requiring this section are unavailable.`
 }
 
 function createEligibilityDecisionResponse(

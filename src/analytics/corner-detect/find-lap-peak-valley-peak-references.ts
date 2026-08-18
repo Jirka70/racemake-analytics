@@ -2,6 +2,7 @@ import type { PeakValleyPeak } from './corner-detect-types'
 import type { CellAlignedLapSteering, CellAlignedSteering } from './create-cell-aligned-steering'
 
 const MINIMUM_RACING_LAP_VALLEY_CONFIDENCE = 0.5
+const MINIMUM_REPEATABLE_VALLEY_LAP_COUNT = 2
 
 export interface LapPeakValleyPeakReference {
     readonly lapNumber: number
@@ -32,6 +33,7 @@ export interface PeakValleyPeakLapSupport {
 
 export interface ConfirmedPeakValleyPeak {
     readonly peakValleyPeak: PeakValleyPeak
+    readonly evaluatedLapNumbers: readonly number[]
     readonly lapSupport: readonly PeakValleyPeakLapSupport[]
 }
 
@@ -45,6 +47,7 @@ export interface ValleyVoteResult extends ConfirmedPeakValleyPeak {
     readonly lapVotes: readonly RacingLapValleyVote[]
     readonly voteCount: number
     readonly racingLapCount: number
+    readonly votingLapCount: number
     readonly confirmed: boolean
 }
 
@@ -82,19 +85,31 @@ export function computeValleysInRacingLaps(racingLapPeakValleyPeaks: readonly Ra
 }
 
 export function confirmValleysAcrossRacingLaps(peakValleyPeak: PeakValleyPeak, racingLapValleys: readonly RacingLapValley[], profileResidualRequirementLog: number): ConfirmedPeakValleyPeak {
+    const evaluatedLapNumbers = racingLapValleys.flatMap(({ lapNumber, peakValleyPeak, depthLog }) =>
+        peakValleyPeak !== null && depthLog !== null ? [lapNumber] : [])
     const lapSupport = racingLapValleys
         .flatMap((racingLapValley) => 
             createLapSupportIfValleyIsDeepEnough(racingLapValley, profileResidualRequirementLog))
 
-    return { peakValleyPeak, lapSupport }
+    return { peakValleyPeak, evaluatedLapNumbers, lapSupport }
 }
 
 export function calculateValleyVotes(confirmedPeakValleyPeak: ConfirmedPeakValleyPeak, referenceValleyCellIndexes: readonly number[], cellAlignedSteering: CellAlignedSteering): ValleyVoteResult {
     const lapSupportByLapNumber = new Map(confirmedPeakValleyPeak.lapSupport.map((lapSupport) => [lapSupport.lapNumber, lapSupport]))
+    const evaluatedLapNumbers = new Set(confirmedPeakValleyPeak.evaluatedLapNumbers)
     const lapVotes = cellAlignedSteering.laps
+        .filter(({ lapNumber }) => evaluatedLapNumbers.has(lapNumber))
         .map((lap) => calculateRacingLapValleyVote(lap, lapSupportByLapNumber.get(lap.lapNumber), referenceValleyCellIndexes))
     const voteCount = lapVotes.filter(({ isVoteFor }) => isVoteFor).length
-    return { ...confirmedPeakValleyPeak, lapVotes, voteCount, racingLapCount: lapVotes.length, confirmed: voteCount > lapVotes.length / 2 }
+    const votingLapCount = lapVotes.length
+    return {
+        ...confirmedPeakValleyPeak,
+        lapVotes,
+        voteCount,
+        racingLapCount: cellAlignedSteering.laps.length,
+        votingLapCount,
+        confirmed: votingLapCount >= MINIMUM_REPEATABLE_VALLEY_LAP_COUNT && voteCount > votingLapCount / 2,
+    }
 }
 
 function createLapSupportIfValleyIsDeepEnough(racingLapValley: RacingLapValley, profileResidualRequirementLog: number): PeakValleyPeakLapSupport[] {

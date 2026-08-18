@@ -6,6 +6,7 @@ import type {
   ProcessingIssueSeverity,
   TelemetryChannel,
 } from '../../analytics/frame-audit-types'
+import type { AnalysisUsability } from '../../application/analysis-usability'
 import type { AnalysisResponseContext } from './analysis'
 import type { CoachingDetectorFailureResponse } from './coaching'
 
@@ -67,6 +68,7 @@ export interface AnalysisThresholdsResponse {
 }
 
 export interface DiagnosticsResponse extends AnalysisResponseContext {
+  readonly usability: AnalysisUsability
   readonly frameAudit: FrameAuditDiagnosticsResponse
   readonly thresholds: AnalysisThresholdsResponse
   readonly detectorFailures: readonly CoachingDetectorFailureResponse[]

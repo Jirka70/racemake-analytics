@@ -4,24 +4,35 @@ import {
 	ADDITIONAL_TELEMETRY_CHARTS,
 	DEFAULT_VISIBLE_TELEMETRY_CHARTS,
 	PRIMARY_TELEMETRY_CHARTS,
+	TELEMETRY_CHART_IDS,
 	TELEMETRY_CHART_LABELS,
 	type TelemetryChartId,
 } from "../../../analysis/telemetry-chart-selection";
 
 interface ChartChannelSelectorProps {
 	readonly visibleChartIds: readonly TelemetryChartId[];
+	readonly availableChartIds?: readonly TelemetryChartId[];
+	readonly defaultVisibleChartIds?: readonly TelemetryChartId[];
 	readonly onToggleChart: (chartId: TelemetryChartId) => void;
 	readonly onReset: () => void;
 }
 
 export function ChartChannelSelector({
 	visibleChartIds,
+	availableChartIds = TELEMETRY_CHART_IDS,
+	defaultVisibleChartIds = DEFAULT_VISIBLE_TELEMETRY_CHARTS,
 	onToggleChart,
 	onReset,
 }: ChartChannelSelectorProps) {
 	const [isOpen, setIsOpen] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const popoverId = useId();
+	const primaryChartIds = PRIMARY_TELEMETRY_CHARTS.filter((chartId) =>
+		availableChartIds.includes(chartId),
+	);
+	const additionalChartIds = ADDITIONAL_TELEMETRY_CHARTS.filter((chartId) =>
+		availableChartIds.includes(chartId),
+	);
 
 	useEffect(() => {
 		if (!isOpen) return;
@@ -49,7 +60,7 @@ export function ChartChannelSelector({
 	}, [isOpen]);
 
 	return (
-		<div ref={containerRef} className="relative shrink-0 self-end pb-1 pr-2">
+		<div ref={containerRef} className="relative shrink-0 self-center pr-2">
 			<button
 				type="button"
 				className="flex h-8 items-center gap-2 rounded-[3px] border border-[#454a46] bg-[#111412] px-2.5 text-[10px] font-semibold tracking-[0.04em] text-neutral-200 transition-colors hover:border-neutral-500 hover:bg-[#171a18] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-400"
@@ -71,23 +82,30 @@ export function ChartChannelSelector({
 					<h2 className="text-xs font-semibold tracking-[0.04em] text-neutral-100">
 						CHARTS
 					</h2>
-					<ChartSelectionGroup
-						label="PRIMARY"
-						chartIds={PRIMARY_TELEMETRY_CHARTS}
-						visibleChartIds={visibleChartIds}
-						onToggleChart={onToggleChart}
-					/>
-					<ChartSelectionGroup
-						label="ADDITIONAL"
-						chartIds={ADDITIONAL_TELEMETRY_CHARTS}
-						visibleChartIds={visibleChartIds}
-						onToggleChart={onToggleChart}
-					/>
+					{primaryChartIds.length > 0 && (
+						<ChartSelectionGroup
+							label="PRIMARY"
+							chartIds={primaryChartIds}
+							visibleChartIds={visibleChartIds}
+							onToggleChart={onToggleChart}
+						/>
+					)}
+					{additionalChartIds.length > 0 && (
+						<ChartSelectionGroup
+							label="ADDITIONAL"
+							chartIds={additionalChartIds}
+							visibleChartIds={visibleChartIds}
+							onToggleChart={onToggleChart}
+						/>
+					)}
 					<button
 						type="button"
 						className="mt-2 text-left text-[11px] font-medium text-violet-300 hover:text-violet-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400 disabled:cursor-default disabled:text-neutral-600"
 						onClick={onReset}
-						disabled={areDefaultChartsVisible(visibleChartIds)}
+						disabled={areDefaultChartsVisible(
+							visibleChartIds,
+							defaultVisibleChartIds,
+						)}
 					>
 						Reset to default
 					</button>
@@ -150,11 +168,10 @@ function ChartSelectionGroup({
 
 function areDefaultChartsVisible(
 	visibleChartIds: readonly TelemetryChartId[],
+	defaultVisibleChartIds: readonly TelemetryChartId[],
 ): boolean {
 	return (
-		visibleChartIds.length === DEFAULT_VISIBLE_TELEMETRY_CHARTS.length &&
-		DEFAULT_VISIBLE_TELEMETRY_CHARTS.every((chartId) =>
-			visibleChartIds.includes(chartId),
-		)
+		visibleChartIds.length === defaultVisibleChartIds.length &&
+		defaultVisibleChartIds.every((chartId) => visibleChartIds.includes(chartId))
 	);
 }

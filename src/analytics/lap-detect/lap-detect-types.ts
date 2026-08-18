@@ -17,27 +17,11 @@ export interface LapDetectionConfig {
 
 export interface LapEligibilityConfig {
     readonly time: LapTimeEligibilityConfig
-    readonly realRacing: RealRacingEligibilityConfig
-    readonly corner: CornerEligibilityConfig
 }
 
 export interface LapTimeEligibilityConfig {
     readonly minimumBoundaryConfidence: number
     readonly minimumLapTimeConfidence: number
-}
-
-export interface RealRacingEligibilityConfig {
-    readonly minimumPositionCoverageRatio: number
-    readonly maximumUnsupportedNormalizedPositionSpan: number
-    readonly stationarySpeedUpperBoundKmh: number
-    readonly minimumMovementObservationTimeRatio: number
-    readonly minimumMovingObservedTimeRatio: number
-    readonly maximumStationaryIntervalLapTimeRatio: number
-}
-
-export interface CornerEligibilityConfig {
-    readonly minimumSteeringCoverageRatio: number
-    readonly maximumUnsupportedSteeringPositionSpan: number
 }
 
 export interface LapCrossingConfidenceConfig {
@@ -111,22 +95,11 @@ export interface LapEligibilityDecision {
 export interface DetectedLapEligibility {
     readonly timeEligible: LapEligibilityDecision
     readonly realRacing: LapEligibilityDecision
-    readonly cornerEligible: LapEligibilityDecision
 }
 
 export interface DetectedLapEligibilityResult {
     readonly lapNumber: number
-    readonly movement: LapMovementSummary
     readonly eligibility: DetectedLapEligibility
-}
-
-export interface LapMovementSummary {
-    readonly observedDurationMs: number // Lap time covered by continuous transitions with usable speed at both endpoints.
-    readonly movementObservationTimeRatio: number // Observed duration divided by the complete crossing-to-crossing lap time.
-    readonly movingDurationMs: number // Observed duration whose endpoint-average speed is above the stationary upper bound.
-    readonly movingObservedTimeRatio: number // Moving duration divided only by duration with usable movement evidence.
-    readonly longestStationaryIntervalMs: number
-    readonly longestStationaryIntervalLapTimeRatio: number // Longest continuous stationary interval divided by complete lap time.
 }
 
 export interface MinimumEligibilityRequirementNotMet {
@@ -155,6 +128,10 @@ export interface NonPositiveLapTimeEligibilityReason {
     readonly lapTimeMs: number
 }
 
+/**
+ * Legacy reason variants remain in the public type for HTTP compatibility.
+ * The current racing-lap classifier emits only lap-time eligibility reasons.
+ */
 export interface EligibilityPrerequisiteNotMet {
     readonly code:
         | 'TIME_ELIGIBILITY_REQUIRED'
@@ -302,6 +279,15 @@ export interface DetectedLap {
     readonly limitations: readonly DetectedLapLimitation[]
 }
 
+export interface DetectedLapFragment {
+    readonly startPosition: number
+    readonly endPosition: number
+    /** Indexes into the usable timeline. Kept internal so fragment telemetry can
+     * be inspected without widening the intentionally small `/laps` contract. */
+    readonly startFrameIndex: number
+    readonly endFrameIndex: number
+}
+
 export interface DetectedLapConfidence {
     readonly boundaryConfidence: number // Confidence that both crossings represent real lap boundaries.
     readonly lapTimeConfidence: number // Confidence in lapTimeMs based on the timestamp precision of both crossings.
@@ -339,6 +325,7 @@ export interface LapDetectionResult {
     readonly linearGrid: LinearLapGrid | null
     readonly lapCrossings: readonly LapCrossing[]
     readonly laps: readonly DetectedLap[]
+    readonly lapFragments: readonly DetectedLapFragment[]
     readonly linearizedLaps: readonly LinearizedLap[]
     readonly lapGridCoverages: readonly DetectedLapGridCoverageEntry[]
     readonly lapEligibilityResults: readonly DetectedLapEligibilityResult[]

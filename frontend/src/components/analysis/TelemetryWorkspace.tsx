@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { TrackRegionResponse } from "../../../../src/http/contracts";
-import { calculateTelemetryChartScrollTop } from "../../analysis/telemetry-chart-scroll";
+import { resolveTelemetryWheelScrollTarget } from "../../analysis/telemetry-chart-scroll";
+import type { TelemetryChartId } from "../../analysis/telemetry-chart-selection";
 import { FULL_LAP_TELEMETRY_VIEWPORT } from "../../analysis/telemetry-viewport";
+import { useCompactAnalysisLayout } from "../../hooks/use-compact-analysis-layout";
 import {
 	TelemetryComparisonChart,
 	type TelemetryComparisonChartDataProps,
@@ -13,6 +15,15 @@ import {
 	type TrackRegionBandProps,
 } from "./charts/TrackRegionBand";
 import { LapPicker, type LapPickerProps } from "./laps/LapPicker";
+import { MobileChartTabs } from "./mobile/MobileChartTabs";
+import { MobileLapSummary } from "./mobile/MobileLapSummary";
+import { MobileTrackRegionBand } from "./mobile/MobileTrackRegionBand";
+
+export interface MobileTelemetryChartControls {
+	readonly activeChartId: TelemetryChartId;
+	readonly availableChartIds: readonly TelemetryChartId[];
+	readonly onSelectChart: (chartId: TelemetryChartId) => void;
+}
 
 interface TelemetryWorkspaceProps {
 	readonly lapPicker: LapPickerProps;
@@ -21,17 +32,22 @@ interface TelemetryWorkspaceProps {
 		TrackRegionBandProps,
 		"viewport" | "selectedRegionId" | "onSelectRegion"
 	>;
+	readonly mobileChart: MobileTelemetryChartControls;
 }
 
 export function TelemetryWorkspace({
 	lapPicker,
 	telemetryChart,
 	trackRegionBand,
+	mobileChart,
 }: TelemetryWorkspaceProps) {
+	const isCompact = useCompactAnalysisLayout();
 	const [viewport, setViewport] = useState(FULL_LAP_TELEMETRY_VIEWPORT);
+	const workspaceScrollContainerRef = useRef<HTMLElement>(null);
 	const chartScrollContainerRef = useRef<HTMLDivElement>(null);
-	const selectableRegions = trackRegionBand.regions.filter(
-		(region) => region.type === "corner",
+	const selectableRegions = useMemo(
+		() => trackRegionBand.regions.filter((region) => region.type === "corner"),
+		[trackRegionBand.regions],
 	);
 	const [selectedRegionId, setSelectedRegionId] = useState<
 		TrackRegionResponse["id"] | null
@@ -41,6 +57,48 @@ export function TelemetryWorkspace({
 	const selectedRegionIndex = selectedRegion
 		? selectableRegions.indexOf(selectedRegion)
 		: -1;
+	const fragment = telemetryChart.fragment;
+	const activeReviewKey = fragment
+		? `fragment:${fragment.key}`
+		: `lap:${telemetryChart.reviewedLapNumber ?? "none"}`;
+	const previousReviewKeyRef = useRef(activeReviewKey);
+	const activeCoachingFocusKey =
+		fragment === null &&
+		telemetryChart.activeCoachingRank !== null &&
+		telemetryChart.activeCoachingRegionId !== null
+			? `${telemetryChart.reviewedLapNumber ?? "none"}:${telemetryChart.activeCoachingRank}:${telemetryChart.activeCoachingRegionId}`
+			: null;
+	const previousCoachingFocusKeyRef = useRef<string | null>(null);
+
+	useEffect(() => {
+		if (previousReviewKeyRef.current === activeReviewKey) return;
+		previousReviewKeyRef.current = activeReviewKey;
+		setViewport(FULL_LAP_TELEMETRY_VIEWPORT);
+		setSelectedRegionId(null);
+	}, [activeReviewKey]);
+
+	useEffect(() => {
+		if (activeCoachingFocusKey === null) {
+			previousCoachingFocusKeyRef.current = null;
+			return;
+		}
+
+		if (previousCoachingFocusKeyRef.current === activeCoachingFocusKey) {
+			return;
+		}
+
+		const activeRegion = selectableRegions.find(
+			(region) => region.id === telemetryChart.activeCoachingRegionId,
+		);
+		if (!activeRegion) return;
+
+		previousCoachingFocusKeyRef.current = activeCoachingFocusKey;
+		setSelectedRegionId(activeRegion.id);
+	}, [
+		activeCoachingFocusKey,
+		selectableRegions,
+		telemetryChart.activeCoachingRegionId,
+	]);
 
 	useEffect(() => {
 		const scrollContainer = chartScrollContainerRef.current;
@@ -48,29 +106,51 @@ export function TelemetryWorkspace({
 		const chartScroller: HTMLDivElement = scrollContainer;
 
 		function scrollCharts(event: WheelEvent): void {
-			if (event.ctrlKey || event.deltaY === 0) return;
+			if (
+				event.ctrlKey ||
+				event.deltaY === 0 ||
+				Math.abs(event.deltaX) > Math.abs(event.deltaY)
+			) {
+				return;
+			}
 
-			const currentScrollTop = chartScroller.scrollTop;
-			const maximumScrollTop = Math.max(
-				0,
-				chartScroller.scrollHeight - chartScroller.clientHeight,
-			);
-			const nextScrollTop = calculateTelemetryChartScrollTop({
-				currentScrollTop,
-				maximumScrollTop,
+			const workspaceScroller = workspaceScrollContainerRef.current;
+			const update = resolveTelemetryWheelScrollTarget({
+				isCompact,
+				chart: {
+					currentScrollTop: chartScroller.scrollTop,
+					maximumScrollTop: Math.max(
+						0,
+						chartScroller.scrollHeight - chartScroller.clientHeight,
+					),
+					pageHeightPx: chartScroller.clientHeight,
+				},
+				workspace: workspaceScroller
+					? {
+							currentScrollTop: workspaceScroller.scrollTop,
+							maximumScrollTop: Math.max(
+								0,
+								workspaceScroller.scrollHeight - workspaceScroller.clientHeight,
+							),
+							pageHeightPx: workspaceScroller.clientHeight,
+						}
+					: null,
 				deltaY: event.deltaY,
 				deltaMode: event.deltaMode,
-				pageHeightPx: chartScroller.clientHeight,
 			});
 
-			if (nextScrollTop === currentScrollTop) return;
+			if (update === null) return;
 
 			// ECharts listens for wheel gestures on its canvas even when wheel zoom is
 			// disabled. Handle vertical movement before it reaches the canvas so both
 			// mouse wheels and high-resolution trackpads scroll the chart stack reliably.
 			event.preventDefault();
 			event.stopPropagation();
-			chartScroller.scrollTop = nextScrollTop;
+			if (update.target === "workspace" && workspaceScroller) {
+				workspaceScroller.scrollTop = update.nextScrollTop;
+				return;
+			}
+			chartScroller.scrollTop = update.nextScrollTop;
 		}
 
 		chartScroller.addEventListener("wheel", scrollCharts, {
@@ -81,7 +161,7 @@ export function TelemetryWorkspace({
 		return () => {
 			chartScroller.removeEventListener("wheel", scrollCharts, true);
 		};
-	}, []);
+	}, [isCompact]);
 
 	function selectAdjacentRegion(direction: -1 | 1): void {
 		if (selectedRegionIndex < 0) return;
@@ -96,14 +176,87 @@ export function TelemetryWorkspace({
 		);
 	}
 
+	const deltaOverview = (
+		<TelemetryDeltaOverview
+			status={telemetryChart.status}
+			series={telemetryChart.series}
+			reviewedLapNumber={telemetryChart.reviewedLapNumber}
+			secondLapNumber={telemetryChart.secondLapNumber}
+			idealLapSeries={telemetryChart.idealLapSeries}
+			viewport={viewport}
+			selectedRegion={selectedRegion}
+		/>
+	);
+
+	if (isCompact) {
+		return (
+			<section
+				ref={workspaceScrollContainerRef}
+				className="h-full min-h-0 touch-pan-y overflow-y-auto overscroll-contain px-3 pt-2 pb-[calc(88px+env(safe-area-inset-bottom))]"
+				aria-label="Telemetry workspace"
+			>
+				<MobileLapSummary {...lapPicker} />
+				<div className="mt-2">
+					<MobileTrackRegionBand
+						{...trackRegionBand}
+						fragment={fragment}
+						viewport={viewport}
+						selectedRegionId={selectedRegionId}
+						onSelectRegion={toggleSelectedRegion}
+					/>
+				</div>
+				<div className="mt-2">
+					<MobileChartTabs
+						chartIds={mobileChart.availableChartIds}
+						activeChartId={mobileChart.activeChartId}
+						onSelectChart={mobileChart.onSelectChart}
+					/>
+				</div>
+				<div
+					ref={chartScrollContainerRef}
+					className="mt-2 h-[390px] min-h-[390px]"
+					data-testid="telemetry-chart-scroll"
+				>
+					<TelemetryComparisonChart
+						{...telemetryChart}
+						visibleChartIds={[mobileChart.activeChartId]}
+						viewport={viewport}
+						onViewportChange={setViewport}
+						selectedRegion={selectedRegion}
+						presentation="compact"
+					/>
+				</div>
+				<div className="mt-2">
+					<TelemetryZoomControls
+						presentation="compact"
+						viewLabel={fragment ? "Full fragment" : "Full lap"}
+						viewport={viewport}
+						onViewportChange={setViewport}
+						selectedRegion={selectedRegion}
+						onSelectPreviousRegion={() => selectAdjacentRegion(-1)}
+						onSelectNextRegion={() => selectAdjacentRegion(1)}
+						canSelectPreviousRegion={selectedRegionIndex > 0}
+						canSelectNextRegion={
+							selectedRegionIndex >= 0 &&
+							selectedRegionIndex < selectableRegions.length - 1
+						}
+						showComparisonControls={telemetryChart.secondLapNumber !== null}
+						deltaOverview={deltaOverview}
+					/>
+				</div>
+			</section>
+		);
+	}
+
 	return (
 		<section
-			className="grid min-h-0 grid-rows-[108px_44px_minmax(0,1fr)_72px] gap-1.5 overflow-hidden"
+			className="grid min-h-0 grid-rows-[124px_44px_minmax(0,1fr)_72px] gap-1.5 overflow-hidden"
 			aria-label="Telemetry workspace"
 		>
 			<LapPicker {...lapPicker} />
 			<TrackRegionBand
 				{...trackRegionBand}
+				fragment={fragment}
 				viewport={viewport}
 				selectedRegionId={selectedRegionId}
 				onSelectRegion={toggleSelectedRegion}
@@ -121,6 +274,7 @@ export function TelemetryWorkspace({
 				/>
 			</div>
 			<TelemetryZoomControls
+				viewLabel={fragment ? "Full fragment" : "Full lap"}
 				viewport={viewport}
 				onViewportChange={setViewport}
 				selectedRegion={selectedRegion}
@@ -131,17 +285,8 @@ export function TelemetryWorkspace({
 					selectedRegionIndex >= 0 &&
 					selectedRegionIndex < selectableRegions.length - 1
 				}
-				deltaOverview={
-					<TelemetryDeltaOverview
-						status={telemetryChart.status}
-						series={telemetryChart.series}
-						reviewedLapNumber={telemetryChart.reviewedLapNumber}
-						secondLapNumber={telemetryChart.secondLapNumber}
-						idealLapSeries={telemetryChart.idealLapSeries}
-						viewport={viewport}
-						selectedRegion={selectedRegion}
-					/>
-				}
+				showComparisonControls={telemetryChart.secondLapNumber !== null}
+				deltaOverview={deltaOverview}
 			/>
 		</section>
 	);

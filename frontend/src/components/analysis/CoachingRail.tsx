@@ -2,6 +2,7 @@ import {
 	CaretDown,
 	CaretLeft,
 	CaretRight,
+	ChartLineUp,
 	Gauge,
 	MapPin,
 	Speedometer,
@@ -13,16 +14,17 @@ import {
 	type CoachingPriorityLabel,
 	classifyCoachingPriority,
 	createCoachingMeasurementDetails,
-	formatQuickestRegionPassLabel,
-	formatReviewedPassLabel,
-	formatCoachingSpeedMeasurement,
-	formatCoachingTrackPosition,
+	createCoachingNextLapGoal,
 	formatCoachingPhenomenon,
 	formatCoachingRegionId,
+	formatCoachingSpeedMeasurement,
+	formatCoachingTrackPosition,
+	formatQuickestRegionPassLabel,
+	formatReviewedPassLabel,
 } from "../../analysis/coaching-findings";
 
 export interface CoachingRailProps {
-	readonly status: "loading" | "ready" | "error";
+	readonly status: "loading" | "ready" | "unavailable" | "error";
 	readonly findings: readonly RankedCoachingPhenomenonResponse[];
 	readonly activeRank: number | null;
 	readonly fastestLapNumber: number | null;
@@ -101,6 +103,21 @@ export function CoachingRail({
 					</p>
 					<p className="mt-1 text-xs leading-5 text-neutral-500">
 						{errorMessage ?? "Try opening the stint again."}
+					</p>
+				</div>
+			)}
+
+			{status === "unavailable" && (
+				<div className="flex min-h-0 flex-1 flex-col items-center justify-center px-8 text-center">
+					<div className="grid size-16 place-items-center rounded-full border border-[#555b57] text-neutral-500">
+						<ChartLineUp aria-hidden="true" size={32} weight="light" />
+					</div>
+					<p className="mt-5 text-xl font-semibold leading-tight text-neutral-100">
+						Coaching requires at least two laps
+					</p>
+					<p className="mt-5 max-w-[250px] text-sm leading-6 text-neutral-400">
+						At least two laps are needed for comparison, time delta and
+						coaching. Add another lap.
 					</p>
 				</div>
 			)}
@@ -185,7 +202,7 @@ function FindingNavigation({
 	);
 }
 
-function CoachingFinding({
+export function CoachingFinding({
 	finding: rankedFinding,
 	fastestLapNumber,
 }: {
@@ -196,6 +213,7 @@ function CoachingFinding({
 	const priorityLabel = classifyCoachingPriority(priority);
 	const theme = PRIORITY_THEMES[priorityLabel];
 	const measurementDetails = createCoachingMeasurementDetails(finding);
+	const nextLapGoal = createCoachingNextLapGoal(finding);
 	const measurementPanelId = useId();
 	const measurementPanelRef = useRef<HTMLDivElement>(null);
 	const [isMeasurementOpen, setIsMeasurementOpen] = useState(false);
@@ -232,8 +250,17 @@ function CoachingFinding({
 					{formatCoachingPhenomenon(finding.phenomenon)}
 				</h3>
 
+				<div className="mt-4 rounded-[3px] border border-[#343935] bg-white/[0.025] px-3 py-2.5">
+					<p className="text-[9px] font-semibold tracking-[0.08em] text-neutral-500">
+						{nextLapGoal.label}
+					</p>
+					<p className="mt-1 text-[13px] font-medium leading-5 text-neutral-100">
+						{nextLapGoal.instruction}
+					</p>
+				</div>
+
 				<p
-					className={`mt-5 text-[32px] font-medium leading-none tabular-nums ${theme.valueClassName}`}
+					className={`mt-4 text-[32px] font-medium leading-none tabular-nums ${theme.valueClassName}`}
 				>
 					{(finding.impactTimeLossMs / 1_000).toFixed(3)} s
 				</p>

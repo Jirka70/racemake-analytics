@@ -12,6 +12,18 @@ const RESPONSE: IngestResponse = {
 	sessionId: "7f3a9c1e-0b52-4d84-9a6e-2c1d5f8b41a0",
 	telemetrySchema: "racemake.telemetry.stint.v1",
 	status: "ready",
+	usability: {
+		status: "usable",
+		primaryReason: null,
+		reasons: [],
+		availableCapabilities: [
+			"lap-comparison",
+			"region-comparison",
+			"ideal-lap",
+			"coaching",
+		],
+		unavailableCapabilities: [],
+	},
 	cacheHit: false,
 	receivedFrameCount: 1,
 	retainedTimelineFrameCount: 1,

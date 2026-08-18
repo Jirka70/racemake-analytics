@@ -49,18 +49,5 @@ export const DEFAULT_LAP_DETECTION_CONFIG: LapDetectionConfig = Object.freeze({
             minimumBoundaryConfidence: 0.5,
             minimumLapTimeConfidence: 0.5,
         },
-        realRacing: {
-            // Observed masks are conservative because multiple samples can map to the same grid point.
-            minimumPositionCoverageRatio: 0.8,
-            maximumUnsupportedNormalizedPositionSpan: 0.02, // Do not accept one missing region spanning more than 2% of the lap.
-            stationarySpeedUpperBoundKmh: 5, // Speeds at or below this domain guardrail count as stationary or near-stationary.
-            minimumMovementObservationTimeRatio: 0.9, // Require usable speed evidence for at least 90% of crossing-to-crossing time.
-            minimumMovingObservedTimeRatio: 0.9, // Require movement for at least 90% of time with usable speed evidence.
-            maximumStationaryIntervalLapTimeRatio: 0.05, // Reject one stationary interval longer than 5% of total lap time.
-        },
-        corner: {
-            minimumSteeringCoverageRatio: 0.8, // Observed steering must cover at least 80% of grid positions.
-            maximumUnsupportedSteeringPositionSpan: 0.02, // No single steering hole may span more than 2% of the lap.
-        },
     },
 })

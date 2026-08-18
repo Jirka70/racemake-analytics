@@ -33,6 +33,9 @@ export function ComparisonLapSelect({
 						disabled={!hasCompleteSelection}
 						onChange={(event) => onSelect(Number(event.currentTarget.value))}
 					>
+						{!hasCompleteSelection && (
+							<option value="">No comparison lap</option>
+						)}
 						{laps.map((lap) => (
 							<option
 								key={lap.lapNumber}

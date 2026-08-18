@@ -27,7 +27,7 @@ export function TrackRegionSelectionOverlay({
 
 	return (
 		<div
-			className="pointer-events-none absolute top-[18px] right-[18px] bottom-[38px] left-[102px] z-[5] overflow-hidden"
+			className="pointer-events-none absolute top-[16px] right-[12px] bottom-[36px] left-[58px] z-[5] overflow-hidden min-[1024px]:top-[18px] min-[1024px]:right-[18px] min-[1024px]:bottom-[38px] min-[1024px]:left-[102px]"
 			aria-hidden="true"
 		>
 			{visibleSegments.map((segment) => (

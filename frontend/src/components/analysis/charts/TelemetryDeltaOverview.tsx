@@ -32,7 +32,7 @@ export interface TelemetryDeltaOverviewProps {
 
 const REVIEWED_LAP_COLOR = "#a3e635";
 const SECOND_LAP_COLOR = "#a78bfa";
-const IDEAL_LAP_COLOR = "#9ca3af";
+const IDEAL_LAP_COLOR = "#d4d4d8";
 
 export function TelemetryDeltaOverview({
 	status,
@@ -70,7 +70,7 @@ export function TelemetryDeltaOverview({
 			className="relative h-10 min-w-0 overflow-hidden rounded-[2px] border border-[#242925] bg-[#0d100e]"
 			aria-label="Full-lap time delta overview"
 		>
-			{model ? (
+			{model?.timeDelta ? (
 				<TelemetryDeltaOverviewCanvas
 					points={model.timeDelta.points}
 					idealPoints={model.idealTimeDelta?.points ?? null}
@@ -196,10 +196,11 @@ function createTelemetryDeltaOverviewOption(
 				silent: true,
 				lineStyle: {
 					color: IDEAL_LAP_COLOR,
-					width: 1,
+					width: 1.5,
 					type: "dotted",
-					opacity: 0.8,
+					opacity: 0.9,
 				},
+				z: 3,
 			},
 			{
 				id: "overview-time-delta",

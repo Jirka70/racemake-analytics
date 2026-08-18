@@ -10,6 +10,7 @@ import {
   type ApiErrorCode,
 } from '../../../../src/http/api-errors'
 import { analysisIdSchema } from '../../../../src/http/schemas/analysis-query'
+import { analysisUsabilitySchema } from '../../../../src/http/schemas/analysis-usability'
 
 const nonnegativeIntegerSchema = z.int().nonnegative()
 const apiErrorCodeSchema = z.custom<ApiErrorCode>(
@@ -35,6 +36,7 @@ const ingestResponseSchema: z.ZodType<IngestResponse> = z.strictObject({
   sessionId: z.string(),
   telemetrySchema: z.string(),
   status: z.literal('ready'),
+  usability: analysisUsabilitySchema,
   cacheHit: z.boolean(),
   receivedFrameCount: nonnegativeIntegerSchema,
   retainedTimelineFrameCount: nonnegativeIntegerSchema,

@@ -19,6 +19,32 @@ export const DEFAULT_VISIBLE_TELEMETRY_CHARTS: readonly TelemetryChartId[] = [
 	"steering",
 ];
 
+export const FRAGMENT_TELEMETRY_CHART_IDS: readonly TelemetryChartId[] = [
+	"speed",
+	"pedals",
+	"steering",
+	"gear",
+	"rpm",
+	"tyre-temperatures",
+];
+
+export const DEFAULT_VISIBLE_FRAGMENT_TELEMETRY_CHARTS: readonly TelemetryChartId[] =
+	["speed", "pedals", "steering"];
+
+export const MOBILE_COMPARISON_TELEMETRY_CHARTS: readonly TelemetryChartId[] = [
+	"time-delta",
+	"speed",
+	"pedals",
+	"steering",
+];
+
+export const MOBILE_SINGLE_TELEMETRY_CHARTS: readonly TelemetryChartId[] = [
+	"speed",
+	"pedals",
+	"steering",
+	"gear",
+];
+
 export const PRIMARY_TELEMETRY_CHARTS: readonly TelemetryChartId[] =
 	DEFAULT_VISIBLE_TELEMETRY_CHARTS;
 

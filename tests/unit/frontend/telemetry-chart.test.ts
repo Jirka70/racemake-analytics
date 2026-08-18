@@ -93,10 +93,26 @@ const IDEAL_LAP: AvailableIdealLapResponse = {
 };
 
 describe("telemetry chart model", () => {
+	test("creates review charts for one lap without inventing a time delta", () => {
+		const singleLapSeries: SeriesResponse = {
+			...SERIES,
+			selection: { ...SERIES.selection, lapNumbers: [3] },
+			laps: SERIES.laps.filter((lap) => lap.lapNumber === 3),
+		};
+
+		const model = createTelemetryChartModel(singleLapSeries, 3, null);
+
+		expect(model?.timeDelta).toBeNull();
+		expect(model?.idealTimeDelta).toBeNull();
+		expect(model?.speed?.map((line) => line.name)).toEqual(["Lap 3"]);
+		expect(model?.pedals?.map((line) => line.name)).toEqual(["Lap 3"]);
+		expect(model?.steering?.map((line) => line.name)).toEqual(["Lap 3"]);
+	});
+
 	test("creates aligned time delta and four telemetry channels", () => {
 		const model = createTelemetryChartModel(SERIES, 3, 2);
 
-		expect(model?.timeDelta.points).toEqual([
+		expect(model?.timeDelta?.points).toEqual([
 			[0, 0],
 			[50, 0.1],
 			[100, 0.1],

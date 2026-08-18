@@ -7,6 +7,7 @@ import { API_ERRORS } from './http/api-errors'
 import { ApiRequestError } from './http/api-request-error'
 import { getCoaching } from './http/get-coaching'
 import { getDiagnostics } from './http/get-diagnostics'
+import { getFragmentSeries } from './http/get-fragment-series'
 import { getIdealLap } from './http/get-ideal-lap'
 import { getLaps } from './http/get-laps'
 import { getSeries } from './http/get-series'
@@ -118,6 +119,14 @@ export function createApp(): Hono {
 
   app.get('/series', (context) => {
     const response = getSeries(context.req.query(), analysisStore)
+    return context.json(response, HTTP_STATUS.OK)
+  })
+
+  app.get('/fragment-series', (context) => {
+    const response = getFragmentSeries(
+      context.req.query(),
+      analysisStore,
+    )
     return context.json(response, HTTP_STATUS.OK)
   })
 

@@ -13,11 +13,19 @@ import {
 	MAXIMUM_COACHING_RAIL_WIDTH_PX,
 	MINIMUM_COACHING_RAIL_WIDTH_PX,
 } from "../../analysis/coaching-rail-width";
+import type { LapFragmentPresentation } from "../../analysis/lap-fragment-presentation";
+import { useCompactAnalysisLayout } from "../../hooks/use-compact-analysis-layout";
 import { CoachingRail, type CoachingRailProps } from "./CoachingRail";
 import type { TelemetryComparisonChartDataProps } from "./charts/TelemetryComparisonChart";
 import type { TrackRegionBandProps } from "./charts/TrackRegionBand";
+import { FragmentDetailsRail } from "./FragmentDetailsRail";
 import type { LapPickerProps } from "./laps/LapPicker";
-import { TelemetryWorkspace } from "./TelemetryWorkspace";
+import { MobileCoachingSheet } from "./mobile/MobileCoachingSheet";
+import { MobileFragmentSheet } from "./mobile/MobileFragmentSheet";
+import {
+	type MobileTelemetryChartControls,
+	TelemetryWorkspace,
+} from "./TelemetryWorkspace";
 
 interface AnalysisMainProps {
 	readonly lapPicker: LapPickerProps;
@@ -27,6 +35,8 @@ interface AnalysisMainProps {
 		"viewport" | "selectedRegionId" | "onSelectRegion"
 	>;
 	readonly coachingRail: CoachingRailProps;
+	readonly fragmentDetails: LapFragmentPresentation | null;
+	readonly mobileChart: MobileTelemetryChartControls;
 }
 
 const COACHING_RAIL_KEYBOARD_RESIZE_STEP_PX = 16;
@@ -36,7 +46,10 @@ export function AnalysisMain({
 	telemetryChart,
 	trackRegionBand,
 	coachingRail,
+	fragmentDetails,
+	mobileChart,
 }: AnalysisMainProps) {
+	const isCompact = useCompactAnalysisLayout();
 	const [coachingRailWidthPx, setCoachingRailWidthPx] = useState(
 		DEFAULT_COACHING_RAIL_WIDTH_PX,
 	);
@@ -57,13 +70,12 @@ export function AnalysisMain({
 
 		function resizeFromPointer(pointerEvent: globalThis.PointerEvent) {
 			pointerEvent.preventDefault();
-			setCoachingRailWidthPx(
-				calculateDraggedCoachingRailWidth(
-					startingWidthPx,
-					startingPointerX,
-					pointerEvent.clientX,
-				),
+			const nextWidthPx = calculateDraggedCoachingRailWidth(
+				startingWidthPx,
+				startingPointerX,
+				pointerEvent.clientX,
 			);
+			setCoachingRailWidthPx(nextWidthPx);
 		}
 
 		function stopResize() {
@@ -103,7 +115,26 @@ export function AnalysisMain({
 		if (requestedWidthPx === null) return;
 
 		event.preventDefault();
-		setCoachingRailWidthPx(clampCoachingRailWidth(requestedWidthPx));
+		const nextWidthPx = clampCoachingRailWidth(requestedWidthPx);
+		setCoachingRailWidthPx(nextWidthPx);
+	}
+
+	if (isCompact) {
+		return (
+			<main className="relative min-h-0 flex-1 overflow-hidden">
+				<TelemetryWorkspace
+					lapPicker={lapPicker}
+					telemetryChart={telemetryChart}
+					trackRegionBand={trackRegionBand}
+					mobileChart={mobileChart}
+				/>
+				{fragmentDetails ? (
+					<MobileFragmentSheet fragment={fragmentDetails} />
+				) : (
+					<MobileCoachingSheet {...coachingRail} />
+				)}
+			</main>
+		);
 	}
 
 	return (
@@ -117,6 +148,7 @@ export function AnalysisMain({
 				lapPicker={lapPicker}
 				telemetryChart={telemetryChart}
 				trackRegionBand={trackRegionBand}
+				mobileChart={mobileChart}
 			/>
 			<div className="relative min-h-0 min-w-0">
 				<hr
@@ -136,7 +168,11 @@ export function AnalysisMain({
 					weight="bold"
 					aria-hidden="true"
 				/>
-				<CoachingRail {...coachingRail} />
+				{fragmentDetails ? (
+					<FragmentDetailsRail fragment={fragmentDetails} />
+				) : (
+					<CoachingRail {...coachingRail} />
+				)}
 			</div>
 		</main>
 	);

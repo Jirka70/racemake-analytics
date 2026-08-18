@@ -4,6 +4,7 @@ import { createTimelineTransitions } from '../../../src/analytics/audit/create-t
 import type { AuditedFrame, AuditedTimelineTransition, SamplingBaseline, UsableTimeline } from '../../../src/analytics/frame-audit-types'
 import { DEFAULT_LAP_DETECTION_CONFIG } from '../../../src/analytics/lap-detect/config/lap-detection-config'
 import { createDetectedLaps } from '../../../src/analytics/lap-detect/create-detected-laps'
+import { createDetectedLapFragments } from '../../../src/analytics/lap-detect/create-detected-lap-fragments'
 import { deriveLinearLapGrid } from '../../../src/analytics/lap-detect/derive-linear-lap-grid'
 import { evaluateLapEligibility } from '../../../src/analytics/lap-detect/evaluate-lap-eligibility'
 import { evaluateLapTimeEligibility } from '../../../src/analytics/lap-detect/evaluate-lap-time-eligibility'
@@ -11,10 +12,9 @@ import { indexAuditedFrames } from '../../../src/analytics/lap-detect/index-audi
 import { findLapCrossingCandidates } from '../../../src/analytics/lap-detect/lap-crossing-candidates'
 import { selectValidLapCrossings } from '../../../src/analytics/lap-detect/lap-crossing-selection'
 import { findLapCrossings } from '../../../src/analytics/lap-detect/lap-crossings'
-import type { DetectedLapGridCoverage, LapMovementSummary, LinearLapGrid, PositionCalibration } from '../../../src/analytics/lap-detect/lap-detect-types'
+import type { LinearLapGrid, PositionCalibration } from '../../../src/analytics/lap-detect/lap-detect-types'
 import { linearizeLap } from '../../../src/analytics/lap-detect/linearize-lap'
 import { derivePositionCalibration } from '../../../src/analytics/lap-detect/position-support'
-import { summarizeLapMovement } from '../../../src/analytics/lap-detect/summarize-lap-movement'
 import { NormalizedTelemetryFrame } from '../../../src/analytics/telemetry-types'
 
 describe('findLapCrossingCandidates', () => {
@@ -313,42 +313,22 @@ describe('findLapCrossingCandidates', () => {
         })
     })
 
-    test('summarizes movement over the exact crossing-to-crossing duration', () => {
-        const timeline = createTimeline([0.9, 0.98, 0.02, 0.9, 0.98, 0.02], { speedKmh: [100, 100, 0, 0, 100, 100] })
-        const crossings = findLapCrossings(timeline, SAMPLING_BASELINE, POSITION_CALIBRATION, indexAuditedFrames(timeline), DEFAULT_LAP_DETECTION_CONFIG)
-        const lap = createDetectedLaps(timeline, crossings)[0]
-        const movement = summarizeLapMovement(timeline, lap, indexAuditedFrames(timeline), DEFAULT_LAP_DETECTION_CONFIG.eligibility.realRacing)
-
-        expect(lap.lapTimeMs).toBe(300)
-        expect(movement).toEqual({
-            observedDurationMs: 300,
-            movementObservationTimeRatio: 1,
-            movingDurationMs: 200,
-            movingObservedTimeRatio: 2 / 3,
-            longestStationaryIntervalMs: 100,
-            longestStationaryIntervalLapTimeRatio: 1 / 3,
-        })
-    })
-
-    test('marks a supported moving lap as real-racing and corner eligible', () => {
+    test('marks a time-eligible lap as real-racing', () => {
         const lap = createLapWithConfidence(0.8, 0.9)
         const eligibility = evaluateLapEligibility(
             lap,
-            createCoverage(0.9, 0.01, 0.9, 0.01),
-            createMovementSummary(1, 1, 0),
             DEFAULT_LAP_DETECTION_CONFIG.eligibility,
         )
 
         expect(eligibility).toEqual({
             timeEligible: { eligible: true, reasons: [] },
             realRacing: { eligible: true, reasons: [] },
-            cornerEligible: { eligible: true, reasons: [] },
         })
     })
 
-    test('reports every failed real-racing and corner requirement', () => {
+    test('keeps a time-eligible lap real-racing despite a sampling gap', () => {
         const lap = {
-            ...createLapWithConfidence(0.4, 0.9),
+            ...createLapWithConfidence(0.8, 0.9),
             limitations: [{
                 code: 'SAMPLING_GAP_WITHIN_LAP' as const,
                 severity: 'warning' as const,
@@ -362,29 +342,29 @@ describe('findLapCrossingCandidates', () => {
         }
         const eligibility = evaluateLapEligibility(
             lap,
-            createCoverage(0.7, 0.03, 0.7, 0.03),
-            createMovementSummary(0.8, 0.8, 0.1),
             DEFAULT_LAP_DETECTION_CONFIG.eligibility,
         )
 
+        expect(eligibility.realRacing).toEqual({ eligible: true, reasons: [] })
+    })
+
+    test('copies failed lap-time requirements into the real-racing decision', () => {
+        const lap = {
+            ...createLapWithConfidence(0.4, 0.3),
+            lapTimeMs: 0,
+        }
+        const eligibility = evaluateLapEligibility(
+            lap,
+            DEFAULT_LAP_DETECTION_CONFIG.eligibility,
+        )
+
+        expect(eligibility.realRacing).toEqual(eligibility.timeEligible)
         expect(eligibility.realRacing).toEqual({
             eligible: false,
             reasons: [
-                { code: 'TIME_ELIGIBILITY_REQUIRED' },
-                { code: 'POSITION_COVERAGE_BELOW_MINIMUM', observedValue: 0.7, requiredMinimum: 0.8 },
-                { code: 'POSITION_HOLE_EXCEEDS_MAXIMUM', observedValue: 0.03, allowedMaximum: 0.02 },
-                { code: 'SAMPLING_GAP_WITHIN_LAP' },
-                { code: 'MOVEMENT_OBSERVATION_BELOW_MINIMUM', observedValue: 0.8, requiredMinimum: 0.9 },
-                { code: 'MOVING_TIME_BELOW_MINIMUM', observedValue: 0.8, requiredMinimum: 0.9 },
-                { code: 'STATIONARY_INTERVAL_EXCEEDS_MAXIMUM', observedValue: 0.1, allowedMaximum: 0.05 },
-            ],
-        })
-        expect(eligibility.cornerEligible).toEqual({
-            eligible: false,
-            reasons: [
-                { code: 'REAL_RACING_ELIGIBILITY_REQUIRED' },
-                { code: 'STEERING_COVERAGE_BELOW_MINIMUM', observedValue: 0.7, requiredMinimum: 0.8 },
-                { code: 'STEERING_HOLE_EXCEEDS_MAXIMUM', observedValue: 0.03, allowedMaximum: 0.02 },
+                { code: 'NON_POSITIVE_LAP_TIME', lapTimeMs: 0 },
+                { code: 'BOUNDARY_CONFIDENCE_BELOW_MINIMUM', observedValue: 0.4, requiredMinimum: 0.5 },
+                { code: 'LAP_TIME_CONFIDENCE_BELOW_MINIMUM', observedValue: 0.3, requiredMinimum: 0.5 },
             ],
         })
     })
@@ -395,6 +375,43 @@ describe('findLapCrossingCandidates', () => {
         const crossings = findLapCrossings(timeline, SAMPLING_BASELINE, POSITION_CALIBRATION, indexAuditedFrames(timeline), DEFAULT_LAP_DETECTION_CONFIG)
 
         expect(createDetectedLaps(timeline, crossings)).toEqual([])
+    })
+
+    test('reports the opening and closing fragments outside complete laps', () => {
+        const timeline = createTimeline([0.4, 0.9, 0.98, 0.02, 0.4, 0.9, 0.98, 0.02, 0.42])
+        const crossings = findLapCrossings(timeline, SAMPLING_BASELINE, POSITION_CALIBRATION, indexAuditedFrames(timeline), DEFAULT_LAP_DETECTION_CONFIG)
+
+        expect(createDetectedLapFragments(timeline, crossings)).toEqual([
+            { startPosition: 0.4, endPosition: 1, startFrameIndex: 0, endFrameIndex: 3 },
+            { startPosition: 0, endPosition: 0.42, startFrameIndex: 6, endFrameIndex: 8 },
+        ])
+    })
+
+    test('reports a whole timeline segment as one fragment without a lap crossing', () => {
+        const timeline = createTimeline([0.2, 0.3, 0.4])
+
+        expect(createDetectedLapFragments(timeline, [])).toEqual([
+            { startPosition: 0.2, endPosition: 0.4, startFrameIndex: 0, endFrameIndex: 2 },
+        ])
+    })
+
+    test('splits fragments at a timeline break but not at a sampling gap', () => {
+        const positions = [0.4, 0.9, 0.98, 0.02, 0.3, 0.9, 0.98, 0.02, 0.2]
+        const brokenTimeline = createTimeline(positions, { breakTransitionIndex: 3 })
+        const brokenCrossings = findLapCrossings(brokenTimeline, SAMPLING_BASELINE, POSITION_CALIBRATION, indexAuditedFrames(brokenTimeline), DEFAULT_LAP_DETECTION_CONFIG)
+        const gappedTimeline = createTimeline(positions, { nonContinuousTransitionIndex: 3 })
+        const gappedCrossings = findLapCrossings(gappedTimeline, SAMPLING_BASELINE, POSITION_CALIBRATION, indexAuditedFrames(gappedTimeline), DEFAULT_LAP_DETECTION_CONFIG)
+
+        expect(createDetectedLapFragments(brokenTimeline, brokenCrossings)).toEqual([
+            { startPosition: 0.4, endPosition: 1, startFrameIndex: 0, endFrameIndex: 3 },
+            { startPosition: 0, endPosition: 0.02, startFrameIndex: 2, endFrameIndex: 3 },
+            { startPosition: 0.3, endPosition: 1, startFrameIndex: 4, endFrameIndex: 7 },
+            { startPosition: 0, endPosition: 0.2, startFrameIndex: 6, endFrameIndex: 8 },
+        ])
+        expect(createDetectedLapFragments(gappedTimeline, gappedCrossings)).toEqual([
+            { startPosition: 0.4, endPosition: 1, startFrameIndex: 0, endFrameIndex: 3 },
+            { startPosition: 0, endPosition: 0.2, startFrameIndex: 6, endFrameIndex: 8 },
+        ])
     })
 
     test('reports every sampling gap within a detected lap', () => {
@@ -582,41 +599,6 @@ function createLapWithConfidence(boundaryConfidence: number, lapTimeConfidence: 
     return {
         ...lap,
         confidence: { ...lap.confidence, boundaryConfidence, lapTimeConfidence },
-    }
-}
-
-function createCoverage(positionCoverageRatio: number, positionHole: number, steeringCoverageRatio: number, steeringHole: number): DetectedLapGridCoverage {
-    const position = {
-        supportMask: [true],
-        supportedGridPointCount: 1,
-        coverageRatio: positionCoverageRatio,
-        longestUnsupportedNormalizedPositionSpan: positionHole,
-    }
-
-    return {
-        position,
-        elapsedTime: position,
-        steering: {
-            supportMask: [true],
-            supportedGridPointCount: 1,
-            coverageRatio: steeringCoverageRatio,
-            longestUnsupportedNormalizedPositionSpan: steeringHole,
-        },
-    }
-}
-
-function createMovementSummary(
-    movementObservationTimeRatio: number,
-    movingObservedTimeRatio: number,
-    longestStationaryIntervalLapTimeRatio: number,
-): LapMovementSummary {
-    return {
-        observedDurationMs: movementObservationTimeRatio * 1_000,
-        movementObservationTimeRatio,
-        movingDurationMs: movementObservationTimeRatio * movingObservedTimeRatio * 1_000,
-        movingObservedTimeRatio,
-        longestStationaryIntervalMs: longestStationaryIntervalLapTimeRatio * 1_000,
-        longestStationaryIntervalLapTimeRatio,
     }
 }
 

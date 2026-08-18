@@ -40,12 +40,13 @@ export function createCellAlignedSteering(audit: TelemetryAuditResult, lapDetect
             const nearestFrames = findLeftAndRightNearestFrames(transitions, cellCenter, calibration, auditedFrameBySourceIndex)
             return nearestFrames ? interpolateSteering(cellCenter, nearestFrames) : null
         })
+        const cornerDetectionSupportedCellMask = steeringDegreesByCell.map((value) => value !== null)
 
         return [{
             lapNumber: lap.lapNumber,
-            contribution: eligibility.cornerEligible.eligible ? 'whole-track' : 'supported-cells',
+            contribution: cornerDetectionSupportedCellMask.every(Boolean) ? 'whole-track' : 'supported-cells',
             steeringDegreesByCell,
-            cornerDetectionSupportedCellMask: steeringDegreesByCell.map((value) => value !== null),
+            cornerDetectionSupportedCellMask,
         }]
     })
 

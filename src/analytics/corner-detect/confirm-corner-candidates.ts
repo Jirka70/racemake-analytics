@@ -25,14 +25,22 @@ export function confirmCornerCandidates(
     thresholds: SteeringStrengthThresholdResult,
     minimumConfidence: number,
 ): readonly ConfirmedCornerCandidate[] {
-    return collectCornerCandidateConfidenceData(candidates, cellAlignedSteering, thresholds).flatMap(({ candidate, racingLapCount, laps }) => {
-        const confidence = laps.reduce((sum, { dataCoverage, steeringOverlap }) => sum + calculateCornerCandidateConfidence(dataCoverage, steeringOverlap, racingLapCount), 0)
+    return collectCornerCandidateConfidenceData(candidates, cellAlignedSteering, thresholds).flatMap(({ candidate, laps }) => {
+        const confidence = calculateCornerCandidateConfidence(laps)
         return confidence > minimumConfidence ? [{ ...candidate, confidence }] : []
     })
 }
 
-export function calculateCornerCandidateConfidence(dataCoverage: number, steeringOverlap: number, racingLapCount: number): number {
-    return racingLapCount === 0 ? 0 : dataCoverage * steeringOverlap / racingLapCount
+export function calculateCornerCandidateConfidence(laps: readonly CornerCandidateLapConfidenceData[]): number {
+    const totalDataCoverage = laps.reduce((sum, { dataCoverage }) => sum + dataCoverage, 0)
+    if (totalDataCoverage === 0) return 0
+
+    // Missing cells abstain. Available cells vote in proportion to how much of
+    // the candidate they cover, so a recorder gap is never a negative vote.
+    return laps.reduce(
+        (sum, { dataCoverage, steeringOverlap }) => sum + dataCoverage * steeringOverlap,
+        0,
+    ) / totalDataCoverage
 }
 
 export function collectCornerCandidateConfidenceData(candidates: readonly CornerCandidate[], cellAlignedSteering: CellAlignedSteering, thresholds: SteeringStrengthThresholdResult): readonly CornerCandidateConfidenceData[] {

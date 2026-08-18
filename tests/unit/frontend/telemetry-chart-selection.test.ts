@@ -1,11 +1,29 @@
 import { describe, expect, test } from "bun:test";
 import {
+	DEFAULT_VISIBLE_FRAGMENT_TELEMETRY_CHARTS,
 	DEFAULT_VISIBLE_TELEMETRY_CHARTS,
+	FRAGMENT_TELEMETRY_CHART_IDS,
 	getSeriesChannelsForTelemetryCharts,
 	toggleTelemetryChart,
 } from "../../../frontend/src/analysis/telemetry-chart-selection";
 
 describe("telemetry chart selection", () => {
+	test("keeps comparison-only time delta out of fragment chart choices", () => {
+		expect(FRAGMENT_TELEMETRY_CHART_IDS).toEqual([
+			"speed",
+			"pedals",
+			"steering",
+			"gear",
+			"rpm",
+			"tyre-temperatures",
+		]);
+		expect(DEFAULT_VISIBLE_FRAGMENT_TELEMETRY_CHARTS).toEqual([
+			"speed",
+			"pedals",
+			"steering",
+		]);
+	});
+
 	test("keeps chart order stable when optional charts are enabled", () => {
 		const withRpm = toggleTelemetryChart(
 			DEFAULT_VISIBLE_TELEMETRY_CHARTS,

@@ -5,32 +5,35 @@ import {
 	WarningCircle,
 } from "@phosphor-icons/react";
 import { useEffect, useId, useRef, useState } from "react";
-import type { DiagnosticsResponse } from "../../../../src/http/contracts";
-import {
-	createDataQualitySummary,
-	type DataQualitySummary,
-} from "../../analysis/data-quality";
+import type { DataQualitySummary } from "../../analysis/data-quality";
 
 export interface DataQualityPopoverProps {
 	readonly status: "loading" | "ready" | "error";
-	readonly diagnostics: DiagnosticsResponse | null;
+	readonly summary: DataQualitySummary | null;
 	readonly errorMessage: string | null;
+	readonly isOpen: boolean;
+	readonly isBannerVisible: boolean;
+	readonly onOpenChange: (isOpen: boolean) => void;
+	readonly presentation?: "default" | "compact";
 }
 
-const triggerClassName =
-	"flex h-9 items-center gap-2 rounded-[4px] border border-[#303431] bg-[#111412] px-3 text-sm text-neutral-200 transition-colors hover:border-neutral-600 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-400";
+const triggerBaseClassName =
+	"flex shrink-0 items-center justify-center rounded-[4px] border border-[#303431] bg-[#111412] text-neutral-200 transition-colors hover:border-neutral-600 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-400";
 
 export function DataQualityPopover({
 	status,
-	diagnostics,
+	summary,
 	errorMessage,
+	isOpen,
+	isBannerVisible,
+	onOpenChange,
+	presentation = "default",
 }: DataQualityPopoverProps) {
-	const [isOpen, setIsOpen] = useState(false);
-	const [areTechnicalDetailsOpen, setAreTechnicalDetailsOpen] =
-		useState(false);
+	const [areTechnicalDetailsOpen, setAreTechnicalDetailsOpen] = useState(false);
 	const rootRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const popoverId = useId();
+	const isCompact = presentation === "compact";
 
 	useEffect(() => {
 		if (!isOpen) return;
@@ -38,12 +41,12 @@ export function DataQualityPopover({
 		function closeOnOutsidePointer(event: PointerEvent): void {
 			if (!(event.target instanceof Node)) return;
 			if (rootRef.current?.contains(event.target)) return;
-			setIsOpen(false);
+			onOpenChange(false);
 		}
 
 		function closeOnEscape(event: KeyboardEvent): void {
 			if (event.key !== "Escape") return;
-			setIsOpen(false);
+			onOpenChange(false);
 			triggerRef.current?.focus();
 		}
 
@@ -54,37 +57,41 @@ export function DataQualityPopover({
 			document.removeEventListener("pointerdown", closeOnOutsidePointer);
 			document.removeEventListener("keydown", closeOnEscape);
 		};
-	}, [isOpen]);
-
-	const summary =
-		status === "ready" && diagnostics
-			? createDataQualitySummary(diagnostics)
-			: null;
+	}, [isOpen, onOpenChange]);
 
 	return (
-		<div ref={rootRef} className="relative hidden xl:block">
+		<div ref={rootRef} className="relative min-w-0">
 			<button
 				ref={triggerRef}
-				className={triggerClassName}
+				className={`${triggerBaseClassName} ${
+					isCompact
+						? "h-8 min-w-8 gap-0 whitespace-nowrap px-2 text-[11px] min-[720px]:gap-2 min-[720px]:px-3 min-[720px]:text-xs"
+						: "h-9 gap-2 px-3 text-sm"
+				}`}
 				type="button"
+				aria-label="Data quality"
 				aria-expanded={isOpen}
 				aria-controls={popoverId}
-				onClick={() => setIsOpen((current) => !current)}
+				onClick={() => onOpenChange(!isOpen)}
 			>
 				<ChartBar aria-hidden="true" size={17} />
-				<span>Data quality</span>
+				<span
+					className={
+						isCompact ? "sr-only min-[720px]:not-sr-only" : "whitespace-nowrap"
+					}
+				>
+					Data quality
+				</span>
 			</button>
 
 			{isOpen && (
 				<section
 					id={popoverId}
-					className="absolute top-[calc(100%+8px)] right-0 z-50 max-h-[calc(100dvh-74px)] w-[340px] overflow-y-auto rounded-[4px] border border-[#3a3f3b] bg-[#121513] shadow-2xl shadow-black/50"
+					className={`fixed right-3 left-3 z-50 w-auto overflow-y-auto rounded-[4px] border border-[#3a3f3b] bg-[#121513] shadow-2xl shadow-black/50 min-[560px]:right-3 min-[560px]:left-auto min-[560px]:w-[340px] min-[1024px]:right-4 ${isBannerVisible ? "top-[138px] max-h-[calc(100dvh-154px)]" : "top-[66px] max-h-[calc(100dvh-82px)]"}`}
 					aria-label="Data quality"
 				>
 					{status === "loading" && <LoadingContent />}
-					{status === "error" && (
-						<ErrorContent errorMessage={errorMessage} />
-					)}
+					{status === "error" && <ErrorContent errorMessage={errorMessage} />}
 					{summary && (
 						<ReadyContent
 							summary={summary}
@@ -111,7 +118,11 @@ function LoadingContent() {
 	);
 }
 
-function ErrorContent({ errorMessage }: { readonly errorMessage: string | null }) {
+function ErrorContent({
+	errorMessage,
+}: {
+	readonly errorMessage: string | null;
+}) {
 	return (
 		<div className="p-5" role="alert">
 			<p className="text-sm font-medium text-red-300">
@@ -135,7 +146,7 @@ function ReadyContent({
 }) {
 	const technicalDetailsId = useId();
 	const isUsable = summary.status === "usable";
-	const statusColorClassName = isUsable ? "text-lime-300" : "text-amber-300";
+	const statusColorClassName = isUsable ? "text-lime-300" : "text-red-300";
 
 	return (
 		<>
@@ -145,36 +156,95 @@ function ReadyContent({
 					<span
 						className={`flex items-center gap-2 text-xs font-medium ${statusColorClassName}`}
 					>
-						<span className="size-2 rounded-full bg-current" aria-hidden="true" />
+						<span
+							className="size-2 rounded-full bg-current"
+							aria-hidden="true"
+						/>
 						{summary.statusLabel}
 					</span>
 				</div>
-				<p className="mt-3 max-w-[270px] text-xs leading-5 text-neutral-400">
+				<p className="mt-4 text-xs font-medium text-neutral-200">
+					{summary.headline}
+				</p>
+				<p className="mt-2 text-xs leading-5 text-neutral-400">
 					{summary.description}
 				</p>
 			</div>
 
-			<dl className="space-y-2 border-t border-[#303431] px-5 py-4 text-xs">
-				<SummaryRow
-					label="Frames retained"
-					value={formatInteger(summary.framesRetained)}
-				/>
-				<SummaryRow
-					label="Entire frames excluded"
-					value={formatInteger(summary.entireFramesExcluded)}
-					isPositive={summary.entireFramesExcluded === 0}
-				/>
-				<SummaryRow
-					label="Signal readings ignored"
-					value={formatInteger(summary.ignoredInvalidReadingCount)}
-					isWarning={summary.ignoredInvalidReadingCount > 0}
-				/>
-				<SummaryRow
-					label="Detector failures"
-					value={formatInteger(summary.detectorFailureCount)}
-					isPositive={summary.detectorFailureCount === 0}
-				/>
-			</dl>
+			{summary.excludedLaps.length > 0 && (
+				<section className="border-t border-[#303431] px-5 py-4">
+					<h3 className="text-[10px] font-medium tracking-[0.06em] text-neutral-500 uppercase">
+						Excluded from analysis
+					</h3>
+					<div className="mt-3 space-y-4">
+						{summary.excludedLaps.map((lap) => (
+							<div key={lap.lapNumber}>
+								<p className="text-xs font-medium text-neutral-200">
+									Lap {lap.lapNumber}
+								</p>
+								<dl className="mt-2 space-y-2 text-xs">
+									{lap.missingTelemetryMs !== null && (
+										<SummaryRow
+											label="Missing telemetry"
+											value={formatSeconds(lap.missingTelemetryMs)}
+											isWarning
+										/>
+									)}
+									{lap.uncoveredLapPercent !== null && (
+										<SummaryRow
+											label="Uncovered part of lap"
+											value={formatPercentage(lap.uncoveredLapPercent)}
+											isWarning
+										/>
+									)}
+								</dl>
+							</div>
+						))}
+					</div>
+				</section>
+			)}
+
+			{summary.availableCapabilities.length > 0 && (
+				<section className="border-t border-[#303431] px-5 py-4">
+					<h3 className="text-[10px] font-medium tracking-[0.06em] text-neutral-500 uppercase">
+						Still available
+					</h3>
+					<ul className="mt-3 grid gap-2 text-xs text-neutral-300">
+						{summary.availableCapabilities.map((capability) => (
+							<li key={capability.code} className="flex items-center gap-2">
+								<CheckCircle
+									className="shrink-0 text-lime-400"
+									aria-hidden="true"
+									size={14}
+									weight="fill"
+								/>
+								<span>{capability.label}</span>
+							</li>
+						))}
+					</ul>
+				</section>
+			)}
+
+			{summary.unavailableCapabilities.length > 0 && (
+				<section className="border-t border-[#303431] px-5 py-4">
+					<h3 className="text-[10px] font-medium tracking-[0.06em] text-neutral-500 uppercase">
+						Unavailable
+					</h3>
+					<ul className="mt-3 grid gap-2 text-xs text-neutral-400">
+						{summary.unavailableCapabilities.map((capability) => (
+							<li key={capability.code} className="flex items-center gap-2">
+								<WarningCircle
+									className="shrink-0 text-red-300"
+									aria-hidden="true"
+									size={14}
+									weight="fill"
+								/>
+								<span>{capability.label}</span>
+							</li>
+						))}
+					</ul>
+				</section>
+			)}
 
 			<div className="border-t border-[#303431]">
 				<button
@@ -195,6 +265,28 @@ function ReadyContent({
 
 				{areTechnicalDetailsOpen && (
 					<div id={technicalDetailsId} className="px-5 pb-5">
+						<dl className="space-y-2 border-b border-[#303431] py-4 text-xs">
+							<SummaryRow
+								label="Frames retained"
+								value={formatInteger(summary.framesRetained)}
+							/>
+							<SummaryRow
+								label="Entire frames excluded"
+								value={formatInteger(summary.entireFramesExcluded)}
+								isPositive={summary.entireFramesExcluded === 0}
+							/>
+							<SummaryRow
+								label="Signal readings ignored"
+								value={formatInteger(summary.ignoredInvalidReadingCount)}
+								isWarning={summary.ignoredInvalidReadingCount > 0}
+							/>
+							<SummaryRow
+								label="Detector failures"
+								value={formatInteger(summary.detectorFailureCount)}
+								isPositive={summary.detectorFailureCount === 0}
+							/>
+						</dl>
+
 						<TechnicalSection title="Telemetry timeline">
 							<DetailRow
 								label="Typical sample interval"
@@ -202,9 +294,7 @@ function ReadyContent({
 							/>
 							<DetailRow
 								label="Gap detected above"
-								value={formatMilliseconds(
-									summary.maximumContinuousIntervalMs,
-								)}
+								value={formatMilliseconds(summary.maximumContinuousIntervalMs)}
 							/>
 							<DetailRow
 								label="Sampling gaps found"
@@ -217,7 +307,7 @@ function ReadyContent({
 
 						<TechnicalSection title="Signal checks">
 							<DetailRow
-								label="Channels with limited data"
+								label="Channels with data issues"
 								value={formatInteger(summary.affectedSignalCount)}
 								isWarning={summary.affectedSignalCount > 0}
 							/>
@@ -237,8 +327,8 @@ function ReadyContent({
 										<span className="text-amber-200">
 											{formatSignalList(summary.affectedSignalLabels)}
 										</span>{" "}
-										had isolated unreliable readings or continuity breaks.
-										They remained usable outside the affected points.
+										had isolated unreliable readings or continuity breaks. They
+										remained usable outside the affected points.
 									</p>
 								</div>
 							) : (
@@ -309,11 +399,7 @@ function SummaryRow({
 	return (
 		<div className="flex items-center justify-between gap-4">
 			<dt className="text-neutral-500">{label}</dt>
-			<dd
-				className={`font-medium tabular-nums ${valueClassName}`}
-			>
-				{value}
-			</dd>
+			<dd className={`font-medium tabular-nums ${valueClassName}`}>{value}</dd>
 		</div>
 	);
 }
@@ -364,6 +450,10 @@ function formatInteger(value: number): string {
 
 function formatMilliseconds(value: number | null): string {
 	return value === null ? "Unavailable" : `${Math.round(value)} ms`;
+}
+
+function formatSeconds(milliseconds: number): string {
+	return `${(milliseconds / 1_000).toFixed(1)} s`;
 }
 
 function formatPercentage(value: number | null): string {

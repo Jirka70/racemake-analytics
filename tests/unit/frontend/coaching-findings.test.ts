@@ -3,6 +3,8 @@ import {
 	classifyCoachingPriority,
 	createCoachingChartMarkers,
 	createCoachingMeasurementDetails,
+	createCoachingNextLapGoal,
+	findCoachingBaseRegionId,
 	findCoachingPhenomenaForLap,
 	formatCoachingPhenomenon,
 	formatCoachingRegionId,
@@ -73,6 +75,29 @@ describe("coaching finding presentation", () => {
 			measuredSection: "Where Lap 2 stopped braking → C3 exit",
 			timeLossLabel: "Time lost from where Lap 2 stopped braking to C3 exit",
 		});
+	});
+
+	test("promotes the actionable instruction ahead of detailed evidence", () => {
+		expect(
+			createCoachingNextLapGoal(
+				createRankedPhenomenon(1, 1, 3, 2, "C2-entry", "UNNECESSARY_BRAKING")
+					.finding,
+			),
+		).toEqual({
+			label: "NEXT-LAP GOAL",
+			instruction: "Keep C2 brake-free.",
+		});
+		expect(
+			createCoachingNextLapGoal(
+				createRankedPhenomenon(2, 0.7, 4, 2, "C3", "LATE_BRAKE_RELEASE")
+					.finding,
+			).instruction,
+		).toBe("Release the brake earlier through C3.");
+	});
+
+	test("maps a phase finding to its selectable corner", () => {
+		expect(findCoachingBaseRegionId("C2-entry")).toBe("C2");
+		expect(findCoachingBaseRegionId("C7")).toBe("C7");
 	});
 
 	test("makes track position and speed scope explicit", () => {

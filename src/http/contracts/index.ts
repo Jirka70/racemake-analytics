@@ -4,6 +4,16 @@ export type {
   AnalysisResponseContext,
 } from './analysis'
 export type {
+  AnalysisCapability,
+  AnalysisUsability,
+  AnalysisUsabilityReason,
+  AnalysisUsabilityReasonCode,
+  AnalysisUsabilitySeverity,
+  AnalysisUsabilityStatus,
+  RejectedLap,
+  TimelineDiscontinuityEvidence,
+} from '../../application/analysis-usability'
+export type {
   CoachingDetectorFailureResponse,
   CoachingFindingEvidenceResponse,
   CoachingFindingLimitationResponse,
@@ -21,6 +31,11 @@ export type {
   SamplingBaselineResponse,
   SteeringThresholdDiagnosticsResponse,
 } from './diagnostics'
+export type {
+  FragmentSeriesQuery,
+  FragmentSeriesResponse,
+  FragmentSeriesSelectionResponse,
+} from './fragment-series'
 export type { IngestRequest, IngestResponse } from './ingest'
 export { ANALYSIS_STAGES } from './ingest-progress'
 export type {
@@ -42,11 +57,15 @@ export type {
 export type {
   LapAnalysisEligibilityResponse,
   LapConfidenceResponse,
+  LapCrossingLimitationResponse,
   LapEligibilityDecisionResponse,
   LapEligibilityReasonResponse,
   LapEligibilityResponse,
+  LapFragmentResponse,
   LapLimitationResponse,
   LapResponse,
+  LapSamplingGapLimitationResponse,
+  LapSamplingGapResponse,
   LapsResponse,
 } from './laps'
 export type {

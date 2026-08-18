@@ -43,6 +43,23 @@ export function resizeTelemetryViewport(
 	};
 }
 
+export function moveTelemetryViewport(
+	viewport: TelemetryViewport,
+	requestedStartPercent: number,
+): TelemetryViewport {
+	const spanPercent = clamp(
+		viewport.endPercent - viewport.startPercent,
+		MINIMUM_TELEMETRY_VIEWPORT_SPAN_PERCENT,
+		100,
+	);
+	const startPercent = clamp(requestedStartPercent, 0, 100 - spanPercent);
+
+	return {
+		startPercent,
+		endPercent: startPercent + spanPercent,
+	};
+}
+
 export function createTelemetryViewportForRange(
 	startPercent: number,
 	endPercent: number,

@@ -1,9 +1,11 @@
 import type {
 	AnalysisId,
+	FragmentSeriesQuery,
 	IdealLapQuery,
 	SeriesQuery,
 } from "../../../src/http/contracts";
 
+type FragmentSeriesSelection = Omit<FragmentSeriesQuery, "analysisId">;
 type SeriesSelection = Omit<SeriesQuery, "analysisId">;
 type IdealLapSelection = Omit<IdealLapQuery, "analysisId">;
 
@@ -26,6 +28,20 @@ export const analysisQueryKeys = {
 
 	track: (analysisId: AnalysisId | null) =>
 		["analysis", analysisId, "track"] as const,
+
+	fragmentSeries: (
+		analysisId: AnalysisId | null,
+		selection: FragmentSeriesSelection | null,
+	) =>
+		[
+			"analysis",
+			analysisId,
+			"fragment-series",
+			{
+				fragment: selection?.fragment ?? null,
+				channels: selection?.channels ?? null,
+			},
+		] as const,
 
 	idealLap: (
 		analysisId: AnalysisId | null,

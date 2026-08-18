@@ -2,9 +2,8 @@ import type {
   LapCrossingLimitation,
   LapEligibilityReason,
   LapCrossingLimitationSeverity,
-  DetectedLapLimitation,
 } from '../../analytics/lap-detect/lap-detect-types'
-import type { AnalysisResponseContext } from './analysis'
+import type { AnalysisId } from './analysis'
 
 export type LapEligibilityResponse = 'racing' | 'non-racing'
 
@@ -26,12 +25,30 @@ export interface LapAnalysisEligibilityResponse {
   readonly cornerDetection: LapEligibilityDecisionResponse
 }
 
-export interface LapLimitationResponse {
-  readonly code:
-    | LapCrossingLimitation['code']
-    | DetectedLapLimitation['code']
+export interface LapCrossingLimitationResponse {
+  readonly code: LapCrossingLimitation['code']
   readonly severity: LapCrossingLimitationSeverity
   readonly message: string
+}
+
+export interface LapSamplingGapLimitationResponse {
+  readonly code: 'SAMPLING_GAP_WITHIN_LAP'
+  readonly severity: 'warning'
+  readonly message: string
+  readonly gapStartTimestampMs: number
+  readonly gapEndTimestampMs: number
+  readonly gapDurationMs: number
+  readonly fromPosition: number
+  readonly toPosition: number
+}
+
+export type LapLimitationResponse =
+  | LapCrossingLimitationResponse
+  | LapSamplingGapLimitationResponse
+
+export interface LapSamplingGapResponse
+  extends LapSamplingGapLimitationResponse {
+  readonly lapNumber: number
 }
 
 export interface LapConfidenceResponse {
@@ -49,6 +66,15 @@ export interface LapResponse {
   readonly limitations: readonly LapLimitationResponse[]
 }
 
-export interface LapsResponse extends AnalysisResponseContext {
+export interface LapFragmentResponse {
+  readonly startPosition: number
+  readonly endPosition: number
+}
+
+export interface LapsResponse {
+  readonly analysisId: AnalysisId
+  readonly sessionId: string
   readonly laps: readonly LapResponse[]
+  readonly fragments: readonly LapFragmentResponse[]
+  readonly samplingGaps: readonly LapSamplingGapResponse[]
 }

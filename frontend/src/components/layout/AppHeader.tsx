@@ -6,6 +6,7 @@ import {
 	CaretRight,
 	FolderOpen,
 } from "@phosphor-icons/react";
+import { useCompactAnalysisLayout } from "../../hooks/use-compact-analysis-layout";
 import {
 	DataQualityPopover,
 	type DataQualityPopoverProps,
@@ -15,6 +16,8 @@ interface AppHeaderProps {
 	readonly showAnalysisControls: boolean;
 	readonly racingLapCount: number | null;
 	readonly comparedLapNumber: number | null;
+	readonly reviewTitle?: string;
+	readonly reviewTone?: "default" | "fragment";
 	readonly isFullscreen?: boolean;
 	readonly onOpenStint?: () => void;
 	readonly onBackToAnalysis?: () => void;
@@ -27,10 +30,15 @@ interface AppHeaderProps {
 const iconButtonClassName =
 	"grid size-9 shrink-0 place-items-center rounded-[4px] border border-[#303431] bg-[#111412] text-neutral-300 transition-colors hover:border-neutral-600 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-400";
 
+const compactActionButtonClassName =
+	"flex h-8 min-w-8 shrink-0 items-center justify-center gap-0 whitespace-nowrap rounded-[4px] border border-[#303431] bg-[#111412] px-2 text-[11px] text-neutral-200 transition-colors hover:border-neutral-600 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-400 min-[720px]:gap-2 min-[720px]:px-3 min-[720px]:text-xs";
+
 export function AppHeader({
 	showAnalysisControls,
 	racingLapCount,
 	comparedLapNumber,
+	reviewTitle,
+	reviewTone = "default",
 	isFullscreen = false,
 	onOpenStint,
 	onBackToAnalysis,
@@ -39,6 +47,58 @@ export function AppHeader({
 	onToggleFullscreen,
 	dataQuality,
 }: AppHeaderProps) {
+	const isCompact = useCompactAnalysisLayout();
+
+	if (isCompact) {
+		return (
+			<header className="relative z-50 grid h-[52px] shrink-0 grid-cols-[minmax(32px,1fr)_auto_minmax(68px,1fr)] items-center gap-1.5 border-b border-[#292d2a] bg-[#0b0d0c] px-2.5">
+				<div className="flex min-w-0 items-center gap-2">
+					<img
+						className="size-[18px] shrink-0 object-contain"
+						src="/racemake-mark.png"
+						alt="Racemake"
+					/>
+					<span className="hidden truncate text-[9px] font-semibold tracking-[0.2em] text-neutral-100 min-[520px]:inline">
+						RACEMAKE
+					</span>
+				</div>
+
+				<h1 className="m-0 truncate px-1 text-center text-[9px] font-semibold tracking-[0.04em] text-neutral-100 uppercase min-[420px]:text-[10px]">
+					Stint Analysis
+				</h1>
+
+				<div className="flex min-w-0 items-center justify-end gap-1.5">
+					{showAnalysisControls && onOpenStint ? (
+						<button
+							className={compactActionButtonClassName}
+							type="button"
+							aria-label="Open stint"
+							onClick={onOpenStint}
+						>
+							<FolderOpen aria-hidden="true" size={17} />
+							<span className="sr-only min-[720px]:not-sr-only">
+								Open stint
+							</span>
+						</button>
+					) : null}
+					{showAnalysisControls && dataQuality ? (
+						<DataQualityPopover {...dataQuality} presentation="compact" />
+					) : null}
+					{!showAnalysisControls && onBackToAnalysis ? (
+						<button
+							className={iconButtonClassName}
+							type="button"
+							aria-label="Back to analysis"
+							onClick={onBackToAnalysis}
+						>
+							<ArrowLeft aria-hidden="true" size={17} />
+						</button>
+					) : null}
+				</div>
+			</header>
+		);
+	}
+
 	return (
 		<header className="relative z-50 grid h-[58px] shrink-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center border-b border-[#292d2a] bg-[#0b0d0c] px-4">
 			<div className="flex min-w-0 items-center gap-5">
@@ -80,11 +140,18 @@ export function AppHeader({
 					>
 						<CaretLeft aria-hidden="true" size={17} weight="bold" />
 					</button>
-					<div className="flex h-9 min-w-64 items-center justify-center rounded-[4px] border border-[#3a3f3b] bg-[#111412] px-4 text-sm font-medium text-neutral-100">
-						<span>
-							{comparedLapNumber !== null
-								? `Reviewing Lap ${comparedLapNumber}`
-								: "Select a lap"}
+					<div
+						className={`flex h-9 w-56 min-w-0 items-center justify-center rounded-[4px] border bg-[#111412] px-3 text-sm font-medium 2xl:w-64 ${
+							reviewTone === "fragment"
+								? "border-amber-400/40 text-amber-300"
+								: "border-[#3a3f3b] text-neutral-100"
+						}`}
+					>
+						<span className="truncate">
+							{reviewTitle ??
+								(comparedLapNumber !== null
+									? `Reviewing Lap ${comparedLapNumber}`
+									: "Select a lap")}
 						</span>
 					</div>
 					<button
@@ -103,7 +170,7 @@ export function AppHeader({
 				<div className="flex items-center justify-end gap-2">
 					{onOpenStint && (
 						<button
-							className="flex h-9 items-center gap-2 rounded-[4px] border border-[#303431] bg-[#111412] px-3 text-sm text-neutral-200 transition-colors hover:border-neutral-600 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-400"
+							className="flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-[4px] border border-[#303431] bg-[#111412] px-3 text-sm text-neutral-200 transition-colors hover:border-neutral-600 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-400"
 							type="button"
 							onClick={onOpenStint}
 						>

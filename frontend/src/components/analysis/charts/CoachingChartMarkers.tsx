@@ -56,9 +56,7 @@ export function CoachingChartMarkers({
 	);
 
 	return (
-		<div
-			className="pointer-events-none absolute top-[18px] right-[18px] bottom-[38px] left-[102px] z-20"
-		>
+		<div className="pointer-events-none absolute top-[16px] right-[12px] bottom-[36px] left-[58px] z-20 min-[1024px]:top-[18px] min-[1024px]:right-[18px] min-[1024px]:bottom-[38px] min-[1024px]:left-[102px]">
 			{visibleMarkers.map((marker) => {
 				const theme = COACHING_MARKER_THEMES[marker.priority];
 				const relativePosition =

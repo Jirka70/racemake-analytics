@@ -1,4 +1,4 @@
-import { DotsThree, Minus } from "@phosphor-icons/react";
+import { Minus } from "@phosphor-icons/react";
 import type { IdealLapDefinition } from "../../../analysis/ideal-lap";
 import type { LapPickerLap } from "../laps/LapPicker";
 import { formatLapTimeMs } from "../laps/lap-time-format";
@@ -15,7 +15,7 @@ export function LapComparisonLegend({
 	idealLap,
 }: LapComparisonLegendProps) {
 	return (
-		<figure className="flex h-[78px] w-[190px] shrink-0 flex-col justify-center gap-1.5 pl-4 pr-2 text-[11px]">
+		<figure className="flex h-[94px] w-[190px] shrink-0 flex-col justify-center gap-1.5 pl-4 pr-2 text-[11px]">
 			<figcaption className="sr-only">Chart legend</figcaption>
 			<LegendItem
 				lap={comparedLap}
@@ -40,13 +40,11 @@ function IdealLegendItem({
 	return (
 		<details className="group relative">
 			<summary className="grid cursor-help list-none grid-cols-[18px_auto_1fr] items-center gap-1.5 outline-none focus-visible:text-neutral-100 [&::-webkit-details-marker]:hidden">
-				<DotsThree
-					className="text-neutral-400"
-					size={18}
-					weight="bold"
+				<span
+					className="w-[18px] border-t-2 border-dotted border-[#d4d4d8]"
 					aria-hidden="true"
 				/>
-				<span className="font-medium text-neutral-300">Ideal</span>
+				<span className="font-medium text-neutral-200">Ideal lap</span>
 				<span className="text-right tabular-nums text-neutral-400">
 					{formatLapTimeMs(idealLap.durationMs)}
 				</span>

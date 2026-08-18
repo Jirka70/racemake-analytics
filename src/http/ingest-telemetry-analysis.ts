@@ -1,4 +1,5 @@
 import type { FrameAuditConfig } from '../analytics/frame-audit-types'
+import { findAnalysisUsability } from '../application/analysis-usability'
 import {
   ANALYSIS_STAGES,
   type ReportAnalysisProgress,
@@ -108,6 +109,7 @@ function createIngestResponse(
     sessionId: normalizedTelemetry.sessionId,
     telemetrySchema: normalizedTelemetry.schemaVersion,
     status: 'ready',
+    usability: findAnalysisUsability(analysis),
     cacheHit,
     receivedFrameCount: validatedWirePayload.frames.length,
     retainedTimelineFrameCount: auditResult.usableTimeline?.frames.length ?? 0,

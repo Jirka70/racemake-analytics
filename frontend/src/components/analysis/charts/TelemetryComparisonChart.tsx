@@ -15,6 +15,7 @@ import { CanvasRenderer } from "echarts/renderers";
 import { useEffect, useMemo, useRef } from "react";
 import type {
 	AvailableIdealLapResponse,
+	LapSamplingGapResponse,
 	SeriesResponse,
 	TrackRegionResponse,
 } from "../../../../../src/http/contracts";
@@ -23,15 +24,21 @@ import {
 	findIdealLapRegionSourceAtPosition,
 	type IdealLapDefinition,
 } from "../../../analysis/ideal-lap";
-import type { TelemetryChartId } from "../../../analysis/telemetry-chart-selection";
+import type { LapFragmentPresentation } from "../../../analysis/lap-fragment-presentation";
 import {
 	createTelemetryChartModel,
 	type TelemetryChartLine,
 	type TelemetryChartMeasurement,
 	type TelemetryChartModel,
 } from "../../../analysis/telemetry-chart";
-import type { TelemetryViewport } from "../../../analysis/telemetry-viewport";
+import type { TelemetryChartId } from "../../../analysis/telemetry-chart-selection";
+import {
+	moveTelemetryViewport,
+	type TelemetryViewport,
+} from "../../../analysis/telemetry-viewport";
 import { CoachingChartMarkers } from "./CoachingChartMarkers";
+import { FragmentCoverageOverlay } from "./FragmentCoverageOverlay";
+import { TelemetryGapOverlays } from "./TelemetryGapOverlays";
 import { TrackRegionSelectionOverlay } from "./TrackRegionSelectionOverlay";
 
 use([
@@ -60,14 +67,18 @@ export interface TelemetryComparisonChartDataProps {
 	readonly status: "loading" | "ready" | "empty" | "error";
 	readonly series: SeriesResponse | null;
 	readonly reviewedLapNumber: number | null;
+	readonly reviewedLabel?: string;
 	readonly secondLapNumber: number | null;
 	readonly idealLap: IdealLapDefinition | null;
 	readonly idealLapSeries: AvailableIdealLapResponse | null;
 	readonly errorMessage: string | null;
 	readonly coachingMarkers: readonly CoachingChartMarker[];
 	readonly activeCoachingRank: number | null;
+	readonly activeCoachingRegionId: string | null;
 	readonly onSelectCoachingRank: (rank: number) => void;
 	readonly visibleChartIds: readonly TelemetryChartId[];
+	readonly samplingGaps: readonly LapSamplingGapResponse[];
+	readonly fragment: LapFragmentPresentation | null;
 }
 
 export interface TelemetryComparisonChartProps
@@ -75,11 +86,12 @@ export interface TelemetryComparisonChartProps
 	readonly viewport: TelemetryViewport;
 	readonly onViewportChange: (viewport: TelemetryViewport) => void;
 	readonly selectedRegion: TrackRegionResponse | null;
+	readonly presentation?: "desktop" | "compact";
 }
 
 const REVIEWED_LAP_COLOR = "#a3e635";
 const SECOND_LAP_COLOR = "#a78bfa";
-const IDEAL_LAP_COLOR = "#9ca3af";
+const IDEAL_LAP_COLOR = "#d4d4d8";
 const GRID_LINE_COLOR = "#2b2f2c";
 const AXIS_LINE_COLOR = "#3b403c";
 const AXIS_LABEL_COLOR = "#7b807c";
@@ -108,6 +120,7 @@ export function TelemetryComparisonChart({
 	status,
 	series,
 	reviewedLapNumber,
+	reviewedLabel,
 	secondLapNumber,
 	idealLap,
 	idealLapSeries,
@@ -116,16 +129,15 @@ export function TelemetryComparisonChart({
 	activeCoachingRank,
 	onSelectCoachingRank,
 	visibleChartIds,
+	samplingGaps,
+	fragment,
 	viewport,
 	onViewportChange,
 	selectedRegion,
+	presentation = "desktop",
 }: TelemetryComparisonChartProps) {
 	const model = useMemo(() => {
-		if (
-			series === null ||
-			reviewedLapNumber === null ||
-			secondLapNumber === null
-		) {
+		if (series === null || reviewedLapNumber === null) {
 			return null;
 		}
 
@@ -134,8 +146,15 @@ export function TelemetryComparisonChart({
 			reviewedLapNumber,
 			secondLapNumber,
 			idealLapSeries,
+			reviewedLabel,
 		);
-	}, [series, reviewedLapNumber, secondLapNumber, idealLapSeries]);
+	}, [
+		series,
+		reviewedLapNumber,
+		secondLapNumber,
+		idealLapSeries,
+		reviewedLabel,
+	]);
 	const chartSections = useMemo(
 		() =>
 			model === null
@@ -151,14 +170,37 @@ export function TelemetryComparisonChart({
 	return (
 		<section
 			className="relative h-full min-h-0 overflow-hidden rounded-[3px] border border-[#292d2a] bg-[#101311]"
-			aria-label="Telemetry comparison"
-			style={{ minHeight: Math.max(360, chartSections.length * 96) }}
+			aria-label="Telemetry charts"
+			style={{
+				minHeight:
+					presentation === "compact"
+						? 360
+						: Math.max(360, chartSections.length * 96),
+			}}
 		>
-			<ChartChannelLabels sections={chartSections} layout={chartLayout} />
+			<ChartChannelLabels
+				sections={chartSections}
+				layout={chartLayout}
+				presentation={presentation}
+			/>
 			<TrackRegionSelectionOverlay
 				region={selectedRegion}
 				viewport={viewport}
 			/>
+			{status === "ready" &&
+				model !== null &&
+				reviewedLapNumber !== null &&
+				fragment === null && (
+					<TelemetryGapOverlays
+						samplingGaps={samplingGaps}
+						reviewedLapNumber={reviewedLapNumber}
+						secondLapNumber={secondLapNumber}
+						viewport={viewport}
+					/>
+				)}
+			{status === "ready" && model !== null && fragment !== null ? (
+				<FragmentCoverageOverlay fragment={fragment} viewport={viewport} />
+			) : null}
 			{status === "ready" && model !== null && (
 				<CoachingChartMarkers
 					markers={coachingMarkers}
@@ -168,9 +210,7 @@ export function TelemetryComparisonChart({
 				/>
 			)}
 
-			{status === "loading" && (
-				<ChartMessage message="Loading telemetry comparison…" />
-			)}
+			{status === "loading" && <ChartMessage message="Loading telemetry…" />}
 			{status === "empty" && (
 				<ChartMessage message="Select two racing laps to compare their telemetry." />
 			)}
@@ -181,7 +221,7 @@ export function TelemetryComparisonChart({
 				/>
 			)}
 			{status === "ready" && model === null && (
-				<ChartMessage message="Telemetry data are not available for both selected laps." />
+				<ChartMessage message="Telemetry data are not available for the selected lap." />
 			)}
 			{status === "ready" && model !== null && chartSections.length > 0 && (
 				<TelemetryChartCanvas
@@ -191,6 +231,7 @@ export function TelemetryComparisonChart({
 					viewport={viewport}
 					onViewportChange={onViewportChange}
 					idealLap={idealLap}
+					presentation={presentation}
 				/>
 			)}
 		</section>
@@ -204,6 +245,7 @@ function TelemetryChartCanvas({
 	viewport,
 	onViewportChange,
 	idealLap,
+	presentation,
 }: {
 	readonly model: TelemetryChartModel;
 	readonly sections: readonly TelemetryChartSection[];
@@ -211,6 +253,7 @@ function TelemetryChartCanvas({
 	readonly viewport: TelemetryViewport;
 	readonly onViewportChange: (viewport: TelemetryViewport) => void;
 	readonly idealLap: IdealLapDefinition | null;
+	readonly presentation: "desktop" | "compact";
 }) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const chartRef = useRef<EChartsType | null>(null);
@@ -241,6 +284,40 @@ function TelemetryChartCanvas({
 			onViewportChange(nextViewport);
 		};
 		chart.on("datazoom", updateViewport);
+		const moveViewportFromHorizontalWheel = (event: WheelEvent): void => {
+			if (
+				Math.abs(event.deltaX) <= Math.abs(event.deltaY) ||
+				Math.abs(event.deltaX) < 1
+			) {
+				return;
+			}
+
+			const currentViewport = viewportRef.current;
+			const spanPercent =
+				currentViewport.endPercent - currentViewport.startPercent;
+			if (spanPercent >= 100) return;
+
+			const containerWidthPx = Math.max(1, chartContainer.clientWidth);
+			const nextViewport = moveTelemetryViewport(
+				currentViewport,
+				currentViewport.startPercent +
+					(event.deltaX / containerWidthPx) * spanPercent,
+			);
+			if (areViewportsEqual(currentViewport, nextViewport)) return;
+
+			event.preventDefault();
+			event.stopPropagation();
+			chart.dispatchAction({
+				type: "dataZoom",
+				dataZoomIndex: 0,
+				startValue: nextViewport.startPercent,
+				endValue: nextViewport.endPercent,
+			});
+		};
+		chartContainer.addEventListener("wheel", moveViewportFromHorizontalWheel, {
+			capture: true,
+			passive: false,
+		});
 		chartContainer.addEventListener("pointermove", updateActiveGridIndex, {
 			capture: true,
 			passive: true,
@@ -251,6 +328,11 @@ function TelemetryChartCanvas({
 
 		return () => {
 			resizeObserver.disconnect();
+			chartContainer.removeEventListener(
+				"wheel",
+				moveViewportFromHorizontalWheel,
+				true,
+			);
 			chartContainer.removeEventListener(
 				"pointermove",
 				updateActiveGridIndex,
@@ -271,11 +353,12 @@ function TelemetryChartCanvas({
 				currentViewport,
 				() => activeGridIndexRef.current,
 				idealLap,
+				presentation,
 			),
 			{ notMerge: true },
 		);
 		chartViewportRef.current = currentViewport;
-	}, [sections, layout, idealLap]);
+	}, [sections, layout, idealLap, presentation]);
 
 	useEffect(() => {
 		const chart = chartRef.current;
@@ -300,7 +383,7 @@ function TelemetryChartCanvas({
 	return (
 		<div
 			ref={containerRef}
-			className={`absolute inset-0 ${isZoomed ? "cursor-grab active:cursor-grabbing" : "cursor-crosshair"}`}
+			className={`absolute inset-0 touch-pan-y select-none ${isZoomed ? "cursor-grab active:cursor-grabbing" : "cursor-crosshair"}`}
 			role="img"
 			aria-label={createAccessibleChartDescription(model, sections)}
 			title={
@@ -328,23 +411,29 @@ function createVisibleChartSections(
 	const sectionsById: Readonly<
 		Record<TelemetryChartId, TelemetryChartSection | null>
 	> = {
-		"time-delta": {
-			id: "time-delta",
-			title: "TIME DELTA",
-			details:
-				secondLapNumber === null ? "(s)" : `vs Lap ${secondLapNumber} (s)`,
-			measurement: "time-delta",
-			lines: [
-				model.timeDelta,
-				...(model.idealTimeDelta ? [model.idealTimeDelta] : []),
-			],
-			yAxis: {
-				min: -Math.max(1.5, model.maximumAbsoluteTimeDeltaSeconds),
-				max: Math.max(1.5, model.maximumAbsoluteTimeDeltaSeconds),
-				interval: Math.max(1.5, model.maximumAbsoluteTimeDeltaSeconds),
-				formatter: (value) => `${value > 0 ? "+" : ""}${value.toFixed(1)}`,
-			},
-		},
+		"time-delta":
+			model.timeDelta === null
+				? null
+				: {
+						id: "time-delta",
+						title: "TIME DELTA",
+						details:
+							secondLapNumber === null
+								? "(s)"
+								: `vs Lap ${secondLapNumber} (s)`,
+						measurement: "time-delta",
+						lines: [
+							model.timeDelta,
+							...(model.idealTimeDelta ? [model.idealTimeDelta] : []),
+						],
+						yAxis: {
+							min: -Math.max(1.5, model.maximumAbsoluteTimeDeltaSeconds),
+							max: Math.max(1.5, model.maximumAbsoluteTimeDeltaSeconds),
+							interval: Math.max(1.5, model.maximumAbsoluteTimeDeltaSeconds),
+							formatter: (value) =>
+								`${value > 0 ? "+" : ""}${value.toFixed(1)}`,
+						},
+					},
 		speed:
 			model.speed === null
 				? null
@@ -470,6 +559,7 @@ function createTelemetryChartOption(
 	viewport: TelemetryViewport,
 	getActiveGridIndex: () => number,
 	idealLap: IdealLapDefinition | null,
+	presentation: "desktop" | "compact",
 ): TelemetryChartOption {
 	const gridIndexes = sections.map((_, gridIndex) => gridIndex);
 	const lastGridIndex = sections.length - 1;
@@ -478,7 +568,7 @@ function createTelemetryChartOption(
 		gridIndex,
 		min: 0,
 		max: 100,
-		interval: 10,
+		interval: presentation === "compact" ? 20 : 10,
 		axisPointer: {
 			show: true,
 			snap: true,
@@ -507,7 +597,7 @@ function createTelemetryChartOption(
 		},
 		name: gridIndex === lastGridIndex ? "TRACK POSITION" : undefined,
 		nameLocation: "middle" as const,
-		nameGap: 26,
+		nameGap: presentation === "compact" ? 22 : 26,
 		nameTextStyle: {
 			color: "#737873",
 			fontSize: 10,
@@ -548,14 +638,16 @@ function createTelemetryChartOption(
 			},
 		],
 		grid: layout.map((grid) => ({
-			left: 102,
-			right: 18,
+			left: presentation === "compact" ? 72 : 102,
+			right: presentation === "compact" ? 12 : 18,
 			top: `${grid.topPercent}%`,
 			height: `${grid.heightPercent}%`,
 		})),
 		tooltip: {
 			trigger: "axis",
-			triggerOn: "mousemove",
+			// Keep mouse, pen, and touch behavior identical across responsive
+			// compositions. ECharts maps taps to click and pointer hover to mousemove.
+			triggerOn: "mousemove|click",
 			confine: true,
 			backgroundColor: "rgba(17, 20, 18, 0.96)",
 			borderColor: "#4b504c",
@@ -681,7 +773,7 @@ function createLineSeries(
 			color,
 			width:
 				line.role === "ideal"
-					? 1.25
+					? 1.5
 					: line.measurement === "time-delta"
 						? 1.75
 						: 1.5,
@@ -690,7 +782,7 @@ function createLineSeries(
 		},
 		itemStyle: { color, opacity: line.opacity ?? 1 },
 		emphasis: { disabled: true },
-		z: line.role === "ideal" ? 1 : 3,
+		z: line.role === "ideal" ? 4 : 3,
 	};
 }
 
@@ -912,15 +1004,23 @@ function createAccessibleChartDescription(
 	sections: readonly TelemetryChartSection[],
 ): string {
 	const chartNames = sections.map((section) => section.title.toLowerCase());
-	return `${chartNames.join(", ")} comparison for ${model.timeDelta.name}.`;
+	const reviewedLapName = sections
+		.flatMap((section) => section.lines)
+		.find((line) => line.role === "reviewed")?.name;
+
+	return model.timeDelta
+		? `${chartNames.join(", ")} comparison for ${model.timeDelta.name}.`
+		: `${chartNames.join(", ")} for ${reviewedLapName ?? "the selected lap"}.`;
 }
 
 function ChartChannelLabels({
 	sections,
 	layout,
+	presentation,
 }: {
 	readonly sections: readonly TelemetryChartSection[];
 	readonly layout: readonly TelemetryChartGridLayout[];
+	readonly presentation: "desktop" | "compact";
 }) {
 	return (
 		<div
@@ -933,6 +1033,7 @@ function ChartChannelLabels({
 					top={`${layout[index]?.centerPercent ?? 50}%`}
 					title={section.title}
 					details={section.details}
+					presentation={presentation}
 				/>
 			))}
 		</div>
@@ -943,14 +1044,27 @@ function ChartChannelLabel({
 	top,
 	title,
 	details,
+	presentation,
 }: {
 	readonly top: string;
 	readonly title: string;
 	readonly details: string;
+	readonly presentation: "desktop" | "compact";
 }) {
 	return (
-		<div className="absolute left-4 w-[72px] -translate-y-1/2" style={{ top }}>
-			<h2 className="text-[11px] font-semibold tracking-[0.04em] text-neutral-200">
+		<div
+			className={`absolute -translate-y-1/2 ${
+				presentation === "compact" ? "left-2 w-[58px]" : "left-4 w-[72px]"
+			}`}
+			style={{ top }}
+		>
+			<h2
+				className={`font-semibold text-neutral-200 ${
+					presentation === "compact"
+						? "text-[9px] leading-3 tracking-[0.02em]"
+						: "text-[11px] tracking-[0.04em]"
+				}`}
+			>
 				{title}
 			</h2>
 			<p className="mt-1 text-[10px] leading-4 text-neutral-500">{details}</p>
@@ -967,7 +1081,7 @@ function ChartMessage({
 }) {
 	return (
 		<p
-			className={`absolute inset-0 flex items-center justify-center px-24 text-sm ${isError ? "text-red-300" : "text-neutral-500"}`}
+			className={`absolute inset-0 flex items-center justify-center px-8 text-center text-sm min-[1024px]:px-24 ${isError ? "text-red-300" : "text-neutral-500"}`}
 			role={isError ? "alert" : "status"}
 		>
 			{message}

@@ -6,6 +6,7 @@ import { getAnalysis } from '../../src/http/get-analysis'
 import { getCoaching } from '../../src/http/get-coaching'
 import { getDiagnostics } from '../../src/http/get-diagnostics'
 import { getIdealLap } from '../../src/http/get-ideal-lap'
+import { getLaps } from '../../src/http/get-laps'
 import { getSeries } from '../../src/http/get-series'
 import { getTimeLoss } from '../../src/http/get-time-loss'
 import { getTrack } from '../../src/http/get-track'
@@ -25,6 +26,52 @@ describe('analysis response functions', () => {
     })
     const query = { analysisId: ingest.analysisId }
     const { analysis } = getAnalysis(query, analysisStore)
+
+    const laps = getLaps(query, analysisStore)
+    const expectedSamplingGaps = analysis.lapDetectionResult.laps.flatMap(
+      (lap) => lap.limitations.map((limitation) => ({
+        lapNumber: lap.lapNumber,
+        ...limitation,
+      })),
+    )
+    expect(expectedSamplingGaps.length).toBeGreaterThan(0)
+    expect(laps.samplingGaps).toHaveLength(expectedSamplingGaps.length)
+    for (const expectedGap of expectedSamplingGaps) {
+      const responseGap = laps.samplingGaps.find(
+        ({ lapNumber, gapStartTimestampMs, gapEndTimestampMs }) =>
+          lapNumber === expectedGap.lapNumber
+          && gapStartTimestampMs === expectedGap.gapStartTimestampMs
+          && gapEndTimestampMs === expectedGap.gapEndTimestampMs,
+      )
+      expect(responseGap).toMatchObject({
+        code: 'SAMPLING_GAP_WITHIN_LAP',
+        severity: 'warning',
+        lapNumber: expectedGap.lapNumber,
+        gapStartTimestampMs: expectedGap.gapStartTimestampMs,
+        gapEndTimestampMs: expectedGap.gapEndTimestampMs,
+        gapDurationMs: expectedGap.gapDurationMs,
+        fromPosition: expectedGap.fromPosition,
+        toPosition: expectedGap.toPosition,
+      })
+      if (!responseGap) {
+        throw new TypeError('Expected the lap sampling gap in the response')
+      }
+      expect(responseGap.message).toContain(`Lap ${expectedGap.lapNumber}`)
+
+      const responseLap = laps.laps.find(
+        ({ lapNumber }) => lapNumber === expectedGap.lapNumber,
+      )
+      expect(responseLap?.limitations).toContainEqual({
+        code: 'SAMPLING_GAP_WITHIN_LAP',
+        severity: 'warning',
+        message: responseGap.message,
+        gapStartTimestampMs: expectedGap.gapStartTimestampMs,
+        gapEndTimestampMs: expectedGap.gapEndTimestampMs,
+        gapDurationMs: expectedGap.gapDurationMs,
+        fromPosition: expectedGap.fromPosition,
+        toPosition: expectedGap.toPosition,
+      })
+    }
 
     const track = getTrack(query, analysisStore)
     expect(track.analysisId).toBe(ingest.analysisId)
@@ -235,6 +282,7 @@ describe('analysis response functions', () => {
     ).toBeTrue()
 
     const diagnostics = getDiagnostics(query, analysisStore)
+    expect(diagnostics.usability).toEqual(ingest.usability)
     expect(diagnostics.frameAudit.receivedFrameCount).toBe(
       analysis.validatedWirePayload.frames.length,
     )

@@ -146,6 +146,7 @@ function createLapDetection(laps: ReadonlyArray<readonly [lapNumber: number, lap
         linearGrid: null,
         lapCrossings: [],
         laps: laps.map(([lapNumber, lapTimeMs]) => createLap(lapNumber, lapTimeMs)),
+        lapFragments: [],
         linearizedLaps: [],
         lapGridCoverages: [],
         lapEligibilityResults: laps.map(([lapNumber, , eligible]) => createEligibility(lapNumber, eligible)),
@@ -193,15 +194,7 @@ function createEligibility(lapNumber: number, eligible: boolean): DetectedLapEli
     const decision = { eligible, reasons: [] }
     return {
         lapNumber,
-        movement: {
-            observedDurationMs: 1,
-            movementObservationTimeRatio: 1,
-            movingDurationMs: 1,
-            movingObservedTimeRatio: 1,
-            longestStationaryIntervalMs: 0,
-            longestStationaryIntervalLapTimeRatio: 0,
-        },
-        eligibility: { timeEligible: decision, realRacing: decision, cornerEligible: decision },
+        eligibility: { timeEligible: decision, realRacing: decision },
     }
 }
 

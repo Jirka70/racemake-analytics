@@ -3,6 +3,7 @@ import {
 	createTelemetryViewportForRange,
 	createTrackRegionSegments,
 	createVisibleTrackRegionSegments,
+	moveTelemetryViewport,
 	resizeTelemetryViewport,
 } from "../../../frontend/src/analysis/telemetry-viewport";
 import type { CornerRegionResponse } from "../../../src/http/contracts";
@@ -12,6 +13,21 @@ describe("telemetry viewport", () => {
 		expect(
 			resizeTelemetryViewport({ startPercent: 80, endPercent: 100 }, 40),
 		).toEqual({ startPercent: 60, endPercent: 100 });
+	});
+
+	test("moves a zoomed viewport without changing its visible span", () => {
+		expect(
+			moveTelemetryViewport({ startPercent: 15, endPercent: 55 }, 42),
+		).toEqual({ startPercent: 42, endPercent: 82 });
+	});
+
+	test("clamps horizontal viewport movement at both lap boundaries", () => {
+		expect(
+			moveTelemetryViewport({ startPercent: 20, endPercent: 50 }, -12),
+		).toEqual({ startPercent: 0, endPercent: 30 });
+		expect(
+			moveTelemetryViewport({ startPercent: 20, endPercent: 50 }, 92),
+		).toEqual({ startPercent: 70, endPercent: 100 });
 	});
 
 	test("keeps a useful minimum span when zooming to a short region", () => {
