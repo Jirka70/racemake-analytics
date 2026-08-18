@@ -1,3 +1,60 @@
+# Mobile lap comparison and sampling-gap hover — design QA
+
+## Comparison target
+
+- Mobile source visual truth: `/Users/jirka/.codex/generated_images/01a0167f-54e8-7f72-8b07-e0cd600da25c/exec-c26c905b-f7cc-4006-8c7c-f6d3b1a5ce2a.png` (864 × 1821 px).
+- Mobile browser implementation: `/tmp/racemake-mobile-picker-open-final.png`, rendered at a 390 × 844 CSS viewport and captured at device pixel ratio 1 (390 × 844 px).
+- Mobile full-view combined comparison: `/tmp/racemake-mobile-design-qa-combined-final.png`; the source and implementation were proportionally normalized to the same 720 px comparison height because the generated source is a taller concept image rather than an exact CSS-viewport capture.
+- Mobile focused comparison: `/tmp/racemake-mobile-design-qa-focused-final.png`.
+- Desktop source visual truth: `/var/folders/nl/r07j_tss4hs495mltd3xxrdc0000gn/T/codex-clipboard-da972838-d29b-426e-8b77-854322f08113.png` (1536 × 1024 px).
+- Desktop browser implementation: `/tmp/racemake-desktop-gap-hover.png`, rendered and captured at 1536 × 1024 CSS pixels and device pixel ratio 1; no density normalization was required.
+- Desktop full-view combined comparison: `/tmp/racemake-desktop-gap-qa-combined.png`.
+- Desktop focused tooltip comparison: `/tmp/racemake-desktop-gap-qa-focused.png`.
+- Route: `http://localhost:5173/analysis/sha256:79d048e79816fb2c0d4dc10d5b1b6efc63a1e6e3fa38aabc0bc78c5f3e352f81`.
+- Mobile state: Reviewed Lap selector open with Lap 3 selected, Lap 2 as the reference, Lap 1 visibly carrying a measured 95.5% telemetry-coverage warning, and Swap available.
+- Desktop state: Lap 1 reviewed against Lap 2 with the 50.1–54.6% telemetry gap hovered.
+
+## Full-view and focused comparison evidence
+
+- The mobile implementation preserves the selected concept's hierarchy: `COMPARE LAPS`, lime Reviewed selector, violet Reference selector, explicit Swap action, track regions, telemetry channels, chart, and docked coaching surface.
+- The open Reviewed menu is in normal document flow, so the Reference selector remains visible instead of being covered. It adds measured gap coverage and a position bar to the Lap 1 option; this is an intentional evidence-backed enhancement over the source mock.
+- At 800 px the same controls use a compact three-column composition without wrapping or clipping; at 390 px they follow Reviewed → Reference → Swap vertically.
+- The desktop implementation matches the supplied hover state: a subdued amber gap band, coach-readable tooltip beside the band, affected lap, exact track-position range, measured unavailable duration, and the computed statement that Lap 2 remains available.
+- Focused comparisons were required because selector text, option states, telemetry coverage, tooltip copy, and icon alignment were too small to judge reliably from the full views alone.
+
+## Required fidelity surfaces
+
+- Fonts and typography: the existing RACEMAKE font stack, uppercase labels, tabular lap times, compact weights, truncation, and line heights are retained. Labels and values remain legible at 390 and 800 px.
+- Spacing and layout rhythm: selectors use 64 px touch targets, consistent four-pixel radii and existing borders. Opening a list expands the workspace rather than obscuring the second selector. No horizontal viewport overflow was observed.
+- Colors and visual tokens: existing near-black surfaces, lime reviewed state, violet reference state, amber data-quality state, neutral disabled state, and focus outlines map directly to the source and product tokens.
+- Image quality and assets: no raster asset was replaced. The existing RACEMAKE mark and Phosphor icons remain sharp; no custom SVG, CSS illustration, emoji, or placeholder asset was introduced.
+- Copy and content: lap numbers, times, fastest status, deltas, coverage, gap location and duration are derived from the active analysis. The tooltip only says another lap remains available when its own sampling gaps do not overlap the affected range.
+
+## Interaction and accessibility verification
+
+- Verified changing Reviewed Lap and Reference Lap independently, preventing the same lap from being chosen in both roles, selecting Lap 1 with a gap, selecting Lap 4 as reference, and swapping both roles.
+- Verified open/close for both selectors, outside-pointer dismissal, Escape dismissal, and keyboard Enter activation.
+- Verified that a mouse hover shows the sampling-gap tooltip and moving away hides it; a mouse click does not latch the tooltip open.
+- Verified that keyboard focus exposes the same tooltip and that its `aria-describedby` relationship points to the rendered explanation.
+- Verified responsive layouts at 390 × 844, 800 × 900 and 1536 × 1024.
+- Browser console errors: none.
+- Focused frontend tests: 31 passed, 0 failed. TypeScript checks, scoped lint, full lint, production build, production data analysis and `git diff --check` pass. Full repository tests report 394 passed and 3 pre-existing fixture failures because `data/stint-limited.telemetry.json` and `data/spa-synthetic.telemetry.json` are absent.
+
+## Findings and comparison history
+
+- P2 first mobile comparison: Swap appeared between the two selectors on phone width, while the selected concept placed both selectors together and Swap afterward.
+- Fix: responsive ordering now renders Reviewed → Reference → Swap on phones and Reviewed → Swap → Reference at the wider compact breakpoint.
+- Post-fix visual evidence: `/tmp/racemake-mobile-design-qa-combined-final.png` and `/tmp/racemake-mobile-design-qa-focused-final.png`.
+- P1 interaction check: the first named-group CSS variant showed the tooltip on hover but not on keyboard focus.
+- Fix: use the stable parent `group-focus-within` variant, preserve keyboard focus behavior, and suppress mouse-only focus so clicks do not create a persistent tooltip.
+- Post-fix evidence: browser-computed tooltip visibility is `visible` on keyboard focus and `hidden` after a mouse click followed by pointer exit.
+- P0/P1/P2 after fixes: none.
+- P3: the implementation's Lap 1 menu row is taller than the generated concept because it exposes the requested measured gap state and position bar. This intentional difference improves scanability and does not block fidelity.
+
+final result: passed
+
+---
+
 # Responsive analysis interaction follow-up — design QA
 
 ## Comparison target

@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import {
 	calculateLapTelemetryCoverageRatio,
 	calculateSamplingGapRatio,
+	createLapTelemetryGapSummary,
 	createSamplingGapPositionSegments,
 	createVisibleSamplingGapSegments,
+	findAvailableComparisonLapNumber,
 	findVisibleSamplingGaps,
 	MINIMUM_VISIBLE_SAMPLING_GAP_RATIO,
 } from "../../../frontend/src/analysis/telemetry-gaps";
@@ -11,7 +13,11 @@ import type { LapSamplingGapResponse } from "../../../src/http/contracts";
 
 describe("telemetry gap presentation", () => {
 	test("shows a material gap only for a selected lap", () => {
-		const gap = createGap({ lapNumber: 1, fromPosition: 0.5, toPosition: 0.545 });
+		const gap = createGap({
+			lapNumber: 1,
+			fromPosition: 0.5,
+			toPosition: 0.545,
+		});
 
 		expect(findVisibleSamplingGaps([gap], [1])).toEqual([gap]);
 		expect(findVisibleSamplingGaps([gap], [2])).toEqual([]);
@@ -33,6 +39,59 @@ describe("telemetry gap presentation", () => {
 		];
 
 		expect(calculateLapTelemetryCoverageRatio(gaps)).toBeCloseTo(0.93);
+	});
+
+	test("summarizes visible gaps and coverage for one lap only", () => {
+		const selectedLapGap = createGap({
+			lapNumber: 1,
+			fromPosition: 0.5,
+			toPosition: 0.55,
+		});
+		const otherLapGap = createGap({
+			lapNumber: 2,
+			fromPosition: 0.2,
+			toPosition: 0.3,
+		});
+
+		expect(
+			createLapTelemetryGapSummary(1, [selectedLapGap, otherLapGap]),
+		).toEqual({
+			visibleGaps: [selectedLapGap],
+			coveragePercent: 95,
+		});
+	});
+
+	test("reports the other selected lap only when it remains available", () => {
+		const reviewedGap = createGap({
+			lapNumber: 1,
+			fromPosition: 0.5,
+			toPosition: 0.55,
+		});
+		const separateReferenceGap = createGap({
+			lapNumber: 2,
+			fromPosition: 0.7,
+			toPosition: 0.75,
+		});
+		const overlappingReferenceGap = createGap({
+			lapNumber: 2,
+			fromPosition: 0.54,
+			toPosition: 0.58,
+		});
+
+		expect(
+			findAvailableComparisonLapNumber(
+				reviewedGap,
+				[reviewedGap, separateReferenceGap],
+				[1, 2],
+			),
+		).toBe(2);
+		expect(
+			findAvailableComparisonLapNumber(
+				reviewedGap,
+				[reviewedGap, overlappingReferenceGap],
+				[1, 2],
+			),
+		).toBeNull();
 	});
 
 	test("splits a start-finish gap into two exact position segments", () => {

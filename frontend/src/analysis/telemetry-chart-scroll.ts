@@ -1,5 +1,9 @@
 const PIXELS_PER_WHEEL_LINE = 16;
 
+export const TELEMETRY_WHEEL_GESTURE_IDLE_MS = 160;
+
+export type TelemetryWheelGestureAxis = "horizontal" | "vertical";
+
 export interface TelemetryChartWheelScroll {
 	readonly currentScrollTop: number;
 	readonly maximumScrollTop: number;
@@ -17,6 +21,43 @@ export interface TelemetryScrollArea {
 export interface TelemetryWheelScrollTarget {
 	readonly target: "chart" | "workspace";
 	readonly nextScrollTop: number;
+}
+
+export function resolveTelemetryWheelGestureAxis({
+	deltaX,
+	deltaY,
+	shiftKey,
+	lockedAxis,
+}: {
+	readonly deltaX: number;
+	readonly deltaY: number;
+	readonly shiftKey: boolean;
+	readonly lockedAxis: TelemetryWheelGestureAxis | null;
+}): TelemetryWheelGestureAxis | null {
+	if (shiftKey) return "horizontal";
+	if (lockedAxis !== null) return lockedAxis;
+	if (deltaX === 0 && deltaY === 0) return null;
+
+	return Math.abs(deltaX) > Math.abs(deltaY) ? "horizontal" : "vertical";
+}
+
+export function resolveTelemetryHorizontalWheelDelta({
+	deltaX,
+	deltaY,
+	deltaMode,
+	pageWidthPx,
+	shiftKey,
+}: {
+	readonly deltaX: number;
+	readonly deltaY: number;
+	readonly deltaMode: number;
+	readonly pageWidthPx: number;
+	readonly shiftKey: boolean;
+}): number | null {
+	const horizontalDelta = shiftKey && deltaX === 0 ? deltaY : deltaX;
+	if (horizontalDelta === 0) return null;
+
+	return convertWheelDeltaToPixels(horizontalDelta, deltaMode, pageWidthPx);
 }
 
 export function resolveTelemetryWheelScrollTarget({
@@ -90,13 +131,13 @@ export function calculateTelemetryRegionScrollLeft({
 }
 
 function convertWheelDeltaToPixels(
-	deltaY: number,
+	delta: number,
 	deltaMode: number,
-	pageHeightPx: number,
+	pageSizePx: number,
 ): number {
-	if (deltaMode === 1) return deltaY * PIXELS_PER_WHEEL_LINE;
-	if (deltaMode === 2) return deltaY * pageHeightPx;
-	return deltaY;
+	if (deltaMode === 1) return delta * PIXELS_PER_WHEEL_LINE;
+	if (deltaMode === 2) return delta * pageSizePx;
+	return delta;
 }
 
 function clamp(value: number, minimum: number, maximum: number): number {

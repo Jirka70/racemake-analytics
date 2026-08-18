@@ -2,10 +2,94 @@ import { describe, expect, test } from "bun:test";
 import {
 	calculateTelemetryChartScrollTop,
 	calculateTelemetryRegionScrollLeft,
+	resolveTelemetryHorizontalWheelDelta,
+	resolveTelemetryWheelGestureAxis,
 	resolveTelemetryWheelScrollTarget,
 } from "../../../frontend/src/analysis/telemetry-chart-scroll";
 
 describe("telemetry chart wheel scrolling", () => {
+	test("routes horizontal trackpad gestures to chart panning", () => {
+		expect(
+			resolveTelemetryWheelGestureAxis({
+				deltaX: 24,
+				deltaY: 3,
+				shiftKey: false,
+				lockedAxis: null,
+			}),
+		).toBe("horizontal");
+	});
+
+	test("routes a normal mouse wheel vertically and Shift+wheel horizontally", () => {
+		expect(
+			resolveTelemetryWheelGestureAxis({
+				deltaX: 0,
+				deltaY: 80,
+				shiftKey: false,
+				lockedAxis: null,
+			}),
+		).toBe("vertical");
+		expect(
+			resolveTelemetryWheelGestureAxis({
+				deltaX: 0,
+				deltaY: 80,
+				shiftKey: true,
+				lockedAxis: null,
+			}),
+		).toBe("horizontal");
+	});
+
+	test("keeps the initial axis through the low-amplitude gesture tail", () => {
+		expect(
+			resolveTelemetryWheelGestureAxis({
+				deltaX: 0.4,
+				deltaY: 0.8,
+				shiftKey: false,
+				lockedAxis: "horizontal",
+			}),
+		).toBe("horizontal");
+		expect(
+			resolveTelemetryWheelGestureAxis({
+				deltaX: 0,
+				deltaY: 0,
+				shiftKey: false,
+				lockedAxis: null,
+			}),
+		).toBeNull();
+	});
+
+	test("preserves proportional horizontal trackpad deltas", () => {
+		expect(
+			resolveTelemetryHorizontalWheelDelta({
+				deltaX: 2.5,
+				deltaY: 0.2,
+				deltaMode: 0,
+				pageWidthPx: 800,
+				shiftKey: false,
+			}),
+		).toBe(2.5);
+	});
+
+	test("maps Shift plus a line-based mouse wheel to horizontal pixels", () => {
+		expect(
+			resolveTelemetryHorizontalWheelDelta({
+				deltaX: 0,
+				deltaY: 3,
+				deltaMode: 1,
+				pageWidthPx: 800,
+				shiftKey: true,
+			}),
+		).toBe(48);
+		expect(
+			resolveTelemetryHorizontalWheelDelta({
+				deltaX: 0,
+				deltaY: 3,
+				deltaMode: 1,
+				pageWidthPx: 800,
+				shiftKey: false,
+			}),
+		).toBeNull();
+	});
+
 	test("preserves small pixel deltas from a trackpad", () => {
 		expect(
 			calculateTelemetryChartScrollTop({

@@ -10,14 +10,16 @@ export interface SamplingGapPositionSegment {
 	readonly endPercent: number;
 }
 
-export interface VisibleSamplingGapSegment
-	extends SamplingGapPositionSegment {
+export interface VisibleSamplingGapSegment extends SamplingGapPositionSegment {
 	readonly gap: LapSamplingGapResponse;
 }
 
-export function calculateSamplingGapRatio(
-	gap: LapSamplingGapResponse,
-): number {
+export interface LapTelemetryGapSummary {
+	readonly visibleGaps: readonly LapSamplingGapResponse[];
+	readonly coveragePercent: number;
+}
+
+export function calculateSamplingGapRatio(gap: LapSamplingGapResponse): number {
 	if (gap.toPosition >= gap.fromPosition) {
 		return gap.toPosition - gap.fromPosition;
 	}
@@ -34,8 +36,7 @@ export function findVisibleSamplingGaps(
 	return gaps.filter(
 		(gap) =>
 			selectedLapNumbers.has(gap.lapNumber) &&
-			calculateSamplingGapRatio(gap) >=
-				MINIMUM_VISIBLE_SAMPLING_GAP_RATIO,
+			calculateSamplingGapRatio(gap) >= MINIMUM_VISIBLE_SAMPLING_GAP_RATIO,
 	);
 }
 
@@ -48,6 +49,35 @@ export function calculateLapTelemetryCoverageRatio(
 	);
 
 	return Math.max(0, Math.min(1, 1 - missingRatio));
+}
+
+export function createLapTelemetryGapSummary(
+	lapNumber: number,
+	gaps: readonly LapSamplingGapResponse[],
+): LapTelemetryGapSummary {
+	const lapGaps = gaps.filter((gap) => gap.lapNumber === lapNumber);
+
+	return {
+		visibleGaps: findVisibleSamplingGaps(lapGaps, [lapNumber]),
+		coveragePercent: calculateLapTelemetryCoverageRatio(lapGaps) * 100,
+	};
+}
+
+export function findAvailableComparisonLapNumber(
+	gap: LapSamplingGapResponse,
+	gaps: readonly LapSamplingGapResponse[],
+	selectedLapNumbers: readonly number[],
+): number | null {
+	const comparisonLapNumber = selectedLapNumbers.find(
+		(lapNumber) => lapNumber !== gap.lapNumber,
+	);
+	if (comparisonLapNumber === undefined) return null;
+
+	const missingOnComparisonLap = gaps
+		.filter((candidate) => candidate.lapNumber === comparisonLapNumber)
+		.some((candidate) => samplingGapsOverlap(gap, candidate));
+
+	return missingOnComparisonLap ? null : comparisonLapNumber;
 }
 
 export function createSamplingGapPositionSegments(
@@ -79,10 +109,7 @@ export function createVisibleSamplingGapSegments(
 				segment.startPercent,
 				viewport.startPercent,
 			);
-			const visibleEnd = Math.min(
-				segment.endPercent,
-				viewport.endPercent,
-			);
+			const visibleEnd = Math.min(segment.endPercent, viewport.endPercent);
 			if (visibleEnd <= visibleStart) return [];
 
 			return [
@@ -95,5 +122,18 @@ export function createVisibleSamplingGapSegments(
 				},
 			];
 		}),
+	);
+}
+
+function samplingGapsOverlap(
+	first: LapSamplingGapResponse,
+	second: LapSamplingGapResponse,
+): boolean {
+	return createSamplingGapPositionSegments(first).some((firstSegment) =>
+		createSamplingGapPositionSegments(second).some(
+			(secondSegment) =>
+				firstSegment.startPercent < secondSegment.endPercent &&
+				secondSegment.startPercent < firstSegment.endPercent,
+		),
 	);
 }

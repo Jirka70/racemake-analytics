@@ -17,6 +17,10 @@ import {
 	classifyCoachingPriority,
 	formatCoachingPhenomenon,
 } from "../../../analysis/coaching-findings";
+import {
+	calculateMobileCoachingSheetDragOffset,
+	resolveMobileCoachingSheetDragAction,
+} from "../../../analysis/mobile-coaching-sheet-drag";
 import { CoachingFinding, type CoachingRailProps } from "../CoachingRail";
 
 const priorityClasses = {
@@ -44,7 +48,7 @@ export function MobileCoachingSheet(props: CoachingRailProps) {
 
 type MobileCoachingSheetMode = "docked" | "summary" | "evidence";
 
-const SHEET_DOCK_DRAG_THRESHOLD_PX = 44;
+const DOCKED_SHEET_HEIGHT_PX = 68;
 
 function MobileCoachingSheetContent(props: CoachingRailProps) {
 	const {
@@ -60,6 +64,7 @@ function MobileCoachingSheetContent(props: CoachingRailProps) {
 	const activeDragRef = useRef<{
 		readonly pointerId: number;
 		readonly startClientY: number;
+		readonly startedDocked: boolean;
 	} | null>(null);
 	const removeDragListenersRef = useRef<(() => void) | null>(null);
 	const ignoreNextHandleClickRef = useRef(false);
@@ -70,6 +75,8 @@ function MobileCoachingSheetContent(props: CoachingRailProps) {
 	const activeFinding = findings[activeIndex] ?? null;
 	const isDocked = mode === "docked";
 	const isEvidenceOpen = mode === "evidence";
+	const isDraggingDockedSheetOpen = isDocked && dragOffsetPx < 0;
+	const showExpandedContent = !isDocked || isDraggingDockedSheetOpen;
 
 	useEffect(
 		() => () => {
@@ -85,6 +92,7 @@ function MobileCoachingSheetContent(props: CoachingRailProps) {
 		activeDragRef.current = {
 			pointerId: event.pointerId,
 			startClientY: event.clientY,
+			startedDocked: isDocked,
 		};
 		ignoreNextHandleClickRef.current = false;
 		const handle = event.currentTarget;
@@ -99,20 +107,31 @@ function MobileCoachingSheetContent(props: CoachingRailProps) {
 			}
 		}
 
-		function completeSheetDrag(clientY: number, allowDock: boolean): void {
+		function completeSheetDrag(
+			clientY: number,
+			allowModeChange: boolean,
+		): void {
 			const activeDrag = activeDragRef.current;
 			if (activeDrag?.pointerId !== pointerId) return;
 
-			const finalOffsetPx = Math.max(0, clientY - activeDrag.startClientY);
+			const finalOffsetPx = calculateMobileCoachingSheetDragOffset({
+				startedDocked: activeDrag.startedDocked,
+				startClientY: activeDrag.startClientY,
+				currentClientY: clientY,
+			});
+			const dragAction = resolveMobileCoachingSheetDragAction({
+				startedDocked: activeDrag.startedDocked,
+				dragOffsetPx: finalOffsetPx,
+				allowModeChange,
+			});
 			activeDragRef.current = null;
 			removeDragListeners();
 			if (handle.hasPointerCapture(pointerId)) {
 				handle.releasePointerCapture(pointerId);
 			}
 			setDragOffsetPx(0);
-			if (allowDock && finalOffsetPx >= SHEET_DOCK_DRAG_THRESHOLD_PX) {
-				setMode("docked");
-			}
+			if (dragAction === "open") setMode("summary");
+			if (dragAction === "dock") setMode("docked");
 		}
 
 		function moveSheetDrag(pointerEvent: globalThis.PointerEvent): void {
@@ -120,11 +139,14 @@ function MobileCoachingSheetContent(props: CoachingRailProps) {
 			if (activeDrag?.pointerId !== pointerEvent.pointerId) return;
 
 			pointerEvent.preventDefault();
-			const nextOffsetPx = Math.max(
-				0,
-				pointerEvent.clientY - activeDrag.startClientY,
-			);
-			if (nextOffsetPx > 4) ignoreNextHandleClickRef.current = true;
+			const nextOffsetPx = calculateMobileCoachingSheetDragOffset({
+				startedDocked: activeDrag.startedDocked,
+				startClientY: activeDrag.startClientY,
+				currentClientY: pointerEvent.clientY,
+			});
+			if (Math.abs(nextOffsetPx) > 4) {
+				ignoreNextHandleClickRef.current = true;
+			}
 			setDragOffsetPx(nextOffsetPx);
 		}
 
@@ -147,21 +169,33 @@ function MobileCoachingSheetContent(props: CoachingRailProps) {
 
 	return (
 		<aside
-			className={`fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden rounded-t-[14px] border border-[#343936] bg-[#121513]/[0.985] shadow-[0_-18px_50px_rgba(0,0,0,0.5)] backdrop-blur-sm transition-[height,max-height,transform] ${dragOffsetPx > 0 ? "duration-0" : "duration-200"} ${
-				isDocked
+			className={`fixed inset-x-0 bottom-0 z-40 flex flex-col overflow-hidden rounded-t-[14px] border border-[#343936] bg-[#121513]/[0.985] shadow-[0_-18px_50px_rgba(0,0,0,0.5)] backdrop-blur-sm transition-[height,max-height,transform] ${dragOffsetPx !== 0 ? "duration-0" : "duration-200"} ${
+				isDocked && !isDraggingDockedSheetOpen
 					? "h-[68px] max-h-[68px]"
 					: isEvidenceOpen
 						? "h-[76dvh] max-h-[76dvh]"
 						: "max-h-[52dvh]"
 			}`}
-			style={{ transform: `translateY(${dragOffsetPx}px)` }}
+			style={{
+				height: isDraggingDockedSheetOpen
+					? `${DOCKED_SHEET_HEIGHT_PX - dragOffsetPx}px`
+					: undefined,
+				transform: `translateY(${isDocked ? 0 : dragOffsetPx}px)`,
+			}}
 			aria-label={isEvidenceOpen ? "Telemetry evidence" : "Coaching summary"}
 		>
 			{isDocked ? (
 				<DockedCoaching
 					status={status}
 					finding={activeFinding}
-					onOpen={() => setMode("summary")}
+					onPointerDown={startSheetDrag}
+					onOpen={() => {
+						if (ignoreNextHandleClickRef.current) {
+							ignoreNextHandleClickRef.current = false;
+							return;
+						}
+						setMode("summary");
+					}}
 				/>
 			) : null}
 
@@ -207,13 +241,13 @@ function MobileCoachingSheetContent(props: CoachingRailProps) {
 				</div>
 			) : null}
 
-			{!isDocked && status === "loading" ? (
+			{showExpandedContent && status === "loading" ? (
 				<div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain">
 					<SheetMessage title="Loading coaching findings…" />
 				</div>
 			) : null}
 
-			{!isDocked && status === "error" ? (
+			{showExpandedContent && status === "error" ? (
 				<div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain">
 					<SheetMessage
 						title="We couldn’t load coaching"
@@ -223,19 +257,19 @@ function MobileCoachingSheetContent(props: CoachingRailProps) {
 				</div>
 			) : null}
 
-			{!isDocked && status === "unavailable" ? (
+			{showExpandedContent && status === "unavailable" ? (
 				<div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain">
 					<UnavailableCoaching />
 				</div>
 			) : null}
 
-			{!isDocked && status === "ready" && activeFinding === null ? (
+			{showExpandedContent && status === "ready" && activeFinding === null ? (
 				<div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain">
 					<EmptyCoaching message={emptyMessage} />
 				</div>
 			) : null}
 
-			{!isDocked && status === "ready" && activeFinding !== null ? (
+			{showExpandedContent && status === "ready" && activeFinding !== null ? (
 				<>
 					{findings.length > 1 ? (
 						<MobileFindingNavigation activeIndex={activeIndex} {...props} />
@@ -266,10 +300,12 @@ function DockedCoaching({
 	status,
 	finding: rankedFinding,
 	onOpen,
+	onPointerDown,
 }: {
 	readonly status: CoachingRailProps["status"];
 	readonly finding: CoachingRailProps["findings"][number] | null;
 	readonly onOpen: () => void;
+	readonly onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
 }) {
 	const finding = rankedFinding?.finding ?? null;
 	const priorityLabel = rankedFinding
@@ -284,9 +320,11 @@ function DockedCoaching({
 	return (
 		<button
 			type="button"
-			className="grid h-full w-full grid-cols-[36px_minmax(0,1fr)_auto_24px] items-center gap-3 px-4 text-left focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-lime-400"
+			className="grid h-[68px] w-full shrink-0 touch-none cursor-grab grid-cols-[36px_minmax(0,1fr)_auto_24px] items-center gap-3 px-4 text-left active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-lime-400"
 			aria-label="Open coaching panel"
 			aria-expanded="false"
+			title="Swipe up or press to open"
+			onPointerDown={onPointerDown}
 			onClick={onOpen}
 		>
 			<span className="grid size-9 place-items-center rounded-[4px] border border-[#454a46] text-neutral-400">

@@ -31,6 +31,7 @@ import {
 	type TelemetryChartMeasurement,
 	type TelemetryChartModel,
 } from "../../../analysis/telemetry-chart";
+import { resolveTelemetryHorizontalWheelDelta } from "../../../analysis/telemetry-chart-scroll";
 import type { TelemetryChartId } from "../../../analysis/telemetry-chart-selection";
 import {
 	moveTelemetryViewport,
@@ -276,6 +277,8 @@ function TelemetryChartCanvas({
 
 		const chart = init(chartContainer, undefined, { renderer: "canvas" });
 		chartRef.current = chart;
+		let pendingHorizontalWheelDeltaPx = 0;
+		let wheelAnimationFrameId: number | null = null;
 		const updateViewport = (event: unknown): void => {
 			const nextViewport = readDataZoomViewport(event);
 			if (nextViewport === null) return;
@@ -284,15 +287,13 @@ function TelemetryChartCanvas({
 			onViewportChange(nextViewport);
 		};
 		chart.on("datazoom", updateViewport);
-		const moveViewportFromHorizontalWheel = (event: WheelEvent): void => {
-			if (
-				Math.abs(event.deltaX) <= Math.abs(event.deltaY) ||
-				Math.abs(event.deltaX) < 1
-			) {
-				return;
-			}
 
-			const currentViewport = viewportRef.current;
+		const flushHorizontalWheel = (): void => {
+			wheelAnimationFrameId = null;
+			const horizontalDeltaPx = pendingHorizontalWheelDeltaPx;
+			pendingHorizontalWheelDeltaPx = 0;
+
+			const currentViewport = chartViewportRef.current;
 			const spanPercent =
 				currentViewport.endPercent - currentViewport.startPercent;
 			if (spanPercent >= 100) return;
@@ -301,12 +302,13 @@ function TelemetryChartCanvas({
 			const nextViewport = moveTelemetryViewport(
 				currentViewport,
 				currentViewport.startPercent +
-					(event.deltaX / containerWidthPx) * spanPercent,
+					(horizontalDeltaPx / containerWidthPx) * spanPercent,
 			);
 			if (areViewportsEqual(currentViewport, nextViewport)) return;
 
-			event.preventDefault();
-			event.stopPropagation();
+			// Advance the chart-owned value before React commits so every animation
+			// frame starts exactly where the preceding trackpad frame ended.
+			chartViewportRef.current = nextViewport;
 			chart.dispatchAction({
 				type: "dataZoom",
 				dataZoomIndex: 0,
@@ -314,6 +316,25 @@ function TelemetryChartCanvas({
 				endValue: nextViewport.endPercent,
 			});
 		};
+
+		const moveViewportFromHorizontalWheel = (event: WheelEvent): void => {
+			if (event.ctrlKey) return;
+
+			const horizontalDeltaPx = resolveTelemetryHorizontalWheelDelta({
+				deltaX: event.deltaX,
+				deltaY: event.deltaY,
+				deltaMode: event.deltaMode,
+				pageWidthPx: Math.max(1, chartContainer.clientWidth),
+				shiftKey: event.shiftKey,
+			});
+			event.preventDefault();
+			event.stopPropagation();
+			if (horizontalDeltaPx === null) return;
+
+			pendingHorizontalWheelDeltaPx += horizontalDeltaPx;
+			wheelAnimationFrameId ??= requestAnimationFrame(flushHorizontalWheel);
+		};
+
 		chartContainer.addEventListener("wheel", moveViewportFromHorizontalWheel, {
 			capture: true,
 			passive: false,
@@ -328,6 +349,9 @@ function TelemetryChartCanvas({
 
 		return () => {
 			resizeObserver.disconnect();
+			if (wheelAnimationFrameId !== null) {
+				cancelAnimationFrame(wheelAnimationFrameId);
+			}
 			chartContainer.removeEventListener(
 				"wheel",
 				moveViewportFromHorizontalWheel,
@@ -627,9 +651,8 @@ function createTelemetryChartOption(
 				minSpan: 10,
 				maxSpan: 100,
 				filterMode: "none",
-				// The chart stack becomes vertically scrollable when more channels are
-				// visible. Keep a normal wheel gesture available for that primary action;
-				// zoom remains available through the persistent controls below the chart.
+				// Mouse drag remains native to ECharts. Horizontal wheel movement is
+				// applied proportionally above because ECharts quantizes trackpad deltas.
 				zoomOnMouseWheel: false,
 				moveOnMouseMove: true,
 				moveOnMouseWheel: false,
@@ -647,7 +670,7 @@ function createTelemetryChartOption(
 			trigger: "axis",
 			// Keep mouse, pen, and touch behavior identical across responsive
 			// compositions. ECharts maps taps to click and pointer hover to mousemove.
-			triggerOn: "mousemove|click",
+			triggerOn: "mousemove|click|mousewheel",
 			confine: true,
 			backgroundColor: "rgba(17, 20, 18, 0.96)",
 			borderColor: "#4b504c",

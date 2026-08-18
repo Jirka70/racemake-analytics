@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TrackRegionResponse } from "../../../../src/http/contracts";
-import { resolveTelemetryWheelScrollTarget } from "../../analysis/telemetry-chart-scroll";
+import {
+	resolveTelemetryWheelGestureAxis,
+	resolveTelemetryWheelScrollTarget,
+	TELEMETRY_WHEEL_GESTURE_IDLE_MS,
+	type TelemetryWheelGestureAxis,
+} from "../../analysis/telemetry-chart-scroll";
 import type { TelemetryChartId } from "../../analysis/telemetry-chart-selection";
 import { FULL_LAP_TELEMETRY_VIEWPORT } from "../../analysis/telemetry-viewport";
 import { useCompactAnalysisLayout } from "../../hooks/use-compact-analysis-layout";
@@ -45,6 +50,10 @@ export function TelemetryWorkspace({
 	const [viewport, setViewport] = useState(FULL_LAP_TELEMETRY_VIEWPORT);
 	const workspaceScrollContainerRef = useRef<HTMLElement>(null);
 	const chartScrollContainerRef = useRef<HTMLDivElement>(null);
+	const compactVisibleChartIds = useMemo<readonly TelemetryChartId[]>(
+		() => [mobileChart.activeChartId],
+		[mobileChart.activeChartId],
+	);
 	const selectableRegions = useMemo(
 		() => trackRegionBand.regions.filter((region) => region.type === "corner"),
 		[trackRegionBand.regions],
@@ -104,15 +113,31 @@ export function TelemetryWorkspace({
 		const scrollContainer = chartScrollContainerRef.current;
 		if (scrollContainer === null) return;
 		const chartScroller: HTMLDivElement = scrollContainer;
+		let gestureAxis: TelemetryWheelGestureAxis | null = null;
+		let lastWheelEventTimestampMs = Number.NEGATIVE_INFINITY;
 
 		function scrollCharts(event: WheelEvent): void {
-			if (
-				event.ctrlKey ||
-				event.deltaY === 0 ||
-				Math.abs(event.deltaX) > Math.abs(event.deltaY)
-			) {
-				return;
-			}
+			if (event.ctrlKey) return;
+
+			const continuesGesture =
+				event.timeStamp - lastWheelEventTimestampMs <=
+				TELEMETRY_WHEEL_GESTURE_IDLE_MS;
+			const nextGestureAxis = resolveTelemetryWheelGestureAxis({
+				deltaX: event.deltaX,
+				deltaY: event.deltaY,
+				shiftKey: event.shiftKey,
+				lockedAxis: continuesGesture ? gestureAxis : null,
+			});
+			if (nextGestureAxis === null) return;
+
+			gestureAxis = nextGestureAxis;
+			lastWheelEventTimestampMs = event.timeStamp;
+
+			// The chart canvas owns horizontal panning for every responsive
+			// composition. This listener only keeps vertical scrolling out of it.
+			if (gestureAxis === "horizontal") return;
+
+			event.stopPropagation();
 
 			const workspaceScroller = workspaceScrollContainerRef.current;
 			const update = resolveTelemetryWheelScrollTarget({
@@ -145,7 +170,6 @@ export function TelemetryWorkspace({
 			// disabled. Handle vertical movement before it reaches the canvas so both
 			// mouse wheels and high-resolution trackpads scroll the chart stack reliably.
 			event.preventDefault();
-			event.stopPropagation();
 			if (update.target === "workspace" && workspaceScroller) {
 				workspaceScroller.scrollTop = update.nextScrollTop;
 				return;
@@ -219,7 +243,7 @@ export function TelemetryWorkspace({
 				>
 					<TelemetryComparisonChart
 						{...telemetryChart}
-						visibleChartIds={[mobileChart.activeChartId]}
+						visibleChartIds={compactVisibleChartIds}
 						viewport={viewport}
 						onViewportChange={setViewport}
 						selectedRegion={selectedRegion}

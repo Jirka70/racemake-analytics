@@ -1,7 +1,7 @@
 import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { createLapFragmentPresentations } from "../../../analysis/lap-fragment-presentation";
 import type { LapPickerProps } from "../laps/LapPicker";
-import { formatLapDeltaMs, formatLapTimeMs } from "../laps/lap-time-format";
+import { MobileLapComparisonPicker } from "./MobileLapComparisonPicker";
 
 const navigationButtonClassName =
 	"grid size-11 shrink-0 place-items-center rounded-[4px] border border-[#303431] bg-[#111412] text-neutral-100 transition-colors hover:border-neutral-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-400 disabled:cursor-not-allowed disabled:text-neutral-700";
@@ -15,6 +15,7 @@ export function MobileLapSummary({
 	selectedFragmentIndex,
 	errorMessage,
 	onSelectComparedLap,
+	onSelectReferenceLap,
 	onSwapLaps,
 	onSelectFragment,
 }: LapPickerProps) {
@@ -134,73 +135,15 @@ export function MobileLapSummary({
 		);
 	}
 
-	const reviewedLap = selectableLaps.find(
-		(lap) => lap.lapNumber === comparedLapNumber,
-	);
-	const referenceLap = selectableLaps.find(
-		(lap) => lap.lapNumber === referenceLapNumber,
-	);
 	return (
-		<section className="border-b border-[#292d2a] px-3 py-2">
-			<div className="mx-auto grid max-w-[820px] grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-2">
-				<button
-					className={navigationButtonClassName}
-					type="button"
-					aria-label="Review previous lap"
-					disabled={!previousTarget}
-					onClick={() => selectReviewTarget(previousTarget)}
-				>
-					<CaretLeft aria-hidden="true" size={22} weight="bold" />
-				</button>
-
-				<div
-					className={`grid min-w-0 ${referenceLap ? "grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)]" : "grid-cols-1"}`}
-				>
-					<div className="min-w-0 px-2 text-center">
-						<p className="text-xs font-semibold tracking-[0.04em] text-lime-400 uppercase">
-							{reviewedLap ? `Lap ${reviewedLap.lapNumber}` : "Select a lap"}
-						</p>
-						{reviewedLap ? (
-							<>
-								<p className="mt-1 text-xl font-semibold tabular-nums text-neutral-100">
-									{formatLapTimeMs(reviewedLap.lapTimeMs)}
-								</p>
-								<p className="mt-1 text-sm font-semibold tabular-nums text-lime-400">
-									{referenceLap
-										? formatLapDeltaMs(reviewedLap.deltaToReferenceMs)
-										: "Only racing lap"}
-								</p>
-							</>
-						) : null}
-					</div>
-
-					{referenceLap ? (
-						<>
-							<div className="h-full bg-[#343936]" aria-hidden="true" />
-							<div className="min-w-0 px-2 text-center">
-								<p className="truncate text-xs font-semibold tracking-[0.04em] text-violet-300 uppercase">
-									Lap {referenceLap.lapNumber}
-									{referenceLap.isFastest ? " · Fastest" : ""}
-								</p>
-								<p className="mt-1 text-xl font-semibold tabular-nums text-neutral-100">
-									{formatLapTimeMs(referenceLap.lapTimeMs)}
-								</p>
-							</div>
-						</>
-					) : null}
-				</div>
-
-				<button
-					className={navigationButtonClassName}
-					type="button"
-					aria-label="Review next lap"
-					disabled={!nextTarget}
-					onClick={() => selectReviewTarget(nextTarget)}
-				>
-					<CaretRight aria-hidden="true" size={22} weight="bold" />
-				</button>
-			</div>
-		</section>
+		<MobileLapComparisonPicker
+			laps={laps}
+			comparedLapNumber={comparedLapNumber}
+			referenceLapNumber={referenceLapNumber}
+			onSelectComparedLap={onSelectComparedLap}
+			onSelectReferenceLap={onSelectReferenceLap}
+			onSwapLaps={onSwapLaps}
+		/>
 	);
 }
 
