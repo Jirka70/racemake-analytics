@@ -1,1 +1,34 @@
 @import "tailwindcss";
+
+/* A selected telemetry series is the persistent explanation for the chart.
+   Keep the cursor values available, but suppress competing marker details. */
+[data-telemetry-chart-surface]:has([data-telemetry-series-panel])
+[data-telemetry-marker-tooltip] {
+	display: none;
+}
+
+/* The first-use guide names a real control, so keep that control readable
+   through the dimmed backdrop without allowing accidental interaction. */
+body:has([data-guide-step="zoom"]) [data-telemetry-guide-target="zoom"] {
+	position: relative;
+	z-index: 410;
+	pointer-events: none;
+	border-radius: 3px;
+	box-shadow:
+		0 0 0 1px rgb(163 230 53 / 80%),
+		0 0 22px rgb(163 230 53 / 10%);
+}
+
+/* Panning belongs to the chart surface itself. Selecting belongs to a real
+   rendered series inside that same surface, so keep the chart and its live
+   selected point/panel visible for those two guide steps. */
+body:has([data-guide-step="move"]) [data-telemetry-guide-target="chart"],
+body:has([data-guide-step="inspect"]) [data-telemetry-guide-target="chart"] {
+	position: relative;
+	z-index: 410;
+	pointer-events: none;
+	border-radius: 3px;
+	box-shadow:
+		0 0 0 1px rgb(163 230 53 / 80%),
+		0 0 22px rgb(163 230 53 / 10%);
+}

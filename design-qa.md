@@ -1,3 +1,103 @@
+# First-use telemetry controls guide — design QA
+
+## Comparison target
+
+- Source visual truth: `/Users/jirka/.codex/generated_images/01a0167f-54e8-7f72-8b07-e0cd600da25c/exec-554743ef-1e9e-447f-afc9-898c79c87c9f.png` (1586 × 992 px).
+- Browser implementation: `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-controls-guide-desktop-1586x992-final.png`, rendered at the same 1586 × 992 CSS viewport with device pixel ratio 1.
+- Same-size full-view comparison: `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-controls-guide-qa-comparison-final.png`; the two 1586 × 992 originals are placed side by side without scaling or density normalization.
+- Focused guide-and-zoom comparison: `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-controls-guide-qa-focused-final.png`; equal 520 × 300 crops from the same source and implementation images.
+- Responsive evidence: `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-controls-guide-medium-final.png` at 800 × 900, `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-controls-guide-mobile-final.png` at 390 × 844, and `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-controls-guide-mobile-move-final.png` at 390 × 844.
+- Target-spotlight evidence: `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-controls-guide-spotlight-desktop.png`, `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-controls-guide-spotlight-medium.png`, and `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-controls-guide-spotlight-mobile.png` show the production selection line, point marker, and details panel at 1280 × 900, 800 × 900, and 390 × 844.
+- Route: `http://localhost:5173/analysis/sha256:79d048e79816fb2c0d4dc10d5b1b6efc63a1e6e3fa38aabc0bc78c5f3e352f81`.
+- State: Lap 3 reviewed against Lap 2, C2 selected, full-lap viewport, and the first-time chart-controls guide open.
+
+## Full-view and focused comparison evidence
+
+- The implementation retains the source placement and hierarchy: a compact dark coach card above the chart footer, lime heading and active action, progress, navigation, and a clearly outlined real zoom control.
+- The source's `Scroll or pinch over the chart to zoom` statement and mouse-wheel illustration are intentionally not reproduced because the production ECharts configuration has `zoomOnMouseWheel: false`. The implementation truthfully says to drag the slider or use the magnifier buttons and uses the existing Phosphor magnifier icon.
+- Zoom is the first step rather than the source's second step because chart panning becomes available only after the viewport has been zoomed. The following steps explain drag/horizontal trackpad movement and selecting the visibly highlighted telemetry series.
+- Every step now exposes its real target above the dimmed backdrop: the zoom controls for zoom, the chart interaction surface for panning, and a production-selected telemetry series for inspection. The panning step deliberately does not highlight a line. The inspection step renders the selected line in front, its actual point marker and the same details panel produced by a user click.
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing RACEMAKE font stack, uppercase micro-labels, compact body copy, tabular progress count, weights and line heights remain consistent with the product and source hierarchy. Copy wraps cleanly at all tested widths.
+- Spacing and layout rhythm: the desktop card aligns above the footer near its target; medium and mobile cards retain large touch targets and stay clear of the docked coaching sheet. The mobile zoom step moves the existing scroll container just enough to expose the real controls.
+- Colors and visual tokens: the existing near-black surfaces, neutral borders, lime action color and product focus outlines are reused. A restrained 35% backdrop keeps the chart context readable.
+- Image quality and assets: no raster or product asset was replaced. All visible guide symbols come from the installed Phosphor icon library; there are no custom SVG, CSS or text-glyph illustrations.
+- Copy and content: every instruction maps to implemented behavior. The guide contains no wheel-zoom or pinch claim, differentiates mouse/trackpad desktop movement from mobile swipe, and names selection as hover-highlight followed by click on desktop.
+
+## Interaction, persistence and responsive verification
+
+- Verified Next and Back through all three steps on desktop and mobile, including presentation-specific copy.
+- Verified that entering the inspection step creates a deterministic selection from currently visible non-null telemetry, while Back or dismissal removes only that guide-owned selection. The demonstration point remains inside the active viewport and is offset on compact layouts so its point marker is not covered by the details panel.
+- Verified close, reload suppression, and the versioned `localStorage` first-use marker. The final preview uses the next guide key and is intentionally left open for inspection.
+- Verified live 1586 → 800 → 390 px resizing. The active step survives layout changes, and a deferred resize reveal keeps mobile zoom controls visible after responsive reflow.
+- The dialog receives initial focus, traps Tab within its actions, supports Escape, exposes explicit close/skip controls, and retains at least 40 px action targets.
+- Clean browser reload reports no console errors. The final in-app browser state is marked deliverable with the first guide step open.
+
+## Findings and comparison history
+
+- P1 source mismatch identified before implementation: the selected concept advertised wheel/pinch zoom that the graph does not support. Fix: replace the claim and mouse-wheel visual with the actual slider/magnifier interaction. Post-fix evidence is the full-view and focused final comparison above.
+- P2 first responsive pass: after an already-compact viewport changed from 800 to 390 px, responsive reflow could move the highlighted zoom controls below the coaching dock. Fix: defer the target reveal to the next animation frame on resize. Post-fix 390 px geometry places the control at 733–844 px and the final mobile capture keeps it visibly outlined.
+- P1 target-spotlight pass: placing the chart above the backdrop also placed it above the guide card because both originally shared one stacking context. Fix: render the backdrop and dialog as sibling fixed layers, with the real target between them.
+- P2 inspection pass: a centered compact demonstration point could be covered by its own details panel. Fix: choose a visible, non-null sample toward the right side of the current viewport, with deterministic fallback to another reviewed series when the preferred speed trace is unavailable.
+- P0/P1/P2 after the fixes: none.
+- P3: the implementation card is slightly taller than the source because it adds an explicit close action, a `Chart controls` context label, and more descriptive truthful copy. These additions improve first-use clarity without obscuring the target.
+
+## Verification
+
+- Focused guide and series-selection tests: 15 passed, 0 failed.
+- Full repository tests: 425 passed, 0 failed.
+- Root and frontend TypeScript checks, scoped lint, full lint, production build, production data analysis and `git diff --check` pass. Full lint retains 67 pre-existing warnings; the build retains the existing large-chunk warning.
+
+final result: passed
+
+---
+
+# Footer cursor-position indicator — design QA
+
+## Comparison target
+
+- Source visual truth: `/Users/jirka/.codex/generated_images/01a0167f-54e8-7f72-8b07-e0cd600da25c/exec-9ce31592-7491-4f6a-abbb-6b62cb6421e9.png` (1586 × 992 px).
+- Browser implementation: `/tmp/racemake-cursor-minimap-implementation-1536x960-final.png`, rendered at a 1536 × 960 CSS viewport and device pixel ratio 1.
+- Normalized same-state comparison: `/tmp/racemake-cursor-minimap-comparison.png`; the source was proportionally normalized to the implementation viewport for a direct side-by-side review.
+- Focused footer comparison: `/tmp/racemake-cursor-minimap-footer-comparison.png`.
+- Responsive evidence: `/tmp/racemake-cursor-minimap-implementation-800x900.png` and `/tmp/racemake-cursor-minimap-implementation-390x844.png`, captured at matching CSS viewports and device pixel ratio 1.
+- Route: `http://localhost:5173/analysis/sha256:79d048e79816fb2c0d4dc10d5b1b6efc63a1e6e3fa38aabc0bc78c5f3e352f81`.
+- State: Lap 3 reviewed against Lap 2, C2 selected, chart zoomed to a centered 55% lap span, and the linked chart cursor at 47.9%.
+
+## Full-view and focused comparison evidence
+
+- The footer overview now repeats the active main-chart cursor as a one-pixel neutral line, a circular top-edge marker, and a compact tabular percentage label.
+- The indicator uses the global 0–100% lap coordinate, so 47.9% stays at the same overview position when the main chart is zoomed or horizontally panned.
+- The implementation preserves the source hierarchy and existing footer controls. It intentionally retains the production zoom control styling instead of copying the source mock's blue focus treatment.
+- Focused comparison confirms that the marker, line and label align with the main chart's 47.9% axis pointer and remain legible without obscuring the delta traces, viewport outline or selected-region shading.
+
+## Interaction and responsive verification
+
+- ECharts `updateAxisPointer` events are the source of truth; the footer does not infer cursor position from viewport width alone.
+- Moving the pointer across the chart updates the main cursor and overview indicator together; leaving the shared chart surface removes the footer indicator.
+- A horizontal trackpad gesture updates the axis pointer after every viewport movement, so the marker continues to describe the data beneath the stationary physical cursor during a swipe.
+- Zoom was verified at full-lap and 85%/55% spans. The same 47.9% point remained globally aligned in the overview.
+- Desktop (1536 × 960), tablet (800 × 900), and mobile (390 × 844) layouts show the same interaction. The mobile/tablet label remains inside the viewport and is not clipped by the compact footer.
+- Browser console warnings/errors: none.
+
+## Verification
+
+- New cursor-event unit tests: 4 passed, 0 failed.
+- Full repository tests: 402 passed, 0 failed.
+- Root and frontend TypeScript checks pass.
+- Scoped Biome checks, full lint, production build, production data analysis and `git diff --check` pass. Full lint retains 67 pre-existing warnings; the build retains the existing large-chunk warning.
+
+## Findings and comparison history
+
+- P1 first interaction pass: after a horizontal swipe, the viewport moved but the footer marker retained the pre-swipe data position because the custom wheel handler prevented ECharts from receiving a native wheel-triggered axis update.
+- Fix: after each animation-frame viewport update, dispatch the linked axis-pointer update at the current physical pointer coordinates. Browser evidence changed from a stale 47.9% marker to the correct 42.5% marker after the same stationary-cursor pan.
+- P0/P1/P2 after the fix: none.
+- P3: the implementation label is slightly more compact than the generated concept, matching the production footer's existing typography and leaving more of the overview trace visible.
+
+final result: passed
+
 # Mobile lap comparison and sampling-gap hover — design QA
 
 ## Comparison target
@@ -736,5 +836,108 @@ final result: passed
 - Fix: the Gear axis keeps the full reverse-to-eighth range but uses a three-gear tick interval; individual gear values remain available in the shared tooltip.
 - P2 after fix: none.
 - P3: the implementation popover is slightly narrower than the generated target because it follows the existing 1280 px application density; copy remains fully visible and the control does not cover the coaching rail.
+
+final result: passed
+
+---
+
+# Selected telemetry series — design QA
+
+## Comparison target
+
+- Selected visual target: `/Users/jirka/.codex/generated_images/01a0167f-54e8-7f72-8b07-e0cd600da25c/exec-2b73bc7b-224c-420e-9f02-87b59b911314.png`
+- Verified implementation: `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-series-selection-desktop.png`
+- Full-view comparison: `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-series-selection-qa-comparison.png`
+- Focused comparison: `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-series-selection-qa-focused.png`
+- Route: `http://localhost:5173/analysis/sha256:79d048e79816fb2c0d4dc10d5b1b6efc63a1e6e3fa38aabc0bc78c5f3e352f81`
+- State: Lap 3 reviewed against Lap 2, C2 selected, 22.5–77.5% viewport, Lap 3 Speed selected at 47.9%.
+- Source pixels: 1586 × 992. Implementation screenshot and CSS viewport: 1600 × 1000 at device scale factor 1. Both were normalized to 1586 × 992 for comparison.
+
+## Full-view and focused comparison evidence
+
+- Clicking a telemetry line brings that series to the foreground with a thicker lime stroke, restrained glow, a selected sample point, and a linked vertical guide across every visible chart.
+- The detail panel follows the target hierarchy and reports the selected lap and channel, track position, sampled value, comparison-lap value, delta, and telemetry completeness.
+- `Range in view` is intentionally omitted at the user's request.
+- Existing lap picker, region strip, footer overview, coaching rail, telemetry colors, and chart geometry remain unchanged.
+- Non-selected lines stay readable: same-channel alternatives recede more strongly than context lines in other charts.
+
+## Interaction and responsive verification
+
+- Verified line click, reviewed-line priority where lines overlap, same-line click to clear, close-button clear, and Escape clear.
+- Verified the selection and guide remain fixed to their telemetry position while zooming and panning.
+- Verified at 1600 × 1000, 800 × 900, and 390 × 844; the compact panel stays inside the viewport and drops only the nonessential dismissal hint.
+- A selected point inside a missing-data interval is reported as partial and comparison values are never borrowed across a null gap.
+- Fresh browser console warnings and errors after the final reload: none.
+
+## Findings and comparison history
+
+- P0: none.
+- P1 before fix: ECharts emitted a deprecation warning for `triggerLineEvent`.
+- Fix: line clicks now use `triggerEvent: "line"`; the fresh console log is empty.
+- P2 before fix: an ideal-lap line could capture a click where it overlapped the reviewed lap.
+- Fix: reviewed, comparison, and ideal series now have explicit base z-ordering, with the reviewed lap on top.
+- P2 before fix: the first visual pass made contextual series either too prominent or too faint.
+- Fix: same-channel siblings use 0.18 opacity while lines in other charts retain up to 0.35 opacity, and the selected glow was reduced.
+- P2 after fixes: none.
+- P3: the live sampled delta is −0.2 km/h rather than the mock's illustrative −0.1 km/h; the implementation correctly uses production telemetry.
+
+## Verification
+
+- `bun run typecheck`, `bun run lint`, `bun test`, `bun run analyze:data`, `bun run build`, scoped Biome formatting, and `git diff --check` completed successfully.
+- Test result: 410 passed, 0 failed. Lint retains 67 pre-existing warnings and exits successfully. The production build retains the existing large-chunk warning.
+
+final result: passed
+
+---
+
+# Telemetry tooltip collision avoidance — design QA
+
+## Comparison target
+
+- Source visual truth: `/var/folders/nl/r07j_tss4hs495mltd3xxrdc0000gn/T/TemporaryItems/NSIRD_screencaptureui_lhfYgV/Screenshot 2026-08-19 at 10.18.46 AM.png`
+- Verified implementation: `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-tooltip-collision-fixed-1212.png`
+- Full-view comparison: `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-tooltip-collision-qa-comparison.png`
+- Focused comparison: `/Users/jirka/WEB/racemake-hard/artifacts/telemetry-tooltip-collision-qa-focused.png`
+- Route: `http://localhost:5173/analysis/sha256:79d048e79816fb2c0d4dc10d5b1b6efc63a1e6e3fa38aabc0bc78c5f3e352f81`
+- State: Lap 1 reviewed against Lap 2, Speed chart selected, full lap visible, Missing telemetry details open for 50.1–54.6%, telemetry value tooltip visible nearby.
+- Source pixels: 2424 × 1368 at Retina density, normalized to 1212 × 684 CSS pixels. Implementation viewport and screenshot: 1212 × 684 at device scale factor 1.
+
+## Full-view and focused comparison evidence
+
+- The source shows the value tooltip drawn directly over the lower half of the Missing telemetry explanation, hiding track-position, duration, and comparison-lap copy.
+- The revised implementation measures the visible Missing telemetry panel and places the value tooltip in the nearest free quadrant around the pointer with a 10 px exclusion gap.
+- The focused before/after comparison shows both complete panels at once with no shared pixels.
+- Typography, telemetry colors, chart geometry, gap styling, markers, and tooltip copy remain unchanged.
+
+## Interaction and responsive verification
+
+- Verified both tooltips simultaneously at 1212 × 684, 800 × 900, and 390 × 844.
+- On the medium layout the value tooltip moves below the Missing telemetry panel; on mobile it remains confined to the chart and preserves a visible gap.
+- Positioning checks cover the normal lower-right placement, opposite-side avoidance, above-obstacle fallback, and compact viewport edge clamping.
+- Both mouse hover and keyboard focus continue to expose the Missing telemetry details, while the chart value tooltip remains available in and around the amber interval.
+- No visible runtime error or browser error overlay appeared during responsive interaction testing.
+
+## Required fidelity surfaces
+
+- Fonts and typography: unchanged; both panels retain their existing sizes, weights, line heights, and wrapping.
+- Spacing and layout rhythm: only dynamic tooltip placement changes; an explicit 10 px obstacle gap prevents visual merging.
+- Colors and visual tokens: unchanged amber, neutral, violet, border, and surface tokens.
+- Image quality and assets: ECharts canvas rendering and existing Phosphor icon remain unchanged; no new visual assets were introduced.
+- Copy and content: all Missing telemetry and sampled-value content remains visible and unchanged.
+
+## Findings and comparison history
+
+- P0: none.
+- P1 before fix: the chart value tooltip overlapped the Missing telemetry tooltip and made its central explanatory content unreadable.
+- Fix: visible explanatory overlays are now registered as collision obstacles, and the ECharts tooltip evaluates four bounded placements before every display update.
+- Post-fix evidence: desktop, medium, and mobile captures show complete non-overlapping panels; four focused positioning tests cover the fallback rules.
+- P1 after fix: none.
+- P2: none.
+- P3: none.
+
+## Verification
+
+- `bun run typecheck`, `bun run lint`, `bun test`, `bun run analyze:data`, `bun run build`, scoped Biome formatting, and `git diff --check` completed successfully.
+- Test result: 414 passed, 0 failed. Lint retains 67 pre-existing warnings and exits successfully. The production build retains the existing large-chunk warning.
 
 final result: passed
