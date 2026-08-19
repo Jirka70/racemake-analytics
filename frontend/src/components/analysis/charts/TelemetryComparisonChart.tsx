@@ -7,12 +7,14 @@ import {
 	type DataZoomComponentOption,
 	GridComponent,
 	type GridComponentOption,
+	MarkPointComponent,
+	type MarkPointComponentOption,
 	TooltipComponent,
 	type TooltipComponentOption,
 } from "echarts/components";
 import { type ComposeOption, type EChartsType, init, use } from "echarts/core";
 import { CanvasRenderer } from "echarts/renderers";
-import { useEffect, useMemo, useRef } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import type {
 	AvailableIdealLapResponse,
 	LapSamplingGapResponse,
@@ -25,20 +27,47 @@ import {
 	type IdealLapDefinition,
 } from "../../../analysis/ideal-lap";
 import type { LapFragmentPresentation } from "../../../analysis/lap-fragment-presentation";
+import { resolveSelectedSeriesTelemetryStatus } from "../../../analysis/telemetry-gaps";
 import {
 	createTelemetryChartModel,
 	type TelemetryChartLine,
 	type TelemetryChartMeasurement,
 	type TelemetryChartModel,
 } from "../../../analysis/telemetry-chart";
+import { readTelemetryChartCursorPosition } from "../../../analysis/telemetry-chart-cursor";
+import {
+	getTelemetryChartPlotInsets,
+	type TelemetryChartPresentation,
+} from "../../../analysis/telemetry-chart-layout";
 import { resolveTelemetryHorizontalWheelDelta } from "../../../analysis/telemetry-chart-scroll";
 import type { TelemetryChartId } from "../../../analysis/telemetry-chart-selection";
+import type { TelemetryControlsGuideStepId } from "../../../analysis/telemetry-controls-guide";
+import {
+	createTelemetryGuideSelectionClick,
+	createTelemetrySeriesSelection,
+	findNearestTelemetrySeriesHit,
+	findNearestTelemetrySeriesPoint,
+	findStableTelemetrySeriesHoverHit,
+	findTelemetrySeriesClickHit,
+	type TelemetrySeriesClick,
+	type TelemetrySeriesSelection,
+} from "../../../analysis/telemetry-series-selection";
+import {
+	resolveTelemetryTooltipPosition,
+	type TelemetryTooltipRectangle,
+} from "../../../analysis/telemetry-tooltip-position";
 import {
 	moveTelemetryViewport,
 	type TelemetryViewport,
 } from "../../../analysis/telemetry-viewport";
 import { CoachingChartMarkers } from "./CoachingChartMarkers";
 import { FragmentCoverageOverlay } from "./FragmentCoverageOverlay";
+import { SelectedTelemetrySeriesPanel } from "./SelectedTelemetrySeriesPanel";
+import {
+	readVisibleTelemetryTooltipObstacles,
+	TELEMETRY_TOOLTIP_LAYOUT_EVENT,
+	TELEMETRY_TOOLTIP_PRIORITY,
+} from "./TelemetryFloatingTooltip";
 import { TelemetryGapOverlays } from "./TelemetryGapOverlays";
 import { TrackRegionSelectionOverlay } from "./TrackRegionSelectionOverlay";
 
@@ -47,6 +76,7 @@ use([
 	AxisPointerComponent,
 	DataZoomComponent,
 	GridComponent,
+	MarkPointComponent,
 	TooltipComponent,
 	CanvasRenderer,
 ]);
@@ -56,6 +86,7 @@ type TelemetryChartOption = ComposeOption<
 	| AxisPointerComponentOption
 	| DataZoomComponentOption
 	| GridComponentOption
+	| MarkPointComponentOption
 	| TooltipComponentOption
 >;
 
@@ -86,8 +117,10 @@ export interface TelemetryComparisonChartProps
 	extends TelemetryComparisonChartDataProps {
 	readonly viewport: TelemetryViewport;
 	readonly onViewportChange: (viewport: TelemetryViewport) => void;
+	readonly onCursorPositionChange: (positionPercent: number | null) => void;
 	readonly selectedRegion: TrackRegionResponse | null;
-	readonly presentation?: "desktop" | "compact";
+	readonly presentation?: TelemetryChartPresentation;
+	readonly controlsGuideStep?: TelemetryControlsGuideStepId | null;
 }
 
 const REVIEWED_LAP_COLOR = "#a3e635";
@@ -96,6 +129,10 @@ const IDEAL_LAP_COLOR = "#d4d4d8";
 const GRID_LINE_COLOR = "#2b2f2c";
 const AXIS_LINE_COLOR = "#3b403c";
 const AXIS_LABEL_COLOR = "#7b807c";
+const TELEMETRY_SERIES_HIT_RADIUS_PX = 18;
+const TELEMETRY_SERIES_HOVER_SWITCH_ADVANTAGE_PX = 4;
+const TELEMETRY_SERIES_HOVER_Z = 40;
+const TELEMETRY_SERIES_SELECTED_Z = 50;
 
 interface TelemetryChartSection {
 	readonly id: TelemetryChartId;
@@ -134,9 +171,12 @@ export function TelemetryComparisonChart({
 	fragment,
 	viewport,
 	onViewportChange,
+	onCursorPositionChange,
 	selectedRegion,
 	presentation = "desktop",
+	controlsGuideStep = null,
 }: TelemetryComparisonChartProps) {
+	const interactionSurfaceRef = useRef<HTMLElement>(null);
 	const model = useMemo(() => {
 		if (series === null || reviewedLapNumber === null) {
 			return null;
@@ -167,11 +207,14 @@ export function TelemetryComparisonChart({
 		() => createChartGridLayout(chartSections.length),
 		[chartSections.length],
 	);
+	const plotInsets = getTelemetryChartPlotInsets(presentation);
 
 	return (
 		<section
+			ref={interactionSurfaceRef}
 			className="relative h-full min-h-0 overflow-hidden rounded-[3px] border border-[#292d2a] bg-[#101311]"
 			aria-label="Telemetry charts"
+			data-telemetry-chart-surface
 			style={{
 				minHeight:
 					presentation === "compact"
@@ -184,32 +227,43 @@ export function TelemetryComparisonChart({
 				layout={chartLayout}
 				presentation={presentation}
 			/>
-			<TrackRegionSelectionOverlay
-				region={selectedRegion}
-				viewport={viewport}
-			/>
-			{status === "ready" &&
-				model !== null &&
-				reviewedLapNumber !== null &&
-				fragment === null && (
-					<TelemetryGapOverlays
-						samplingGaps={samplingGaps}
-						reviewedLapNumber={reviewedLapNumber}
-						secondLapNumber={secondLapNumber}
+			<div
+				className="pointer-events-none absolute"
+				style={{
+					top: plotInsets.topPx,
+					right: plotInsets.rightPx,
+					bottom: plotInsets.bottomPx,
+					left: plotInsets.leftPx,
+				}}
+				data-testid="telemetry-chart-plot-overlays"
+			>
+				<TrackRegionSelectionOverlay
+					region={selectedRegion}
+					viewport={viewport}
+				/>
+				{status === "ready" &&
+					model !== null &&
+					reviewedLapNumber !== null &&
+					fragment === null && (
+						<TelemetryGapOverlays
+							samplingGaps={samplingGaps}
+							reviewedLapNumber={reviewedLapNumber}
+							secondLapNumber={secondLapNumber}
+							viewport={viewport}
+						/>
+					)}
+				{status === "ready" && model !== null && fragment !== null ? (
+					<FragmentCoverageOverlay fragment={fragment} viewport={viewport} />
+				) : null}
+				{status === "ready" && model !== null && (
+					<CoachingChartMarkers
+						markers={coachingMarkers}
+						activeRank={activeCoachingRank}
 						viewport={viewport}
+						onSelectRank={onSelectCoachingRank}
 					/>
 				)}
-			{status === "ready" && model !== null && fragment !== null ? (
-				<FragmentCoverageOverlay fragment={fragment} viewport={viewport} />
-			) : null}
-			{status === "ready" && model !== null && (
-				<CoachingChartMarkers
-					markers={coachingMarkers}
-					activeRank={activeCoachingRank}
-					viewport={viewport}
-					onSelectRank={onSelectCoachingRank}
-				/>
-			)}
+			</div>
 
 			{status === "loading" && <ChartMessage message="Loading telemetry…" />}
 			{status === "empty" && (
@@ -226,13 +280,23 @@ export function TelemetryComparisonChart({
 			)}
 			{status === "ready" && model !== null && chartSections.length > 0 && (
 				<TelemetryChartCanvas
+					key={chartSections
+						.flatMap((section) => section.lines)
+						.map((line) => line.id)
+						.join("|")}
 					model={model}
 					sections={chartSections}
 					layout={chartLayout}
 					viewport={viewport}
 					onViewportChange={onViewportChange}
+					onCursorPositionChange={onCursorPositionChange}
 					idealLap={idealLap}
 					presentation={presentation}
+					interactionSurfaceRef={interactionSurfaceRef}
+					samplingGaps={samplingGaps}
+					reviewedLapNumber={reviewedLapNumber}
+					secondLapNumber={secondLapNumber}
+					isGuideInspectingSeries={controlsGuideStep === "inspect"}
 				/>
 			)}
 		</section>
@@ -245,29 +309,50 @@ function TelemetryChartCanvas({
 	layout,
 	viewport,
 	onViewportChange,
+	onCursorPositionChange,
 	idealLap,
 	presentation,
+	interactionSurfaceRef,
+	samplingGaps,
+	reviewedLapNumber,
+	secondLapNumber,
+	isGuideInspectingSeries,
 }: {
 	readonly model: TelemetryChartModel;
 	readonly sections: readonly TelemetryChartSection[];
 	readonly layout: readonly TelemetryChartGridLayout[];
 	readonly viewport: TelemetryViewport;
 	readonly onViewportChange: (viewport: TelemetryViewport) => void;
+	readonly onCursorPositionChange: (positionPercent: number | null) => void;
 	readonly idealLap: IdealLapDefinition | null;
-	readonly presentation: "desktop" | "compact";
+	readonly presentation: TelemetryChartPresentation;
+	readonly interactionSurfaceRef: RefObject<HTMLElement | null>;
+	readonly samplingGaps: readonly LapSamplingGapResponse[];
+	readonly reviewedLapNumber: number | null;
+	readonly secondLapNumber: number | null;
+	readonly isGuideInspectingSeries: boolean;
 }) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const chartRef = useRef<EChartsType | null>(null);
 	const activeGridIndexRef = useRef(0);
 	const viewportRef = useRef(viewport);
+	const sectionsRef = useRef(sections);
+	const [selectedSeries, setSelectedSeries] =
+		useState<TelemetrySeriesSelection | null>(null);
+	const selectedSeriesRef = useRef(selectedSeries);
+	const guideSelectedSeriesIdRef = useRef<string | null>(null);
+	const highlightedSeriesIdRef = useRef<string | null>(null);
 	// Rebuilding the chart option on every dataZoom frame interrupts a drag.
 	// Track the chart-owned viewport so React only syncs external zoom changes.
 	const chartViewportRef = useRef(viewport);
 	viewportRef.current = viewport;
+	sectionsRef.current = sections;
+	selectedSeriesRef.current = selectedSeries;
 
 	useEffect(() => {
 		const chartContainer = containerRef.current;
-		if (!chartContainer) return;
+		const interactionSurface = interactionSurfaceRef.current;
+		if (!chartContainer || !interactionSurface) return;
 
 		const updateActiveGridIndex = (event: PointerEvent): void => {
 			const bounds = chartContainer.getBoundingClientRect();
@@ -279,6 +364,10 @@ function TelemetryChartCanvas({
 		chartRef.current = chart;
 		let pendingHorizontalWheelDeltaPx = 0;
 		let wheelAnimationFrameId: number | null = null;
+		let wheelPointerClientX = 0;
+		let wheelPointerClientY = 0;
+		let lastPointerClientX: number | null = null;
+		let lastPointerClientY: number | null = null;
 		const updateViewport = (event: unknown): void => {
 			const nextViewport = readDataZoomViewport(event);
 			if (nextViewport === null) return;
@@ -287,6 +376,281 @@ function TelemetryChartCanvas({
 			onViewportChange(nextViewport);
 		};
 		chart.on("datazoom", updateViewport);
+		const selectTelemetrySeries = (click: TelemetrySeriesClick): void => {
+			const selectedLine = sectionsRef.current
+				.flatMap((section) => section.lines)
+				.find((line) => line.id === click.seriesId);
+			if (selectedLine === undefined || reviewedLapNumber === null) return;
+
+			const nextSelection = createTelemetrySeriesSelection(
+				sectionsRef.current.flatMap((section) => section.lines),
+				click,
+				resolveSelectedSeriesTelemetryStatus({
+					gaps: samplingGaps,
+					reviewedLapNumber,
+					secondLapNumber,
+					role: selectedLine.role,
+					measurement: selectedLine.measurement,
+				}),
+			);
+			if (nextSelection === null) return;
+
+			// Clicking a selected line at another position moves its selection.
+			// Closing remains an explicit outside click, close button, or Escape.
+			setSelectedSeries(nextSelection);
+		};
+		const findSeriesAtPointer = (
+			clientX: number,
+			clientY: number,
+			currentSeriesId: string | null = null,
+			lockHighlightedSeries = false,
+		): TelemetrySeriesClick | null => {
+			const bounds = chartContainer.getBoundingClientRect();
+			const chartX = clientX - bounds.left;
+			const chartY = clientY - bounds.top;
+			if (
+				chartX < 0 ||
+				chartX > bounds.width ||
+				chartY < 0 ||
+				chartY > bounds.height
+			) {
+				return null;
+			}
+
+			const gridIndex = findGridIndex(chartY / bounds.height, layout);
+			const section = sectionsRef.current[gridIndex];
+			if (section === undefined) return null;
+
+			const chartPoint = readTooltipPoint(
+				chart.convertFromPixel(
+					{ xAxisIndex: gridIndex, yAxisIndex: gridIndex },
+					[chartX, chartY],
+				),
+			);
+			if (chartPoint === null) return null;
+
+			const hits = section.lines.flatMap((line) => {
+				const point = findNearestTelemetrySeriesPoint(
+					line.points,
+					chartPoint[0],
+				);
+				if (point === null || point[1] === null) return [];
+
+				const pixelPoint = readTooltipPoint(
+					chart.convertToPixel(
+						{ xAxisIndex: gridIndex, yAxisIndex: gridIndex },
+						[point[0], point[1]],
+					),
+				);
+				if (pixelPoint === null || pixelPoint[1] === null) return [];
+
+				return [
+					{
+						seriesId: line.id,
+						positionPercent: point[0],
+						pixelX: pixelPoint[0],
+						pixelY: pixelPoint[1],
+					},
+				];
+			});
+
+			if (lockHighlightedSeries) {
+				return findTelemetrySeriesClickHit(
+					hits,
+					chartX,
+					chartY,
+					TELEMETRY_SERIES_HIT_RADIUS_PX,
+					currentSeriesId,
+				);
+			}
+
+			return currentSeriesId === null
+				? findNearestTelemetrySeriesHit(
+						hits,
+						chartX,
+						chartY,
+						TELEMETRY_SERIES_HIT_RADIUS_PX,
+					)
+				: findStableTelemetrySeriesHoverHit(
+						hits,
+						chartX,
+						chartY,
+						TELEMETRY_SERIES_HIT_RADIUS_PX,
+						currentSeriesId,
+						TELEMETRY_SERIES_HOVER_SWITCH_ADVANTAGE_PX,
+					);
+		};
+		const updateHighlightedSeries = (
+			clientX: number,
+			clientY: number,
+		): void => {
+			if (selectedSeriesRef.current !== null) return;
+
+			const highlightedSeriesId = highlightedSeriesIdRef.current;
+			const nextSeriesId =
+				findSeriesAtPointer(clientX, clientY, highlightedSeriesId)?.seriesId ??
+				null;
+			if (nextSeriesId === highlightedSeriesId) return;
+
+			const layerUpdates: LineSeriesOption[] = [];
+			if (highlightedSeriesId !== null) {
+				const previousLine = findTelemetryLineById(
+					sectionsRef.current,
+					highlightedSeriesId,
+				);
+				if (previousLine !== null) {
+					layerUpdates.push({
+						id: previousLine.id,
+						type: "line",
+						z: getTelemetrySeriesBaseZ(previousLine),
+					});
+				}
+			}
+			if (nextSeriesId !== null) {
+				layerUpdates.push({
+					id: nextSeriesId,
+					type: "line",
+					z: TELEMETRY_SERIES_HOVER_Z,
+				});
+			}
+			if (layerUpdates.length > 0) {
+				chart.setOption({ series: layerUpdates });
+			}
+
+			if (highlightedSeriesId !== null) {
+				chart.dispatchAction({
+					type: "downplay",
+					seriesId: highlightedSeriesId,
+				});
+			}
+			if (nextSeriesId !== null) {
+				chart.dispatchAction({ type: "highlight", seriesId: nextSeriesId });
+			}
+			highlightedSeriesIdRef.current = nextSeriesId;
+		};
+		const selectSeriesAtPointer = (event: MouseEvent): void => {
+			const target = event.target;
+			const isPanelClick =
+				target instanceof Element &&
+				target.closest("[data-telemetry-series-panel]") !== null;
+			if (isPanelClick) return;
+
+			const isCanvasClick =
+				target instanceof Node && chartContainer.contains(target);
+			const isClickThroughOverlay =
+				target instanceof Element &&
+				target.closest("[data-telemetry-series-click-through]") !== null;
+			if (!isCanvasClick && !isClickThroughOverlay) {
+				setSelectedSeries(null);
+				return;
+			}
+
+			// The visible hover emphasis is the user's only valid click target. Never
+			// fall back to a neighboring line when dense, fully zoomed-out traces
+			// overlap within the same hit radius.
+			const click = findSeriesAtPointer(
+				event.clientX,
+				event.clientY,
+				highlightedSeriesIdRef.current,
+				true,
+			);
+			if (click === null) {
+				setSelectedSeries(null);
+				return;
+			}
+
+			selectTelemetrySeries(click);
+		};
+		interactionSurface.addEventListener("click", selectSeriesAtPointer);
+		const updateCursorPosition = (event: unknown): void => {
+			onCursorPositionChange(readTelemetryChartCursorPosition(event));
+		};
+		chart.on("updateAxisPointer", updateCursorPosition);
+		const clearCursorPosition = (): void => {
+			lastPointerClientX = null;
+			lastPointerClientY = null;
+			const highlightedSeriesId = highlightedSeriesIdRef.current;
+			if (highlightedSeriesId !== null) {
+				const highlightedLine = findTelemetryLineById(
+					sectionsRef.current,
+					highlightedSeriesId,
+				);
+				if (highlightedLine !== null) {
+					chart.setOption({
+						series: [
+							{
+								id: highlightedLine.id,
+								type: "line",
+								z: getTelemetrySeriesBaseZ(highlightedLine),
+							},
+						],
+					});
+				}
+				chart.dispatchAction({
+					type: "downplay",
+					seriesId: highlightedSeriesId,
+				});
+				highlightedSeriesIdRef.current = null;
+			}
+			chart.dispatchAction({ type: "hideTip" });
+			chart.dispatchAction({
+				type: "updateAxisPointer",
+				currTrigger: "leave",
+			});
+			onCursorPositionChange(null);
+		};
+		const synchronizePointerAcrossOverlay = (event: PointerEvent): void => {
+			lastPointerClientX = event.clientX;
+			lastPointerClientY = event.clientY;
+			updateActiveGridIndex(event);
+
+			const eventTarget = event.target;
+			if (
+				eventTarget instanceof Element &&
+				eventTarget.closest("[data-telemetry-series-panel]")
+			) {
+				chart.dispatchAction({ type: "hideTip" });
+				onCursorPositionChange(null);
+				return;
+			}
+			if (eventTarget instanceof Node && chartContainer.contains(eventTarget)) {
+				updateHighlightedSeries(event.clientX, event.clientY);
+				return;
+			}
+
+			const chartBounds = chartContainer.getBoundingClientRect();
+			const chartX = event.clientX - chartBounds.left;
+			const chartY = event.clientY - chartBounds.top;
+			if (
+				chartX < 0 ||
+				chartX > chartBounds.width ||
+				chartY < 0 ||
+				chartY > chartBounds.height
+			) {
+				return;
+			}
+
+			// Sampling gaps and coaching markers sit above the ECharts canvas so
+			// they can expose their own details. Forward the physical pointer to
+			// ECharts as well, keeping the crosshair and all still-available series
+			// readable while the pointer is inside one of those overlays.
+			chart.dispatchAction({
+				type: "updateAxisPointer",
+				x: chartX,
+				y: chartY,
+			});
+			updateHighlightedSeries(event.clientX, event.clientY);
+		};
+		const repositionCursorTooltip = (): void => {
+			if (lastPointerClientX === null || lastPointerClientY === null) return;
+
+			const chartBounds = chartContainer.getBoundingClientRect();
+			chart.dispatchAction({
+				type: "updateAxisPointer",
+				x: lastPointerClientX - chartBounds.left,
+				y: lastPointerClientY - chartBounds.top,
+			});
+		};
 
 		const flushHorizontalWheel = (): void => {
 			wheelAnimationFrameId = null;
@@ -315,10 +679,23 @@ function TelemetryChartCanvas({
 				startValue: nextViewport.startPercent,
 				endValue: nextViewport.endPercent,
 			});
+
+			const chartBounds = chartContainer.getBoundingClientRect();
+			chart.dispatchAction({
+				type: "updateAxisPointer",
+				x: wheelPointerClientX - chartBounds.left,
+				y: wheelPointerClientY - chartBounds.top,
+			});
 		};
 
 		const moveViewportFromHorizontalWheel = (event: WheelEvent): void => {
 			if (event.ctrlKey) return;
+			if (
+				event.target instanceof Element &&
+				event.target.closest("[data-telemetry-series-panel]")
+			) {
+				return;
+			}
 
 			const horizontalDeltaPx = resolveTelemetryHorizontalWheelDelta({
 				deltaX: event.deltaX,
@@ -332,17 +709,37 @@ function TelemetryChartCanvas({
 			if (horizontalDeltaPx === null) return;
 
 			pendingHorizontalWheelDeltaPx += horizontalDeltaPx;
+			wheelPointerClientX = event.clientX;
+			wheelPointerClientY = event.clientY;
 			wheelAnimationFrameId ??= requestAnimationFrame(flushHorizontalWheel);
 		};
 
-		chartContainer.addEventListener("wheel", moveViewportFromHorizontalWheel, {
-			capture: true,
-			passive: false,
-		});
-		chartContainer.addEventListener("pointermove", updateActiveGridIndex, {
-			capture: true,
+		// The overlays are siblings of the ECharts canvas. Listening on their shared
+		// surface keeps a trackpad gesture alive when a moving marker passes under
+		// the stationary pointer and becomes the next wheel-event target.
+		interactionSurface.addEventListener(
+			"wheel",
+			moveViewportFromHorizontalWheel,
+			{
+				capture: true,
+				passive: false,
+			},
+		);
+		interactionSurface.addEventListener("pointerleave", clearCursorPosition, {
 			passive: true,
 		});
+		interactionSurface.addEventListener(
+			"pointermove",
+			synchronizePointerAcrossOverlay,
+			{
+				capture: true,
+				passive: true,
+			},
+		);
+		interactionSurface.addEventListener(
+			TELEMETRY_TOOLTIP_LAYOUT_EVENT,
+			repositionCursorTooltip,
+		);
 
 		const resizeObserver = new ResizeObserver(() => chart.resize());
 		resizeObserver.observe(chartContainer);
@@ -352,25 +749,105 @@ function TelemetryChartCanvas({
 			if (wheelAnimationFrameId !== null) {
 				cancelAnimationFrame(wheelAnimationFrameId);
 			}
-			chartContainer.removeEventListener(
+			interactionSurface.removeEventListener(
 				"wheel",
 				moveViewportFromHorizontalWheel,
 				true,
 			);
-			chartContainer.removeEventListener(
+			interactionSurface.removeEventListener(
+				"pointerleave",
+				clearCursorPosition,
+			);
+			interactionSurface.removeEventListener(
 				"pointermove",
-				updateActiveGridIndex,
+				synchronizePointerAcrossOverlay,
 				true,
 			);
+			interactionSurface.removeEventListener(
+				TELEMETRY_TOOLTIP_LAYOUT_EVENT,
+				repositionCursorTooltip,
+			);
 			chart.off("datazoom", updateViewport);
+			chart.off("updateAxisPointer", updateCursorPosition);
+			interactionSurface.removeEventListener("click", selectSeriesAtPointer);
+			onCursorPositionChange(null);
 			chart.dispose();
 			chartRef.current = null;
+			highlightedSeriesIdRef.current = null;
 		};
-	}, [layout, onViewportChange]);
+	}, [
+		interactionSurfaceRef,
+		layout,
+		onCursorPositionChange,
+		onViewportChange,
+		reviewedLapNumber,
+		samplingGaps,
+		secondLapNumber,
+	]);
 
 	useEffect(() => {
+		if (!isGuideInspectingSeries) {
+			if (
+				guideSelectedSeriesIdRef.current !== null &&
+				selectedSeriesRef.current?.lineId ===
+					guideSelectedSeriesIdRef.current
+			) {
+				setSelectedSeries(null);
+			}
+			guideSelectedSeriesIdRef.current = null;
+			return;
+		}
+
+		if (selectedSeriesRef.current !== null || reviewedLapNumber === null) {
+			return;
+		}
+
+		const lines = sections.flatMap((section) => section.lines);
+		const click = createTelemetryGuideSelectionClick(lines, viewport);
+		if (click === null) return;
+
+		const selectedLine = lines.find((line) => line.id === click.seriesId);
+		if (selectedLine === undefined) return;
+
+		const guideSelection = createTelemetrySeriesSelection(
+			lines,
+			click,
+			resolveSelectedSeriesTelemetryStatus({
+				gaps: samplingGaps,
+				reviewedLapNumber,
+				secondLapNumber,
+				role: selectedLine.role,
+				measurement: selectedLine.measurement,
+			}),
+		);
+		if (guideSelection === null) return;
+
+		guideSelectedSeriesIdRef.current = guideSelection.lineId;
+		setSelectedSeries(guideSelection);
+	}, [
+		isGuideInspectingSeries,
+		reviewedLapNumber,
+		samplingGaps,
+		secondLapNumber,
+		sections,
+		viewport,
+	]);
+
+	useEffect(() => {
+		const chart = chartRef.current;
+		const highlightedSeriesId = highlightedSeriesIdRef.current;
+		if (chart !== null && highlightedSeriesId !== null) {
+			// A click starts from the transient hover emphasis. Clear that ECharts
+			// action before rendering the persistent selection so it cannot survive
+			// after the details panel is later closed away from the line.
+			chart.dispatchAction({
+				type: "downplay",
+				seriesId: highlightedSeriesId,
+			});
+		}
+		highlightedSeriesIdRef.current = null;
 		const currentViewport = viewportRef.current;
-		chartRef.current?.setOption(
+		chart?.setOption(
 			createTelemetryChartOption(
 				sections,
 				layout,
@@ -378,11 +855,28 @@ function TelemetryChartCanvas({
 				() => activeGridIndexRef.current,
 				idealLap,
 				presentation,
+				selectedSeries,
+				() =>
+					readVisibleTooltipObstacles(
+						containerRef.current,
+						null,
+						TELEMETRY_TOOLTIP_PRIORITY.cursorValues,
+					),
 			),
 			{ notMerge: true },
 		);
 		chartViewportRef.current = currentViewport;
-	}, [sections, layout, idealLap, presentation]);
+	}, [sections, layout, idealLap, presentation, selectedSeries]);
+
+	useEffect(() => {
+		if (selectedSeries === null) return;
+
+		const clearOnEscape = (event: KeyboardEvent): void => {
+			if (event.key === "Escape") setSelectedSeries(null);
+		};
+		window.addEventListener("keydown", clearOnEscape);
+		return () => window.removeEventListener("keydown", clearOnEscape);
+	}, [selectedSeries]);
 
 	useEffect(() => {
 		const chart = chartRef.current;
@@ -403,18 +897,106 @@ function TelemetryChartCanvas({
 	}, [viewport]);
 
 	const isZoomed = viewport.endPercent - viewport.startPercent < 100;
+	const selectedPositionRatio = selectedSeries
+		? (selectedSeries.positionPercent - viewport.startPercent) /
+			(viewport.endPercent - viewport.startPercent)
+		: null;
+	const firstGrid = layout[0];
+	const lastGrid = layout.at(-1);
+	const plotInsets = getTelemetryChartPlotInsets(presentation);
+	const selectedSeriesAnchor =
+		selectedSeries === null
+			? null
+			: createSelectedSeriesAnchor(selectedSeries, sections, layout, viewport);
 
 	return (
-		<div
-			ref={containerRef}
-			className={`absolute inset-0 touch-pan-y select-none ${isZoomed ? "cursor-grab active:cursor-grabbing" : "cursor-crosshair"}`}
-			role="img"
-			aria-label={createAccessibleChartDescription(model, sections)}
-			title={
-				isZoomed ? "Drag left or right to move through the lap" : undefined
-			}
-		/>
+		<>
+			<div
+				ref={containerRef}
+				className={`absolute inset-0 touch-pan-y select-none ${isZoomed ? "cursor-grab active:cursor-grabbing" : "cursor-crosshair"}`}
+				role="img"
+				aria-label={createAccessibleChartDescription(model, sections)}
+				title={
+					isZoomed
+						? "Drag left or right to move through the lap"
+						: "Click a telemetry line to select it"
+				}
+			/>
+			{selectedPositionRatio !== null &&
+			selectedPositionRatio >= 0 &&
+			selectedPositionRatio <= 1 &&
+			firstGrid &&
+			lastGrid ? (
+				<div
+					className="pointer-events-none absolute z-[22]"
+					style={{
+						left: plotInsets.leftPx,
+						right: plotInsets.rightPx,
+						top: `${firstGrid.topPercent}%`,
+						bottom: `${100 - (lastGrid.topPercent + lastGrid.heightPercent)}%`,
+					}}
+					aria-hidden="true"
+				>
+					<span
+						className="absolute inset-y-0 border-l border-dashed border-neutral-200/85"
+						style={{ left: `${selectedPositionRatio * 100}%` }}
+					/>
+				</div>
+			) : null}
+			{selectedSeries && selectedSeriesAnchor ? (
+				<SelectedTelemetrySeriesPanel
+					selection={selectedSeries}
+					color={findTelemetryRoleColor(selectedSeries.role)}
+					presentation={presentation}
+					anchor={selectedSeriesAnchor}
+					plotInsets={plotInsets}
+					getTooltipObstacles={(excludedElement) =>
+						readVisibleTooltipObstacles(
+							containerRef.current,
+							excludedElement,
+							TELEMETRY_TOOLTIP_PRIORITY.selectedSeries,
+						)
+					}
+					onClear={() => setSelectedSeries(null)}
+				/>
+			) : null}
+		</>
 	);
+}
+
+function createSelectedSeriesAnchor(
+	selection: TelemetrySeriesSelection,
+	sections: readonly TelemetryChartSection[],
+	layout: readonly TelemetryChartGridLayout[],
+	viewport: TelemetryViewport,
+): { readonly plotXRatio: number; readonly chartYRatio: number } | null {
+	const gridIndex = sections.findIndex((section) =>
+		section.lines.some((line) => line.id === selection.lineId),
+	);
+	const section = sections[gridIndex];
+	const grid = layout[gridIndex];
+	if (section === undefined || grid === undefined) return null;
+
+	const viewportSpan = viewport.endPercent - viewport.startPercent;
+	if (viewportSpan <= 0 || section.yAxis.max <= section.yAxis.min) return null;
+
+	const plotXRatio = clampRatio(
+		(selection.positionPercent - viewport.startPercent) / viewportSpan,
+	);
+	const valueRatio = clampRatio(
+		(selection.value - section.yAxis.min) /
+			(section.yAxis.max - section.yAxis.min),
+	);
+
+	return {
+		plotXRatio,
+		chartYRatio:
+			(grid.topPercent + (1 - valueRatio) * grid.heightPercent) / 100,
+	};
+}
+
+function clampRatio(value: number): number {
+	return Math.min(1, Math.max(0, value));
 }
 
 function areViewportsEqual(
@@ -583,8 +1165,11 @@ function createTelemetryChartOption(
 	viewport: TelemetryViewport,
 	getActiveGridIndex: () => number,
 	idealLap: IdealLapDefinition | null,
-	presentation: "desktop" | "compact",
+	presentation: TelemetryChartPresentation,
+	selectedSeries: TelemetrySeriesSelection | null,
+	getTooltipObstacles: () => readonly TelemetryTooltipRectangle[],
 ): TelemetryChartOption {
+	const plotInsets = getTelemetryChartPlotInsets(presentation);
 	const gridIndexes = sections.map((_, gridIndex) => gridIndex);
 	const lastGridIndex = sections.length - 1;
 	const xAxes = sections.map((_, gridIndex) => ({
@@ -635,7 +1220,9 @@ function createTelemetryChartOption(
 		axisPointer: {
 			show: true,
 			type: "line",
-			triggerEmphasis: true,
+			// Hover emphasis is controlled by the generous proximity hit test above.
+			// Letting the axis pointer emphasize too would make close traces flicker.
+			triggerEmphasis: false,
 			link: [{ xAxisIndex: gridIndexes }],
 			lineStyle: {
 				color: "#d4d4d4",
@@ -661,12 +1248,17 @@ function createTelemetryChartOption(
 			},
 		],
 		grid: layout.map((grid) => ({
-			left: presentation === "compact" ? 72 : 102,
-			right: presentation === "compact" ? 12 : 18,
+			left: plotInsets.leftPx,
+			right: plotInsets.rightPx,
 			top: `${grid.topPercent}%`,
 			height: `${grid.heightPercent}%`,
 		})),
 		tooltip: {
+			// Cursor values stay available while a series is selected. Marker details
+			// are suppressed separately so the chart keeps one transient explanation.
+			show: true,
+			className: "telemetry-chart-value-tooltip",
+			extraCssText: "z-index: 260 !important;",
 			trigger: "axis",
 			// Keep mouse, pen, and touch behavior identical across responsive
 			// compositions. ECharts maps taps to click and pointer hover to mousemove.
@@ -687,6 +1279,16 @@ function createTelemetryChartOption(
 					width: 1,
 				},
 			},
+			position: (point, _parameters, _element, _rectangle, size) =>
+				resolveTelemetryTooltipPosition({
+					anchorX: point[0],
+					anchorY: point[1],
+					tooltipWidth: size.contentSize[0],
+					tooltipHeight: size.contentSize[1],
+					viewWidth: size.viewSize[0],
+					viewHeight: size.viewSize[1],
+					obstacles: getTooltipObstacles(),
+				}),
 			formatter: (parameters) =>
 				formatTelemetryTooltip(
 					parameters,
@@ -700,9 +1302,30 @@ function createTelemetryChartOption(
 			createValueAxis(gridIndex, section.yAxis),
 		),
 		series: sections.flatMap((section, gridIndex) =>
-			section.lines.map((line) => createLineSeries(line, gridIndex)),
+			section.lines.map((line) =>
+				createLineSeries(line, gridIndex, selectedSeries, presentation),
+			),
 		),
 	};
+}
+
+function readVisibleTooltipObstacles(
+	chartContainer: HTMLElement | null,
+	excludedElement: HTMLElement | null = null,
+	maximumPriorityExclusive: number = TELEMETRY_TOOLTIP_PRIORITY.cursorValues,
+): readonly TelemetryTooltipRectangle[] {
+	if (chartContainer === null) return [];
+	const chartSurface = chartContainer.closest<HTMLElement>(
+		"[data-telemetry-chart-surface]",
+	);
+	if (chartSurface === null) return [];
+
+	return readVisibleTelemetryTooltipObstacles({
+		chartSurface,
+		coordinateElement: chartContainer,
+		excludedElement,
+		maximumPriorityExclusive,
+	});
 }
 
 function readDataZoomViewport(event: unknown): TelemetryViewport | null {
@@ -778,8 +1401,30 @@ function createValueAxis(
 function createLineSeries(
 	line: TelemetryChartLine,
 	gridIndex: number,
+	selectedSeries: TelemetrySeriesSelection | null,
+	presentation: TelemetryChartPresentation,
 ): LineSeriesOption {
 	const color = findTelemetryLineColor(line);
+	const isSelected = selectedSeries?.lineId === line.id;
+	const isSiblingOfSelection =
+		selectedSeries !== null &&
+		selectedSeries.measurement === line.measurement &&
+		!isSelected;
+	const isBackgroundSeries =
+		selectedSeries !== null && !isSelected && !isSiblingOfSelection;
+	const baseWidth =
+		line.role === "ideal"
+			? 1.5
+			: line.measurement === "time-delta"
+				? 1.75
+				: 1.5;
+	const opacity = isSiblingOfSelection
+		? 0.18
+		: isBackgroundSeries
+			? Math.min(line.opacity ?? 1, 0.35)
+			: (line.opacity ?? 1);
+	const baseZ = getTelemetrySeriesBaseZ(line);
+	const hoverWidthIncrease = presentation === "desktop" ? 1 : 0.65;
 
 	return {
 		id: line.id,
@@ -789,29 +1434,80 @@ function createLineSeries(
 		yAxisIndex: gridIndex,
 		data: line.points.map(([position, value]) => [position, value]),
 		showSymbol: false,
+		triggerEvent: "line",
 		connectNulls: false,
-		silent: false,
+		// Pointer proximity is resolved consistently by the generous shared hit
+		// test. Prevent ECharts' narrow native line hit from emphasizing a different
+		// overlapping trace than the one the subsequent click will select.
+		silent: true,
 		step: line.measurement === "gear" ? "end" : false,
 		lineStyle: {
 			color,
-			width:
-				line.role === "ideal"
-					? 1.5
-					: line.measurement === "time-delta"
-						? 1.75
-						: 1.5,
+			width: isSelected ? baseWidth + 1 : baseWidth,
 			type: line.lineStyle ?? "solid",
-			opacity: line.opacity ?? 1,
+			opacity,
+			shadowBlur: isSelected ? 4 : 0,
+			shadowColor: isSelected ? color : "transparent",
 		},
-		itemStyle: { color, opacity: line.opacity ?? 1 },
-		emphasis: { disabled: true },
-		z: line.role === "ideal" ? 4 : 3,
+		itemStyle: { color, opacity },
+		emphasis: {
+			disabled: selectedSeries !== null,
+			lineStyle: {
+				width: baseWidth + hoverWidthIncrease,
+				opacity: 1,
+				shadowBlur: presentation === "desktop" ? 4 : 2,
+				shadowColor: color,
+			},
+		},
+		markPoint: isSelected
+			? {
+					silent: false,
+					symbol: "circle",
+					symbolSize: 13,
+					label: { show: false },
+					itemStyle: {
+						color: "#f5f5f4",
+						borderColor: color,
+						borderWidth: 3,
+						shadowBlur: 8,
+						shadowColor: color,
+					},
+					data: [
+						{
+							name: "Selected telemetry point",
+							coord: [selectedSeries.positionPercent, selectedSeries.value],
+						},
+					],
+				}
+			: undefined,
+		z: isSelected ? TELEMETRY_SERIES_SELECTED_Z : baseZ,
 	};
 }
 
+function findTelemetryLineById(
+	sections: readonly TelemetryChartSection[],
+	seriesId: string,
+): TelemetryChartLine | null {
+	for (const section of sections) {
+		const line = section.lines.find((candidate) => candidate.id === seriesId);
+		if (line !== undefined) return line;
+	}
+	return null;
+}
+
+function getTelemetrySeriesBaseZ(line: TelemetryChartLine): number {
+	if (line.role === "reviewed") return 6;
+	if (line.role === "second") return 5;
+	return 4;
+}
+
 function findTelemetryLineColor(line: TelemetryChartLine): string {
-	if (line.role === "reviewed") return REVIEWED_LAP_COLOR;
-	if (line.role === "second") return SECOND_LAP_COLOR;
+	return findTelemetryRoleColor(line.role);
+}
+
+function findTelemetryRoleColor(role: TelemetryChartLine["role"]): string {
+	if (role === "reviewed") return REVIEWED_LAP_COLOR;
+	if (role === "second") return SECOND_LAP_COLOR;
 	return IDEAL_LAP_COLOR;
 }
 

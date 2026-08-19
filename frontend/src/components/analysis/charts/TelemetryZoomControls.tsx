@@ -79,7 +79,7 @@ export function TelemetryZoomControls({
 	if (presentation === "compact") {
 		return (
 			<section className="rounded-[3px] border border-[#292d2a] bg-[#101311] p-2">
-				<div className="h-12 min-w-0 overflow-hidden">{deltaOverview}</div>
+				<div className="h-12 min-w-0 pt-2">{deltaOverview}</div>
 				<div className="mt-2 grid grid-cols-[70px_minmax(0,1fr)] items-center gap-3 border-t border-[#292d2a] pt-2">
 					<button
 						type="button"

@@ -1,18 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { TrackRegionResponse } from "../../../../src/http/contracts";
 import {
+	areComparedLapRolesSwapped,
+	type LapComparisonSelection,
+} from "../../analysis/lap-comparison-selection";
+import {
 	resolveTelemetryWheelGestureAxis,
 	resolveTelemetryWheelScrollTarget,
 	TELEMETRY_WHEEL_GESTURE_IDLE_MS,
 	type TelemetryWheelGestureAxis,
 } from "../../analysis/telemetry-chart-scroll";
 import type { TelemetryChartId } from "../../analysis/telemetry-chart-selection";
+import type { TelemetryControlsGuideStepId } from "../../analysis/telemetry-controls-guide";
 import { FULL_LAP_TELEMETRY_VIEWPORT } from "../../analysis/telemetry-viewport";
 import { useCompactAnalysisLayout } from "../../hooks/use-compact-analysis-layout";
 import {
 	TelemetryComparisonChart,
 	type TelemetryComparisonChartDataProps,
 } from "./charts/TelemetryComparisonChart";
+import { TelemetryControlsGuide } from "./charts/TelemetryControlsGuide";
 import { TelemetryDeltaOverview } from "./charts/TelemetryDeltaOverview";
 import { TelemetryZoomControls } from "./charts/TelemetryZoomControls";
 import {
@@ -48,6 +54,11 @@ export function TelemetryWorkspace({
 }: TelemetryWorkspaceProps) {
 	const isCompact = useCompactAnalysisLayout();
 	const [viewport, setViewport] = useState(FULL_LAP_TELEMETRY_VIEWPORT);
+	const [activeControlsGuideStep, setActiveControlsGuideStep] =
+		useState<TelemetryControlsGuideStepId | null>(null);
+	const [cursorPositionPercent, setCursorPositionPercent] = useState<
+		number | null
+	>(null);
 	const workspaceScrollContainerRef = useRef<HTMLElement>(null);
 	const chartScrollContainerRef = useRef<HTMLDivElement>(null);
 	const compactVisibleChartIds = useMemo<readonly TelemetryChartId[]>(
@@ -67,10 +78,28 @@ export function TelemetryWorkspace({
 		? selectableRegions.indexOf(selectedRegion)
 		: -1;
 	const fragment = telemetryChart.fragment;
-	const activeReviewKey = fragment
-		? `fragment:${fragment.key}`
-		: `lap:${telemetryChart.reviewedLapNumber ?? "none"}`;
+	const fragmentKey = fragment?.key ?? null;
+	const activeReviewKey =
+		fragmentKey !== null
+			? `fragment:${fragmentKey}`
+			: `lap:${telemetryChart.reviewedLapNumber ?? "none"}`;
 	const previousReviewKeyRef = useRef(activeReviewKey);
+	const currentComparisonSelection = useMemo(
+		() =>
+			createComparisonSelection(
+				fragmentKey !== null,
+				telemetryChart.reviewedLapNumber,
+				telemetryChart.secondLapNumber,
+			),
+		[
+			fragmentKey,
+			telemetryChart.reviewedLapNumber,
+			telemetryChart.secondLapNumber,
+		],
+	);
+	const previousComparisonSelectionRef = useRef<LapComparisonSelection | null>(
+		currentComparisonSelection,
+	);
 	const activeCoachingFocusKey =
 		fragment === null &&
 		telemetryChart.activeCoachingRank !== null &&
@@ -80,11 +109,24 @@ export function TelemetryWorkspace({
 	const previousCoachingFocusKeyRef = useRef<string | null>(null);
 
 	useEffect(() => {
+		const previousComparisonSelection = previousComparisonSelectionRef.current;
+		const preservesViewport =
+			previousComparisonSelection !== null &&
+			currentComparisonSelection !== null &&
+			areComparedLapRolesSwapped(
+				previousComparisonSelection,
+				currentComparisonSelection,
+			);
+
+		previousComparisonSelectionRef.current = currentComparisonSelection;
 		if (previousReviewKeyRef.current === activeReviewKey) return;
 		previousReviewKeyRef.current = activeReviewKey;
+		setCursorPositionPercent(null);
+		if (preservesViewport) return;
+
 		setViewport(FULL_LAP_TELEMETRY_VIEWPORT);
 		setSelectedRegionId(null);
-	}, [activeReviewKey]);
+	}, [activeReviewKey, currentComparisonSelection]);
 
 	useEffect(() => {
 		if (activeCoachingFocusKey === null) {
@@ -209,70 +251,70 @@ export function TelemetryWorkspace({
 			idealLapSeries={telemetryChart.idealLapSeries}
 			viewport={viewport}
 			selectedRegion={selectedRegion}
+			cursorPositionPercent={cursorPositionPercent}
 		/>
 	);
 
-	if (isCompact) {
-		return (
-			<section
-				ref={workspaceScrollContainerRef}
-				className="h-full min-h-0 touch-pan-y overflow-y-auto overscroll-contain px-3 pt-2 pb-[calc(88px+env(safe-area-inset-bottom))]"
-				aria-label="Telemetry workspace"
+	const workspace = isCompact ? (
+		<section
+			ref={workspaceScrollContainerRef}
+			className="h-full min-h-0 touch-pan-y overflow-y-auto overscroll-contain px-3 pt-2 pb-[calc(88px+env(safe-area-inset-bottom))]"
+			aria-label="Telemetry workspace"
+		>
+			<MobileLapSummary {...lapPicker} />
+			<div className="mt-2">
+				<MobileTrackRegionBand
+					{...trackRegionBand}
+					fragment={fragment}
+					viewport={viewport}
+					selectedRegionId={selectedRegionId}
+					onSelectRegion={toggleSelectedRegion}
+				/>
+			</div>
+			<div className="mt-2">
+				<MobileChartTabs
+					chartIds={mobileChart.availableChartIds}
+					activeChartId={mobileChart.activeChartId}
+					onSelectChart={mobileChart.onSelectChart}
+				/>
+			</div>
+			<div
+				ref={chartScrollContainerRef}
+				className="mt-2 h-[390px] min-h-[390px]"
+				data-testid="telemetry-chart-scroll"
+				data-telemetry-guide-target="chart"
 			>
-				<MobileLapSummary {...lapPicker} />
-				<div className="mt-2">
-					<MobileTrackRegionBand
-						{...trackRegionBand}
-						fragment={fragment}
-						viewport={viewport}
-						selectedRegionId={selectedRegionId}
-						onSelectRegion={toggleSelectedRegion}
-					/>
-				</div>
-				<div className="mt-2">
-					<MobileChartTabs
-						chartIds={mobileChart.availableChartIds}
-						activeChartId={mobileChart.activeChartId}
-						onSelectChart={mobileChart.onSelectChart}
-					/>
-				</div>
-				<div
-					ref={chartScrollContainerRef}
-					className="mt-2 h-[390px] min-h-[390px]"
-					data-testid="telemetry-chart-scroll"
-				>
-					<TelemetryComparisonChart
-						{...telemetryChart}
-						visibleChartIds={compactVisibleChartIds}
-						viewport={viewport}
-						onViewportChange={setViewport}
-						selectedRegion={selectedRegion}
-						presentation="compact"
-					/>
-				</div>
-				<div className="mt-2">
-					<TelemetryZoomControls
-						presentation="compact"
-						viewLabel={fragment ? "Full fragment" : "Full lap"}
-						viewport={viewport}
-						onViewportChange={setViewport}
-						selectedRegion={selectedRegion}
-						onSelectPreviousRegion={() => selectAdjacentRegion(-1)}
-						onSelectNextRegion={() => selectAdjacentRegion(1)}
-						canSelectPreviousRegion={selectedRegionIndex > 0}
-						canSelectNextRegion={
-							selectedRegionIndex >= 0 &&
-							selectedRegionIndex < selectableRegions.length - 1
-						}
-						showComparisonControls={telemetryChart.secondLapNumber !== null}
-						deltaOverview={deltaOverview}
-					/>
-				</div>
-			</section>
-		);
-	}
-
-	return (
+				<TelemetryComparisonChart
+					{...telemetryChart}
+					visibleChartIds={compactVisibleChartIds}
+					viewport={viewport}
+					onViewportChange={setViewport}
+					onCursorPositionChange={setCursorPositionPercent}
+					selectedRegion={selectedRegion}
+					presentation="compact"
+					controlsGuideStep={activeControlsGuideStep}
+				/>
+			</div>
+			<div className="mt-2" data-telemetry-guide-target="zoom">
+				<TelemetryZoomControls
+					presentation="compact"
+					viewLabel={fragment ? "Full fragment" : "Full lap"}
+					viewport={viewport}
+					onViewportChange={setViewport}
+					selectedRegion={selectedRegion}
+					onSelectPreviousRegion={() => selectAdjacentRegion(-1)}
+					onSelectNextRegion={() => selectAdjacentRegion(1)}
+					canSelectPreviousRegion={selectedRegionIndex > 0}
+					canSelectNextRegion={
+						selectedRegionIndex >= 0 &&
+						selectedRegionIndex < selectableRegions.length - 1
+					}
+					showComparisonControls={telemetryChart.secondLapNumber !== null}
+					deltaOverview={deltaOverview}
+				/>
+			</div>
+		</section>
+	) : (
 		<section
 			className="grid min-h-0 grid-rows-[124px_44px_minmax(0,1fr)_72px] gap-1.5 overflow-hidden"
 			aria-label="Telemetry workspace"
@@ -289,29 +331,68 @@ export function TelemetryWorkspace({
 				ref={chartScrollContainerRef}
 				className="min-h-0 overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"
 				data-testid="telemetry-chart-scroll"
+				data-telemetry-guide-target="chart"
 			>
 				<TelemetryComparisonChart
 					{...telemetryChart}
 					viewport={viewport}
 					onViewportChange={setViewport}
+					onCursorPositionChange={setCursorPositionPercent}
 					selectedRegion={selectedRegion}
+					controlsGuideStep={activeControlsGuideStep}
 				/>
 			</div>
-			<TelemetryZoomControls
-				viewLabel={fragment ? "Full fragment" : "Full lap"}
-				viewport={viewport}
-				onViewportChange={setViewport}
-				selectedRegion={selectedRegion}
-				onSelectPreviousRegion={() => selectAdjacentRegion(-1)}
-				onSelectNextRegion={() => selectAdjacentRegion(1)}
-				canSelectPreviousRegion={selectedRegionIndex > 0}
-				canSelectNextRegion={
-					selectedRegionIndex >= 0 &&
-					selectedRegionIndex < selectableRegions.length - 1
-				}
-				showComparisonControls={telemetryChart.secondLapNumber !== null}
-				deltaOverview={deltaOverview}
-			/>
+			<div data-telemetry-guide-target="zoom">
+				<TelemetryZoomControls
+					viewLabel={fragment ? "Full fragment" : "Full lap"}
+					viewport={viewport}
+					onViewportChange={setViewport}
+					selectedRegion={selectedRegion}
+					onSelectPreviousRegion={() => selectAdjacentRegion(-1)}
+					onSelectNextRegion={() => selectAdjacentRegion(1)}
+					canSelectPreviousRegion={selectedRegionIndex > 0}
+					canSelectNextRegion={
+						selectedRegionIndex >= 0 &&
+						selectedRegionIndex < selectableRegions.length - 1
+					}
+					showComparisonControls={telemetryChart.secondLapNumber !== null}
+					deltaOverview={deltaOverview}
+				/>
+			</div>
 		</section>
 	);
+
+	return (
+		<>
+			{workspace}
+			<TelemetryControlsGuide
+				isAvailable={
+					telemetryChart.status === "ready" &&
+					telemetryChart.series !== null &&
+					telemetryChart.reviewedLapNumber !== null
+				}
+				presentation={isCompact ? "compact" : "desktop"}
+				onActiveStepChange={setActiveControlsGuideStep}
+			/>
+		</>
+	);
+}
+
+function createComparisonSelection(
+	hasSelectedFragment: boolean,
+	reviewedLapNumber: number | null,
+	secondLapNumber: number | null,
+): LapComparisonSelection | null {
+	if (
+		hasSelectedFragment ||
+		reviewedLapNumber === null ||
+		secondLapNumber === null
+	) {
+		return null;
+	}
+
+	return {
+		comparedLapNumber: reviewedLapNumber,
+		referenceLapNumber: secondLapNumber,
+	};
 }

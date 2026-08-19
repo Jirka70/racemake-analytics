@@ -1,12 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import {
+	areComparedLapRolesSwapped,
 	createDefaultLapComparisonSelection,
 	createLapReviewPlan,
 	findAdjacentLapToReview,
+	type LapComparisonSelection,
 	selectLapToCompareWith,
 	selectLapToReview,
 	swapComparedLaps,
-	type LapComparisonSelection,
 } from "../../../frontend/src/analysis/lap-comparison-selection";
 
 const SELECTION: LapComparisonSelection = {
@@ -94,6 +95,18 @@ describe("lap comparison selection", () => {
 			comparedLapNumber: 2,
 			referenceLapNumber: 4,
 		});
+	});
+
+	test("recognizes a pure role swap without treating a different pair as one", () => {
+		expect(
+			areComparedLapRolesSwapped(SELECTION, swapComparedLaps(SELECTION)),
+		).toBe(true);
+		expect(
+			areComparedLapRolesSwapped(SELECTION, {
+				comparedLapNumber: 2,
+				referenceLapNumber: 3,
+			}),
+		).toBe(false);
 	});
 
 	test("finds the next reviewable lap without selecting the comparison lap", () => {

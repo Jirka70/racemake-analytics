@@ -28,6 +28,7 @@ export interface TelemetryDeltaOverviewProps {
 	readonly idealLapSeries: AvailableIdealLapResponse | null;
 	readonly viewport: TelemetryViewport;
 	readonly selectedRegion: TrackRegionResponse | null;
+	readonly cursorPositionPercent: number | null;
 }
 
 const REVIEWED_LAP_COLOR = "#a3e635";
@@ -42,6 +43,7 @@ export function TelemetryDeltaOverview({
 	idealLapSeries,
 	viewport,
 	selectedRegion,
+	cursorPositionPercent,
 }: TelemetryDeltaOverviewProps) {
 	const model = useMemo(() => {
 		if (
@@ -67,7 +69,7 @@ export function TelemetryDeltaOverview({
 
 	return (
 		<figure
-			className="relative h-10 min-w-0 overflow-hidden rounded-[2px] border border-[#242925] bg-[#0d100e]"
+			className="relative h-10 min-w-0 rounded-[2px] border border-[#242925] bg-[#0d100e]"
 			aria-label="Full-lap time delta overview"
 		>
 			{model?.timeDelta ? (
@@ -103,11 +105,43 @@ export function TelemetryDeltaOverview({
 				/>
 			))}
 
+			{cursorPositionPercent !== null && (
+				<CursorPositionIndicator positionPercent={cursorPositionPercent} />
+			)}
+
 			<figcaption className="sr-only">
 				Full-lap time difference. The outlined area is visible in the charts and
 				the violet area is the selected region.
 			</figcaption>
 		</figure>
+	);
+}
+
+function CursorPositionIndicator({
+	positionPercent,
+}: {
+	readonly positionPercent: number;
+}) {
+	const labelAlignment =
+		positionPercent <= 8
+			? "left-0"
+			: positionPercent >= 92
+				? "right-0"
+				: "left-1/2 -translate-x-1/2";
+
+	return (
+		<span
+			className="pointer-events-none absolute inset-y-0 z-20 w-px -translate-x-1/2 bg-neutral-100 shadow-[0_0_5px_rgba(255,255,255,0.3)]"
+			style={{ left: `${positionPercent}%` }}
+			aria-hidden="true"
+		>
+			<span className="absolute -top-[4px] left-1/2 size-2 -translate-x-1/2 rounded-full border border-[#111412] bg-neutral-100 shadow-[0_0_4px_rgba(255,255,255,0.45)]" />
+			<span
+				className={`absolute bottom-full mb-1 whitespace-nowrap rounded-[3px] border border-[#3b403c] bg-[#171a18] px-1.5 py-0.5 text-[9px] font-semibold leading-4 tabular-nums text-neutral-100 shadow-lg ${labelAlignment}`}
+			>
+				{positionPercent.toFixed(1)}%
+			</span>
+		</span>
 	);
 }
 

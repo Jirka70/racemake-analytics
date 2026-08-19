@@ -8,6 +8,7 @@ import {
 	findAvailableComparisonLapNumber,
 	findVisibleSamplingGaps,
 	MINIMUM_VISIBLE_SAMPLING_GAP_RATIO,
+	resolveSelectedSeriesTelemetryStatus,
 } from "../../../frontend/src/analysis/telemetry-gaps";
 import type { LapSamplingGapResponse } from "../../../src/http/contracts";
 
@@ -30,6 +31,47 @@ describe("telemetry gap presentation", () => {
 		});
 
 		expect(findVisibleSamplingGaps([gap], [1])).toEqual([]);
+	});
+
+	test("uses the amber-band threshold for selected-series status", () => {
+		const reviewedGap = createGap({
+			lapNumber: 1,
+			fromPosition: 0.5,
+			toPosition: 0.55,
+		});
+		const tinyReferenceGap = createGap({
+			lapNumber: 2,
+			fromPosition: 0.97,
+			toPosition: 0.972,
+		});
+
+		expect(
+			resolveSelectedSeriesTelemetryStatus({
+				gaps: [reviewedGap, tinyReferenceGap],
+				reviewedLapNumber: 1,
+				secondLapNumber: 2,
+				role: "second",
+				measurement: "speed",
+			}),
+		).toBe("complete");
+		expect(
+			resolveSelectedSeriesTelemetryStatus({
+				gaps: [reviewedGap, tinyReferenceGap],
+				reviewedLapNumber: 1,
+				secondLapNumber: 2,
+				role: "reviewed",
+				measurement: "speed",
+			}),
+		).toBe("partial");
+		expect(
+			resolveSelectedSeriesTelemetryStatus({
+				gaps: [reviewedGap, tinyReferenceGap],
+				reviewedLapNumber: 1,
+				secondLapNumber: 2,
+				role: "reviewed",
+				measurement: "time-delta",
+			}),
+		).toBe("partial");
 	});
 
 	test("calculates lap coverage from all reported gaps", () => {

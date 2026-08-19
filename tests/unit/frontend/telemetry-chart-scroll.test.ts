@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	calculateTelemetryChartScrollTop,
 	calculateTelemetryRegionScrollLeft,
+	getTelemetryRegionScrollAffordances,
 	resolveTelemetryHorizontalWheelDelta,
 	resolveTelemetryWheelGestureAxis,
 	resolveTelemetryWheelScrollTarget,
@@ -200,5 +201,36 @@ describe("telemetry chart wheel scrolling", () => {
 				deltaY: 20,
 			}),
 		).toBe(40);
+	});
+
+	test("exposes the region continuation controls only in available directions", () => {
+		expect(
+			getTelemetryRegionScrollAffordances({
+				scrollLeft: 0,
+				scrollWidth: 560,
+				clientWidth: 360,
+			}),
+		).toEqual({ canScrollBackward: false, canScrollForward: true });
+		expect(
+			getTelemetryRegionScrollAffordances({
+				scrollLeft: 80,
+				scrollWidth: 560,
+				clientWidth: 360,
+			}),
+		).toEqual({ canScrollBackward: true, canScrollForward: true });
+		expect(
+			getTelemetryRegionScrollAffordances({
+				scrollLeft: 200,
+				scrollWidth: 560,
+				clientWidth: 360,
+			}),
+		).toEqual({ canScrollBackward: true, canScrollForward: false });
+		expect(
+			getTelemetryRegionScrollAffordances({
+				scrollLeft: 0,
+				scrollWidth: 360,
+				clientWidth: 360,
+			}),
+		).toEqual({ canScrollBackward: false, canScrollForward: false });
 	});
 });

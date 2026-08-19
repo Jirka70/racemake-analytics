@@ -1,4 +1,8 @@
 import type { LapSamplingGapResponse } from "../../../src/http/contracts";
+import type {
+	TelemetryChartLapRole,
+	TelemetryChartMeasurement,
+} from "./telemetry-chart";
 import type { TelemetryViewport } from "./telemetry-viewport";
 
 // Gaps covering at least four percent of a lap are large enough to materially
@@ -38,6 +42,36 @@ export function findVisibleSamplingGaps(
 			selectedLapNumbers.has(gap.lapNumber) &&
 			calculateSamplingGapRatio(gap) >= MINIMUM_VISIBLE_SAMPLING_GAP_RATIO,
 	);
+}
+
+export function resolveSelectedSeriesTelemetryStatus({
+	gaps,
+	reviewedLapNumber,
+	secondLapNumber,
+	role,
+	measurement,
+}: {
+	readonly gaps: readonly LapSamplingGapResponse[];
+	readonly reviewedLapNumber: number;
+	readonly secondLapNumber: number | null;
+	readonly role: TelemetryChartLapRole;
+	readonly measurement: TelemetryChartMeasurement;
+}): "complete" | "partial" {
+	const dependentLapNumbers =
+		measurement === "time-delta"
+			? [reviewedLapNumber, secondLapNumber]
+			: role === "reviewed"
+				? [reviewedLapNumber]
+				: role === "second"
+					? [secondLapNumber]
+					: [];
+	const lapNumbers = dependentLapNumbers.filter(
+		(lapNumber): lapNumber is number => lapNumber !== null,
+	);
+
+	return findVisibleSamplingGaps(gaps, lapNumbers).length > 0
+		? "partial"
+		: "complete";
 }
 
 export function calculateLapTelemetryCoverageRatio(

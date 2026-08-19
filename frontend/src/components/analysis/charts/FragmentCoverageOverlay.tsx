@@ -23,7 +23,7 @@ export function FragmentCoverageOverlay({
 			: findVisibleFragmentBoundary(fragment.endPosition, viewport);
 
 	return (
-		<div className="pointer-events-none absolute top-[16px] right-[12px] bottom-[36px] left-[58px] z-10 overflow-visible min-[1024px]:top-[18px] min-[1024px]:right-[18px] min-[1024px]:bottom-[38px] min-[1024px]:left-[102px]">
+		<div className="pointer-events-none absolute inset-0 z-10 overflow-visible">
 			{missingSegments.map((segment) => (
 				<div
 					key={`${segment.startPercent}:${segment.endPercent}`}

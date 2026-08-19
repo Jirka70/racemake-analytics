@@ -140,6 +140,16 @@ export function swapComparedLaps(
 	};
 }
 
+export function areComparedLapRolesSwapped(
+	previousSelection: LapComparisonSelection,
+	nextSelection: LapComparisonSelection,
+): boolean {
+	return (
+		previousSelection.comparedLapNumber === nextSelection.referenceLapNumber &&
+		previousSelection.referenceLapNumber === nextSelection.comparedLapNumber
+	);
+}
+
 export function findAdjacentLapToReview(
 	selection: LapComparisonSelection,
 	lapNumbers: readonly number[],

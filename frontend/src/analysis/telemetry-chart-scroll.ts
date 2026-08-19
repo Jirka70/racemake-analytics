@@ -123,11 +123,27 @@ export function calculateTelemetryRegionScrollLeft({
 }): number {
 	if (Math.abs(deltaY) <= Math.abs(deltaX)) return currentScrollLeft;
 
-	return clamp(
-		currentScrollLeft + deltaY,
-		0,
-		Math.max(0, maximumScrollLeft),
-	);
+	return clamp(currentScrollLeft + deltaY, 0, Math.max(0, maximumScrollLeft));
+}
+
+export function getTelemetryRegionScrollAffordances({
+	scrollLeft,
+	scrollWidth,
+	clientWidth,
+}: {
+	readonly scrollLeft: number;
+	readonly scrollWidth: number;
+	readonly clientWidth: number;
+}): {
+	readonly canScrollBackward: boolean;
+	readonly canScrollForward: boolean;
+} {
+	const tolerancePx = 2;
+	const maximumScrollLeft = Math.max(0, scrollWidth - clientWidth);
+	return {
+		canScrollBackward: scrollLeft > tolerancePx,
+		canScrollForward: scrollLeft < maximumScrollLeft - tolerancePx,
+	};
 }
 
 function convertWheelDeltaToPixels(
