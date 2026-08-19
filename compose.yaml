@@ -1,0 +1,12 @@
+services:
+  app:
+    image: racemake-hard:local
+    build:
+      context: .
+      target: runtime
+    init: true
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+    ports:
+      - "${PORT:-3000}:3000"

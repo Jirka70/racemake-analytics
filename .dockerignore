@@ -1,0 +1,14 @@
+.git
+.gitignore
+.DS_Store
+.env
+.env.*
+node_modules
+dist
+artifacts
+data
+official
+tests
+coverage
+*.md
+design-qa.md
