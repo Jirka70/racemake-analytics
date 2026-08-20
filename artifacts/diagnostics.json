@@ -1,0 +1,425 @@
+{
+  "analysisId": "sha256:79d048e79816fb2c0d4dc10d5b1b6efc63a1e6e3fa38aabc0bc78c5f3e352f81",
+  "sessionId": "7f3a9c1e-0b52-4d84-9a6e-2c1d5f8b41a0",
+  "usability": {
+    "status": "usable",
+    "primaryReason": {
+      "code": "TIMELINE_DISCONTINUITIES",
+      "severity": "limitation",
+      "evidence": {
+        "discontinuities": [
+          {
+            "type": "sampling-gap",
+            "fromTimestampMs": 92520,
+            "toTimestampMs": 95192,
+            "durationMs": 2672,
+            "affectedLapNumber": 1
+          },
+          {
+            "type": "sampling-gap",
+            "fromTimestampMs": 405897,
+            "toTimestampMs": 406247,
+            "durationMs": 350
+          },
+          {
+            "type": "sampling-gap",
+            "fromTimestampMs": 406247,
+            "toTimestampMs": 406523,
+            "durationMs": 276
+          },
+          {
+            "type": "sampling-gap",
+            "fromTimestampMs": 406523,
+            "toTimestampMs": 406817,
+            "durationMs": 294
+          },
+          {
+            "type": "sampling-gap",
+            "fromTimestampMs": 407085,
+            "toTimestampMs": 407363,
+            "durationMs": 278
+          },
+          {
+            "type": "sampling-gap",
+            "fromTimestampMs": 407363,
+            "toTimestampMs": 407648,
+            "durationMs": 285
+          },
+          {
+            "type": "sampling-gap",
+            "fromTimestampMs": 407920,
+            "toTimestampMs": 408225,
+            "durationMs": 305
+          },
+          {
+            "type": "sampling-gap",
+            "fromTimestampMs": 408225,
+            "toTimestampMs": 408525,
+            "durationMs": 300
+          },
+          {
+            "type": "sampling-gap",
+            "fromTimestampMs": 408525,
+            "toTimestampMs": 408845,
+            "durationMs": 320
+          },
+          {
+            "type": "sampling-gap",
+            "fromTimestampMs": 408845,
+            "toTimestampMs": 409165,
+            "durationMs": 320
+          }
+        ]
+      }
+    },
+    "reasons": [
+      {
+        "code": "TIMELINE_DISCONTINUITIES",
+        "severity": "limitation",
+        "evidence": {
+          "discontinuities": [
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 92520,
+              "toTimestampMs": 95192,
+              "durationMs": 2672,
+              "affectedLapNumber": 1
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 405897,
+              "toTimestampMs": 406247,
+              "durationMs": 350
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 406247,
+              "toTimestampMs": 406523,
+              "durationMs": 276
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 406523,
+              "toTimestampMs": 406817,
+              "durationMs": 294
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 407085,
+              "toTimestampMs": 407363,
+              "durationMs": 278
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 407363,
+              "toTimestampMs": 407648,
+              "durationMs": 285
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 407920,
+              "toTimestampMs": 408225,
+              "durationMs": 305
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 408225,
+              "toTimestampMs": 408525,
+              "durationMs": 300
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 408525,
+              "toTimestampMs": 408845,
+              "durationMs": 320
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 408845,
+              "toTimestampMs": 409165,
+              "durationMs": 320
+            }
+          ]
+        }
+      }
+    ],
+    "availableCapabilities": [
+      "lap-comparison",
+      "region-comparison",
+      "ideal-lap",
+      "coaching"
+    ],
+    "unavailableCapabilities": []
+  },
+  "frameAudit": {
+    "receivedFrameCount": 7195,
+    "retainedTimelineFrameCount": 7195,
+    "excludedTimelineFrameCount": 0,
+    "samplingBaseline": {
+      "medianIntervalMs": 55,
+      "maximumContinuousIntervalMs": 275
+    },
+    "issues": [
+      {
+        "id": "sampling-gap:1656:1657",
+        "code": "SAMPLING_GAP",
+        "action": "split-timeline",
+        "severity": "warning",
+        "scope": "transition",
+        "message": "The 2672 ms interval from frame 1656 to frame 1657 exceeds the data-derived maximum supported gap. Both frames are retained, but interpolation and derivatives across this transition are blocked.",
+        "sourceIndex": 1656,
+        "timestampMs": 92520
+      },
+      {
+        "id": "sampling-gap:7183:7184",
+        "code": "SAMPLING_GAP",
+        "action": "split-timeline",
+        "severity": "warning",
+        "scope": "transition",
+        "message": "The 350 ms interval from frame 7183 to frame 7184 exceeds the data-derived maximum supported gap. Both frames are retained, but interpolation and derivatives across this transition are blocked.",
+        "sourceIndex": 7183,
+        "timestampMs": 405897
+      },
+      {
+        "id": "sampling-gap:7184:7185",
+        "code": "SAMPLING_GAP",
+        "action": "split-timeline",
+        "severity": "warning",
+        "scope": "transition",
+        "message": "The 276 ms interval from frame 7184 to frame 7185 exceeds the data-derived maximum supported gap. Both frames are retained, but interpolation and derivatives across this transition are blocked.",
+        "sourceIndex": 7184,
+        "timestampMs": 406247
+      },
+      {
+        "id": "sampling-gap:7185:7186",
+        "code": "SAMPLING_GAP",
+        "action": "split-timeline",
+        "severity": "warning",
+        "scope": "transition",
+        "message": "The 294 ms interval from frame 7185 to frame 7186 exceeds the data-derived maximum supported gap. Both frames are retained, but interpolation and derivatives across this transition are blocked.",
+        "sourceIndex": 7185,
+        "timestampMs": 406523
+      },
+      {
+        "id": "sampling-gap:7187:7188",
+        "code": "SAMPLING_GAP",
+        "action": "split-timeline",
+        "severity": "warning",
+        "scope": "transition",
+        "message": "The 278 ms interval from frame 7187 to frame 7188 exceeds the data-derived maximum supported gap. Both frames are retained, but interpolation and derivatives across this transition are blocked.",
+        "sourceIndex": 7187,
+        "timestampMs": 407085
+      },
+      {
+        "id": "sampling-gap:7188:7189",
+        "code": "SAMPLING_GAP",
+        "action": "split-timeline",
+        "severity": "warning",
+        "scope": "transition",
+        "message": "The 285 ms interval from frame 7188 to frame 7189 exceeds the data-derived maximum supported gap. Both frames are retained, but interpolation and derivatives across this transition are blocked.",
+        "sourceIndex": 7188,
+        "timestampMs": 407363
+      },
+      {
+        "id": "sampling-gap:7190:7191",
+        "code": "SAMPLING_GAP",
+        "action": "split-timeline",
+        "severity": "warning",
+        "scope": "transition",
+        "message": "The 305 ms interval from frame 7190 to frame 7191 exceeds the data-derived maximum supported gap. Both frames are retained, but interpolation and derivatives across this transition are blocked.",
+        "sourceIndex": 7190,
+        "timestampMs": 407920
+      },
+      {
+        "id": "sampling-gap:7191:7192",
+        "code": "SAMPLING_GAP",
+        "action": "split-timeline",
+        "severity": "warning",
+        "scope": "transition",
+        "message": "The 300 ms interval from frame 7191 to frame 7192 exceeds the data-derived maximum supported gap. Both frames are retained, but interpolation and derivatives across this transition are blocked.",
+        "sourceIndex": 7191,
+        "timestampMs": 408225
+      },
+      {
+        "id": "sampling-gap:7192:7193",
+        "code": "SAMPLING_GAP",
+        "action": "split-timeline",
+        "severity": "warning",
+        "scope": "transition",
+        "message": "The 320 ms interval from frame 7192 to frame 7193 exceeds the data-derived maximum supported gap. Both frames are retained, but interpolation and derivatives across this transition are blocked.",
+        "sourceIndex": 7192,
+        "timestampMs": 408525
+      },
+      {
+        "id": "sampling-gap:7193:7194",
+        "code": "SAMPLING_GAP",
+        "action": "split-timeline",
+        "severity": "warning",
+        "scope": "transition",
+        "message": "The 320 ms interval from frame 7193 to frame 7194 exceeds the data-derived maximum supported gap. Both frames are retained, but interpolation and derivatives across this transition are blocked.",
+        "sourceIndex": 7193,
+        "timestampMs": 408845
+      },
+      {
+        "id": "local-outlier:3523:engineRpm",
+        "code": "LOCAL_OUTLIER",
+        "action": "exclude-channel-value",
+        "severity": "error",
+        "scope": "channel",
+        "message": "Frame 3523 contains an isolated engineRpm deviation: observed 64510, neighboring values 8717 and 8733, predicted 8725.595041322315, residual 55784.40495867768, threshold 239.35484016342946. The engineRpm value is invalid for analysis, while the remaining channels in the frame are retained.",
+        "sourceIndex": 3523,
+        "timestampMs": 199318,
+        "channels": [
+          "engineRpm"
+        ]
+      },
+      {
+        "id": "local-outlier:3523:speedKmh",
+        "code": "LOCAL_OUTLIER",
+        "action": "exclude-channel-value",
+        "severity": "error",
+        "scope": "channel",
+        "message": "Frame 3523 contains an isolated speedKmh deviation: observed 4021.4, neighboring values 255.7 and 255.8, predicted 255.75371900826445, residual 3765.6462809917357, threshold 2.091061333333386. The speedKmh value is invalid for analysis, while the remaining channels in the frame are retained.",
+        "sourceIndex": 3523,
+        "timestampMs": 199318,
+        "channels": [
+          "speedKmh"
+        ]
+      },
+      {
+        "id": "local-outlier:5731:normalizedTrackPosition",
+        "code": "LOCAL_OUTLIER",
+        "action": "exclude-channel-value",
+        "severity": "error",
+        "scope": "channel",
+        "message": "Frame 5731 contains an isolated normalizedTrackPosition deviation: observed 0.6393, neighboring values 0.6594 and 0.6603, predicted 0.6598754716981132, residual 0.020575471698113246, threshold 0.00029893921057335283. The normalizedTrackPosition value is invalid for analysis, while the remaining channels in the frame are retained.",
+        "sourceIndex": 5731,
+        "timestampMs": 323856,
+        "channels": [
+          "normalizedTrackPosition"
+        ]
+      },
+      {
+        "id": "sequence-discontinuity:961:962",
+        "code": "SEQUENCE_DISCONTINUITY",
+        "action": "block-channel-transition",
+        "severity": "error",
+        "scope": "transition",
+        "message": "Frames 961 and 962 form a persistent level-shift boundary in engineRpm, speedKmh, tyreCoreTemperatureC.rearLeft, tyreCoreTemperatureC.rearRight. Both stable sides are retained, but interpolation and derivatives for these channels are blocked only across this transition.",
+        "sourceIndex": 961,
+        "timestampMs": 53706,
+        "channels": [
+          "engineRpm",
+          "speedKmh",
+          "tyreCoreTemperatureC.rearLeft",
+          "tyreCoreTemperatureC.rearRight"
+        ]
+      },
+      {
+        "id": "sequence-discontinuity:3553:3554",
+        "code": "SEQUENCE_DISCONTINUITY",
+        "action": "block-channel-transition",
+        "severity": "error",
+        "scope": "transition",
+        "message": "Frames 3553 and 3554 form a persistent level-shift boundary in tyreCoreTemperatureC.frontLeft, tyreCoreTemperatureC.frontRight, tyreCoreTemperatureC.rearLeft, tyreCoreTemperatureC.rearRight. Both stable sides are retained, but interpolation and derivatives for these channels are blocked only across this transition.",
+        "sourceIndex": 3553,
+        "timestampMs": 201022,
+        "channels": [
+          "tyreCoreTemperatureC.frontLeft",
+          "tyreCoreTemperatureC.frontRight",
+          "tyreCoreTemperatureC.rearLeft",
+          "tyreCoreTemperatureC.rearRight"
+        ]
+      },
+      {
+        "id": "sequence-discontinuity:4870:4871",
+        "code": "SEQUENCE_DISCONTINUITY",
+        "action": "block-channel-transition",
+        "severity": "error",
+        "scope": "transition",
+        "message": "Frames 4870 and 4871 form a persistent level-shift boundary in tyreCoreTemperatureC.frontLeft, tyreCoreTemperatureC.frontRight, tyreCoreTemperatureC.rearLeft, tyreCoreTemperatureC.rearRight. Both stable sides are retained, but interpolation and derivatives for these channels are blocked only across this transition.",
+        "sourceIndex": 4870,
+        "timestampMs": 275059,
+        "channels": [
+          "tyreCoreTemperatureC.frontLeft",
+          "tyreCoreTemperatureC.frontRight",
+          "tyreCoreTemperatureC.rearLeft",
+          "tyreCoreTemperatureC.rearRight"
+        ]
+      },
+      {
+        "id": "sequence-discontinuity:6171:6172",
+        "code": "SEQUENCE_DISCONTINUITY",
+        "action": "block-channel-transition",
+        "severity": "error",
+        "scope": "transition",
+        "message": "Frames 6171 and 6172 form a persistent level-shift boundary in speedKmh, tyreCoreTemperatureC.frontLeft, tyreCoreTemperatureC.frontRight, tyreCoreTemperatureC.rearLeft, tyreCoreTemperatureC.rearRight. Both stable sides are retained, but interpolation and derivatives for these channels are blocked only across this transition.",
+        "sourceIndex": 6171,
+        "timestampMs": 348687,
+        "channels": [
+          "speedKmh",
+          "tyreCoreTemperatureC.frontLeft",
+          "tyreCoreTemperatureC.frontRight",
+          "tyreCoreTemperatureC.rearLeft",
+          "tyreCoreTemperatureC.rearRight"
+        ]
+      }
+    ],
+    "channelDiscontinuities": [
+      {
+        "previousSourceIndex": 961,
+        "currentSourceIndex": 962,
+        "channels": [
+          "engineRpm",
+          "speedKmh",
+          "tyreCoreTemperatureC.rearLeft",
+          "tyreCoreTemperatureC.rearRight"
+        ]
+      },
+      {
+        "previousSourceIndex": 3553,
+        "currentSourceIndex": 3554,
+        "channels": [
+          "tyreCoreTemperatureC.frontLeft",
+          "tyreCoreTemperatureC.frontRight",
+          "tyreCoreTemperatureC.rearLeft",
+          "tyreCoreTemperatureC.rearRight"
+        ]
+      },
+      {
+        "previousSourceIndex": 4870,
+        "currentSourceIndex": 4871,
+        "channels": [
+          "tyreCoreTemperatureC.frontLeft",
+          "tyreCoreTemperatureC.frontRight",
+          "tyreCoreTemperatureC.rearLeft",
+          "tyreCoreTemperatureC.rearRight"
+        ]
+      },
+      {
+        "previousSourceIndex": 6171,
+        "currentSourceIndex": 6172,
+        "channels": [
+          "speedKmh",
+          "tyreCoreTemperatureC.frontLeft",
+          "tyreCoreTemperatureC.frontRight",
+          "tyreCoreTemperatureC.rearLeft",
+          "tyreCoreTemperatureC.rearRight"
+        ]
+      }
+    ]
+  },
+  "thresholds": {
+    "steering": {
+      "status": "calculated",
+      "lowThresholdDegrees": 0.13916529080356282,
+      "highThresholdDegrees": 5.907001756722645
+    },
+    "brakeActivity": {
+      "status": "calculated",
+      "lowThresholdRatio": 0.004151376146788896,
+      "highThresholdRatio": 0.31526376146788904
+    }
+  },
+  "detectorFailures": []
+}

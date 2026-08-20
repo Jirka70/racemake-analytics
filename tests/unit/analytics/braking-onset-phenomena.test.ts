@@ -60,13 +60,13 @@ describe('unnecessary braking report facts', () => {
         }))).toBeFalse()
     })
 
-    test('creates a corner-speed-cost report from the official-stint facts', () => {
+    test('creates a corner-speed-cost report from synthetic evidence', () => {
         const facts = createUnnecessaryBrakingReportFacts()
 
         expect(selectUnnecessaryBrakingReportVariant(facts, EVIDENCE_MARGINS))
             .toBe('BRAKING_WITH_CORNER_SPEED_COST')
         expect(createUnnecessaryBrakingReportMessage(facts, EVIDENCE_MARGINS)).toBe(
-            'On lap 3, you applied up to 45% brake before C2 entry, while your quickest C2 pass stayed off the brake. You entered 20.2 km/h slower and were 30.7 km/h slower in the part of C2 where you used the most steering. From the moment you started braking to the C2 exit, you lost 459 ms. Keep C2 brake-free and protect momentum through the corner.',
+            'On lap 7, you applied up to 36% brake before C5 entry, while your quickest C5 pass stayed off the brake. You entered 12.4 km/h slower and were 8.6 km/h slower in the part of C5 where you used the most steering. From the moment you started braking to the C5 exit, you lost 375 ms. Keep C5 brake-free and protect momentum through the corner.',
         )
     })
 
@@ -90,7 +90,7 @@ describe('unnecessary braking report facts', () => {
         expect(selectUnnecessaryBrakingReportVariant(facts, EVIDENCE_MARGINS))
             .toBe('BRAKING_WITH_TIME_LOSS')
         expect(createUnnecessaryBrakingReportMessage(facts, EVIDENCE_MARGINS)).toBe(
-            'On lap 3, you applied the brake before C2 entry, while your quickest C2 pass stayed off the brake. From the moment you started braking to the C2 exit, you lost 459 ms. Use the brake-free pass as your reference through C2.',
+            'On lap 7, you applied the brake before C5 entry, while your quickest C5 pass stayed off the brake. From the moment you started braking to the C5 exit, you lost 375 ms. Use the brake-free pass as your reference through C5.',
         )
     })
 
@@ -486,13 +486,13 @@ function createUnnecessaryBrakingReportFacts(
     overrides: Partial<UnnecessaryBrakingReportFacts> = {},
 ): UnnecessaryBrakingReportFacts {
     return {
-        lapNumber: 3,
-        cornerId: 'C2',
+        lapNumber: 7,
+        cornerId: 'C5',
         hasBrakingStartedBeforeCorner: true,
-        maximumBrakeRatio: 0.45,
-        timeLossSinceBrakingStartedMs: 459,
-        entrySpeedDifferenceKmh: -20.2,
-        steeringPeakSpeedDifferenceKmh: -30.7,
+        maximumBrakeRatio: 0.36,
+        timeLossSinceBrakingStartedMs: 375,
+        entrySpeedDifferenceKmh: -12.4,
+        steeringPeakSpeedDifferenceKmh: -8.6,
         exitSpeedDifferenceKmh: -0.2,
         ...overrides,
     }

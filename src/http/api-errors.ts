@@ -18,6 +18,11 @@ export const API_ERRORS = {
     status: HTTP_STATUS.UNPROCESSABLE_ENTITY,
     message: 'Telemetry payload does not match the wire contract',
   },
+  TELEMETRY_PAYLOAD_TOO_LARGE: {
+    code: 'TELEMETRY_PAYLOAD_TOO_LARGE',
+    status: HTTP_STATUS.CONTENT_TOO_LARGE,
+    message: 'Telemetry payload must not exceed 100 MB',
+  },
   ANALYSIS_ID_REQUIRED: {
     code: 'ANALYSIS_ID_REQUIRED',
     status: HTTP_STATUS.BAD_REQUEST,

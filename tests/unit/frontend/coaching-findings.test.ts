@@ -16,9 +16,9 @@ import {
 import type { RankedCoachingPhenomenonResponse } from "../../../src/http/contracts";
 
 const RANKED_PHENOMENA: readonly RankedCoachingPhenomenonResponse[] = [
-	createRankedPhenomenon(1, 1, 3, 2, "C2-entry"),
-	createRankedPhenomenon(2, 0.337, 4, 2, "C3"),
-	createRankedPhenomenon(3, 0.177, 4, 2, "C7"),
+	createRankedPhenomenon(1, 1, 8, 3, "C5-entry"),
+	createRankedPhenomenon(2, 0.44, 9, 3, "C6"),
+	createRankedPhenomenon(3, 0.23, 9, 3, "C8"),
 ];
 
 describe("coaching finding presentation", () => {
@@ -33,7 +33,7 @@ describe("coaching finding presentation", () => {
 
 	test("keeps every finding for the lap under review", () => {
 		expect(
-			findCoachingPhenomenaForLap(RANKED_PHENOMENA, 4).map(({ rank }) => rank),
+			findCoachingPhenomenaForLap(RANKED_PHENOMENA, 9).map(({ rank }) => rank),
 		).toEqual([2, 3]);
 	});
 
@@ -45,88 +45,88 @@ describe("coaching finding presentation", () => {
 		const finding = createRankedPhenomenon(
 			1,
 			1,
+			8,
 			3,
-			2,
-			"C2-entry",
+			"C5-entry",
 			"UNNECESSARY_BRAKING",
 		).finding;
 
 		expect(createCoachingMeasurementDetails(finding)).toEqual({
-			regionName: "C2",
-			fastestPassLabel: "Quickest C2 time",
-			measuredSection: "Braking start → C2 exit",
-			timeLossLabel: "Time lost from braking start to C2 exit",
+			regionName: "C5",
+			fastestPassLabel: "Quickest C5 time",
+			measuredSection: "Braking start → C5 exit",
+			timeLossLabel: "Time lost from braking start to C5 exit",
 		});
 	});
 
 	test("describes how late brake release time loss was measured", () => {
 		const finding = createRankedPhenomenon(
 			2,
-			0.337,
-			4,
-			2,
-			"C3",
+			0.44,
+			9,
+			3,
+			"C6",
 			"LATE_BRAKE_RELEASE",
 		).finding;
 
 		expect(createCoachingMeasurementDetails(finding)).toEqual({
-			regionName: "C3",
-			fastestPassLabel: "Quickest C3 time",
-			measuredSection: "Where Lap 2 stopped braking → C3 exit",
-			timeLossLabel: "Time lost from where Lap 2 stopped braking to C3 exit",
+			regionName: "C6",
+			fastestPassLabel: "Quickest C6 time",
+			measuredSection: "Where Lap 3 stopped braking → C6 exit",
+			timeLossLabel: "Time lost from where Lap 3 stopped braking to C6 exit",
 		});
 	});
 
 	test("promotes the actionable instruction ahead of detailed evidence", () => {
 		expect(
 			createCoachingNextLapGoal(
-				createRankedPhenomenon(1, 1, 3, 2, "C2-entry", "UNNECESSARY_BRAKING")
+				createRankedPhenomenon(1, 1, 8, 3, "C5-entry", "UNNECESSARY_BRAKING")
 					.finding,
 			),
 		).toEqual({
 			label: "NEXT-LAP GOAL",
-			instruction: "Keep C2 brake-free.",
+			instruction: "Keep C5 brake-free.",
 		});
 		expect(
 			createCoachingNextLapGoal(
-				createRankedPhenomenon(2, 0.7, 4, 2, "C3", "LATE_BRAKE_RELEASE")
+				createRankedPhenomenon(2, 0.7, 9, 3, "C6", "LATE_BRAKE_RELEASE")
 					.finding,
 			).instruction,
-		).toBe("Release the brake earlier through C3.");
+		).toBe("Release the brake earlier through C6.");
 	});
 
 	test("maps a phase finding to its selectable corner", () => {
-		expect(findCoachingBaseRegionId("C2-entry")).toBe("C2");
-		expect(findCoachingBaseRegionId("C7")).toBe("C7");
+		expect(findCoachingBaseRegionId("C5-entry")).toBe("C5");
+		expect(findCoachingBaseRegionId("C8")).toBe("C8");
 	});
 
 	test("makes track position and speed scope explicit", () => {
 		expect(formatCoachingTrackPosition(1 / 6)).toBe("Lap position: 16.7%");
-		expect(formatCoachingSpeedMeasurement("entry", "C3")).toBe(
-			"Speed at C3 entry",
+		expect(formatCoachingSpeedMeasurement("entry", "C6")).toBe(
+			"Speed at C6 entry",
 		);
-		expect(formatCoachingSpeedMeasurement("minimum", "C3")).toBe(
-			"Lowest speed through C3",
+		expect(formatCoachingSpeedMeasurement("minimum", "C6")).toBe(
+			"Lowest speed through C6",
 		);
-		expect(formatCoachingSpeedMeasurement("steering-peak", "C3")).toBe(
-			"Lowest speed where you used the most steering in C3",
+		expect(formatCoachingSpeedMeasurement("steering-peak", "C6")).toBe(
+			"Lowest speed where you used the most steering in C6",
 		);
-		expect(formatCoachingSpeedMeasurement("exit", "C3")).toBe(
-			"Speed at C3 exit",
+		expect(formatCoachingSpeedMeasurement("exit", "C6")).toBe(
+			"Speed at C6 exit",
 		);
 		expect(formatReviewedPassLabel()).toBe("Reviewed lap");
-		expect(formatQuickestRegionPassLabel("C2")).toBe("Quickest C2 time");
+		expect(formatQuickestRegionPassLabel("C5")).toBe("Quickest C5 time");
 	});
 
 	test("formats machine identifiers for coaches", () => {
 		expect(formatCoachingPhenomenon("LATE_BRAKE_RELEASE")).toBe(
 			"LATE BRAKE RELEASE",
 		);
-		expect(formatCoachingRegionId("C2-entry")).toBe("C2 Entry");
+		expect(formatCoachingRegionId("C5-entry")).toBe("C5 Entry");
 	});
 
 	test("creates chart markers only from findings with measured lap positions", () => {
-		const findingWithPosition = createRankedPhenomenon(1, 1, 3, 2, "C2-entry");
+		const findingWithPosition = createRankedPhenomenon(1, 1, 8, 3, "C5-entry");
 		const markerSource: RankedCoachingPhenomenonResponse = {
 			...findingWithPosition,
 			finding: {
@@ -136,10 +136,10 @@ describe("coaching finding presentation", () => {
 						kind: "event-position",
 						role: "evidence",
 						event: "braking-onset",
-						regionId: "C2-entry",
+						regionId: "C5-entry",
 						location: "before-region",
 						analyzedPass: {
-							lapNumber: 3,
+							lapNumber: 8,
 							normalizedTrackPosition: 1 / 6,
 						},
 					},
@@ -148,10 +148,10 @@ describe("coaching finding presentation", () => {
 		};
 		const findingWithoutPosition = createRankedPhenomenon(
 			2,
-			0.337,
-			4,
-			2,
-			"C3",
+			0.44,
+			9,
+			3,
+			"C6",
 			"LATE_BRAKE_RELEASE",
 		);
 
@@ -165,8 +165,8 @@ describe("coaching finding presentation", () => {
 			rank: 1,
 			priority: "CRITICAL",
 			title: "UNNECESSARY BRAKING",
-			regionName: "C2",
-			timeLossMs: 459,
+			regionName: "C5",
+			timeLossMs: 320,
 		});
 		expect(markers[0]?.positionPercent).toBeCloseTo(100 / 6);
 	});
@@ -189,7 +189,7 @@ function createRankedPhenomenon(
 			comparedWithLapNumber,
 			analysisRegionId,
 			occurredAtLapElapsedMs: 12_000,
-			impactTimeLossMs: 459,
+			impactTimeLossMs: 320,
 			message: "Synthetic coaching finding.",
 			evidence: [],
 			metrics: [],

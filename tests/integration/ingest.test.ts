@@ -10,6 +10,7 @@ import {
 import type { LapsResponse } from "../../src/http/contracts/laps";
 import type { SeriesResponse } from "../../src/http/contracts/series";
 import { HTTP_STATUS } from "../../src/http/http-status";
+import { MAX_TELEMETRY_INGEST_SIZE_BYTES } from "../../src/config/telemetry-ingest-config";
 
 const stintPath = `${import.meta.dir}/../../data/stint.telemetry.json`;
 
@@ -39,6 +40,29 @@ const analysisEndpointPaths = [
 ] as const;
 
 describe("POST /ingest", () => {
+	test("rejects telemetry bodies above the shared 100 MB limit before parsing", async () => {
+		const app = createApp();
+
+		for (const path of ["/ingest", "/ingest/stream"] as const) {
+			const response = await app.request(path, {
+				method: "POST",
+				headers: {
+					"content-type": "application/json",
+					"content-length": String(MAX_TELEMETRY_INGEST_SIZE_BYTES + 1),
+				},
+				body: "{}",
+			});
+
+			expect(response.status).toBe(HTTP_STATUS.CONTENT_TOO_LARGE);
+			expect(await response.json()).toEqual({
+				error: {
+					code: "TELEMETRY_PAYLOAD_TOO_LARGE",
+					message: "Telemetry payload must not exceed 100 MB",
+				},
+			});
+		}
+	});
+
 	test("requires analysisId for every analysis endpoint", async () => {
 		const app = createApp();
 

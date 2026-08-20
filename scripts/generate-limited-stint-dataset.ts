@@ -6,18 +6,19 @@ const OUTPUT_DATASET_PATH = `${import.meta.dir}/../data/stint-limited.telemetry.
 
 export const LIMITED_STINT_SESSION_ID = "4bd69a76-8db8-4c5a-9b74-034153759a28";
 
-const DAMAGED_RECORDED_LAP_NUMBER = 4;
-const MISSING_POSITION_FROM = 0.4;
-const MISSING_POSITION_TO = 0.44;
+const SYNTHETIC_GAP_POSITION_FROM = 0.4;
+const SYNTHETIC_GAP_POSITION_TO = 0.44;
+const COMPLETE_LAP_POSITION_TOLERANCE = 0.001;
 
 export function createLimitedStintTelemetryPayload(
 	source: WireTelemetryPayload,
 ): WireTelemetryPayload {
+	const damagedRecordedLapNumber = findLastCompleteRecordedLapNumber(source);
 	const frames = source.frames.filter(
 		(frame) =>
-			frame.lap !== DAMAGED_RECORDED_LAP_NUMBER ||
-			frame.pos < MISSING_POSITION_FROM ||
-			frame.pos > MISSING_POSITION_TO,
+			frame.lap !== damagedRecordedLapNumber ||
+			frame.pos < SYNTHETIC_GAP_POSITION_FROM ||
+			frame.pos > SYNTHETIC_GAP_POSITION_TO,
 	);
 	const removedFrameCount = source.frames.length - frames.length;
 	if (removedFrameCount === 0) {
@@ -29,10 +30,44 @@ export function createLimitedStintTelemetryPayload(
 	return {
 		...source,
 		session_id: LIMITED_STINT_SESSION_ID,
-		note: "Telemetry-gap fixture derived from the supplied stint: a continuous telemetry window was removed from recorded lap 4.",
+		note: `Telemetry-gap fixture derived from the supplied stint: a continuous telemetry window was removed from recorded lap ${damagedRecordedLapNumber}.`,
 		frame_count: frames.length,
 		frames,
 	};
+}
+
+function findLastCompleteRecordedLapNumber(
+	source: WireTelemetryPayload,
+): number {
+	const positionRangeByLap = new Map<
+		number,
+		{ minimum: number; maximum: number }
+	>();
+
+	for (const frame of source.frames) {
+		const range = positionRangeByLap.get(frame.lap);
+		positionRangeByLap.set(frame.lap, {
+			minimum: Math.min(range?.minimum ?? frame.pos, frame.pos),
+			maximum: Math.max(range?.maximum ?? frame.pos, frame.pos),
+		});
+	}
+
+	const completeLapNumbers = [...positionRangeByLap]
+		.filter(
+			([, range]) =>
+				range.minimum <= COMPLETE_LAP_POSITION_TOLERANCE &&
+				range.maximum >= 1 - COMPLETE_LAP_POSITION_TOLERANCE,
+		)
+		.map(([lapNumber]) => lapNumber)
+		.sort((first, second) => first - second);
+	const lapNumber = completeLapNumbers.at(-1);
+	if (lapNumber === undefined) {
+		throw new RangeError(
+			"The source stint does not contain a complete recorded lap for the telemetry-gap fixture.",
+		);
+	}
+
+	return lapNumber;
 }
 
 async function generateLimitedStintDataset(): Promise<void> {

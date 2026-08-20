@@ -1,7 +1,9 @@
 import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
+import { bodyLimit } from 'hono/body-limit'
 import { ZodError } from 'zod'
 import { DEFAULT_FRAME_AUDIT_CONFIG } from './config/frame-audit-config'
+import { MAX_TELEMETRY_INGEST_SIZE_BYTES } from './config/telemetry-ingest-config'
 import { createInMemoryAnalysisStore } from './http/analysis-store'
 import { API_ERRORS } from './http/api-errors'
 import { ApiRequestError } from './http/api-request-error'
@@ -21,6 +23,13 @@ export function createApp(): Hono {
   const app = new Hono()
   const analysisStore = createInMemoryAnalysisStore({
     maximumEntryCount: 5,
+  })
+  const telemetryBodyLimit = bodyLimit({
+    maxSize: MAX_TELEMETRY_INGEST_SIZE_BYTES,
+    onError: (context) => {
+      const { status, ...apiError } = API_ERRORS.TELEMETRY_PAYLOAD_TOO_LARGE
+      return context.json({ error: apiError }, status)
+    },
   })
 
   app.onError((error, context) => {
@@ -72,7 +81,7 @@ export function createApp(): Hono {
     )
   })
 
-  app.post('/ingest', async (context) => {
+  app.post('/ingest', telemetryBodyLimit, async (context) => {
     const input: unknown = await context.req.json()
     const response = ingestTelemetryAnalysis(
       input,
@@ -85,7 +94,7 @@ export function createApp(): Hono {
     return context.json(response, HTTP_STATUS.OK)
   })
 
-  app.post('/ingest/stream', (context) =>
+  app.post('/ingest/stream', telemetryBodyLimit, (context) =>
     streamIngestTelemetryAnalysis(context, {
       analysisStore,
       frameAuditConfig: DEFAULT_FRAME_AUDIT_CONFIG,

@@ -9,6 +9,10 @@ bun run dev
 
 Open <http://localhost:3000>.
 
+Telemetry ingest is limited to 100 MiB on both `POST /ingest` and
+`POST /ingest/stream`. The server enforces the limit before parsing JSON; the
+frontend applies the same shared limit for earlier feedback.
+
 ## Docker
 
 Build and run the production application with Docker Compose:

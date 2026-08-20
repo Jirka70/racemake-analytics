@@ -1,0 +1,2217 @@
+{
+  "formatVersion": 1,
+  "source": "data/stint.telemetry.json",
+  "ingest": {
+    "analysisId": "sha256:79d048e79816fb2c0d4dc10d5b1b6efc63a1e6e3fa38aabc0bc78c5f3e352f81",
+    "sessionId": "7f3a9c1e-0b52-4d84-9a6e-2c1d5f8b41a0",
+    "telemetrySchema": "racemake.telemetry.stint.v1",
+    "status": "ready",
+    "usability": {
+      "status": "usable",
+      "primaryReason": {
+        "code": "TIMELINE_DISCONTINUITIES",
+        "severity": "limitation",
+        "evidence": {
+          "discontinuities": [
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 92520,
+              "toTimestampMs": 95192,
+              "durationMs": 2672,
+              "affectedLapNumber": 1
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 405897,
+              "toTimestampMs": 406247,
+              "durationMs": 350
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 406247,
+              "toTimestampMs": 406523,
+              "durationMs": 276
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 406523,
+              "toTimestampMs": 406817,
+              "durationMs": 294
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 407085,
+              "toTimestampMs": 407363,
+              "durationMs": 278
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 407363,
+              "toTimestampMs": 407648,
+              "durationMs": 285
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 407920,
+              "toTimestampMs": 408225,
+              "durationMs": 305
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 408225,
+              "toTimestampMs": 408525,
+              "durationMs": 300
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 408525,
+              "toTimestampMs": 408845,
+              "durationMs": 320
+            },
+            {
+              "type": "sampling-gap",
+              "fromTimestampMs": 408845,
+              "toTimestampMs": 409165,
+              "durationMs": 320
+            }
+          ]
+        }
+      },
+      "reasons": [
+        {
+          "code": "TIMELINE_DISCONTINUITIES",
+          "severity": "limitation",
+          "evidence": {
+            "discontinuities": [
+              {
+                "type": "sampling-gap",
+                "fromTimestampMs": 92520,
+                "toTimestampMs": 95192,
+                "durationMs": 2672,
+                "affectedLapNumber": 1
+              },
+              {
+                "type": "sampling-gap",
+                "fromTimestampMs": 405897,
+                "toTimestampMs": 406247,
+                "durationMs": 350
+              },
+              {
+                "type": "sampling-gap",
+                "fromTimestampMs": 406247,
+                "toTimestampMs": 406523,
+                "durationMs": 276
+              },
+              {
+                "type": "sampling-gap",
+                "fromTimestampMs": 406523,
+                "toTimestampMs": 406817,
+                "durationMs": 294
+              },
+              {
+                "type": "sampling-gap",
+                "fromTimestampMs": 407085,
+                "toTimestampMs": 407363,
+                "durationMs": 278
+              },
+              {
+                "type": "sampling-gap",
+                "fromTimestampMs": 407363,
+                "toTimestampMs": 407648,
+                "durationMs": 285
+              },
+              {
+                "type": "sampling-gap",
+                "fromTimestampMs": 407920,
+                "toTimestampMs": 408225,
+                "durationMs": 305
+              },
+              {
+                "type": "sampling-gap",
+                "fromTimestampMs": 408225,
+                "toTimestampMs": 408525,
+                "durationMs": 300
+              },
+              {
+                "type": "sampling-gap",
+                "fromTimestampMs": 408525,
+                "toTimestampMs": 408845,
+                "durationMs": 320
+              },
+              {
+                "type": "sampling-gap",
+                "fromTimestampMs": 408845,
+                "toTimestampMs": 409165,
+                "durationMs": 320
+              }
+            ]
+          }
+        }
+      ],
+      "availableCapabilities": [
+        "lap-comparison",
+        "region-comparison",
+        "ideal-lap",
+        "coaching"
+      ],
+      "unavailableCapabilities": []
+    },
+    "cacheHit": false,
+    "receivedFrameCount": 7195,
+    "retainedTimelineFrameCount": 7195,
+    "excludedTimelineFrameCount": 0,
+    "detectedLapCount": 4,
+    "racingLapCount": 4,
+    "detectedCornerCount": 7,
+    "rankedPhenomenonCount": 12,
+    "detectorFailureCount": 0
+  },
+  "laps": {
+    "analysisId": "sha256:79d048e79816fb2c0d4dc10d5b1b6efc63a1e6e3fa38aabc0bc78c5f3e352f81",
+    "sessionId": "7f3a9c1e-0b52-4d84-9a6e-2c1d5f8b41a0",
+    "samplingGaps": [
+      {
+        "lapNumber": 1,
+        "code": "SAMPLING_GAP_WITHIN_LAP",
+        "severity": "warning",
+        "message": "Lap 1 has a 2672 ms telemetry gap from 50.1% to 54.6% of the lap. Calculations requiring this section are unavailable.",
+        "gapStartTimestampMs": 92520,
+        "gapEndTimestampMs": 95192,
+        "gapDurationMs": 2672,
+        "fromPosition": 0.5007,
+        "toPosition": 0.5458
+      }
+    ],
+    "fragments": [
+      {
+        "startPosition": 0.4,
+        "endPosition": 1
+      },
+      {
+        "startPosition": 0,
+        "endPosition": 0.42
+      }
+    ],
+    "laps": [
+      {
+        "lapNumber": 1,
+        "lapTimeMs": 73789,
+        "eligibility": "racing",
+        "analysisEligibility": {
+          "lapTime": {
+            "eligible": true,
+            "reasons": []
+          },
+          "racing": {
+            "eligible": true,
+            "reasons": []
+          },
+          "cornerDetection": {
+            "eligible": true,
+            "reasons": []
+          }
+        },
+        "confidence": {
+          "boundary": 0.9647416171457296,
+          "lapTime": 0.9625657480060328,
+          "overall": 0.9636530684538025
+        },
+        "limitations": [
+          {
+            "code": "SAMPLING_GAP_WITHIN_LAP",
+            "severity": "warning",
+            "message": "Lap 1 has a 2672 ms telemetry gap from 50.1% to 54.6% of the lap. Calculations requiring this section are unavailable.",
+            "gapStartTimestampMs": 92520,
+            "gapEndTimestampMs": 95192,
+            "gapDurationMs": 2672,
+            "fromPosition": 0.5007,
+            "toPosition": 0.5458
+          }
+        ]
+      },
+      {
+        "lapNumber": 2,
+        "lapTimeMs": 73518,
+        "eligibility": "racing",
+        "analysisEligibility": {
+          "lapTime": {
+            "eligible": true,
+            "reasons": []
+          },
+          "racing": {
+            "eligible": true,
+            "reasons": []
+          },
+          "cornerDetection": {
+            "eligible": true,
+            "reasons": []
+          }
+        },
+        "confidence": {
+          "boundary": 0.9781670965733551,
+          "lapTime": 0.9835959928347336,
+          "overall": 0.9808777887751042
+        },
+        "limitations": []
+      },
+      {
+        "lapNumber": 3,
+        "lapTimeMs": 74069,
+        "eligibility": "racing",
+        "analysisEligibility": {
+          "lapTime": {
+            "eligible": true,
+            "reasons": []
+          },
+          "racing": {
+            "eligible": true,
+            "reasons": []
+          },
+          "cornerDetection": {
+            "eligible": true,
+            "reasons": []
+          }
+        },
+        "confidence": {
+          "boundary": 0.9797981804290072,
+          "lapTime": 0.9885087319602801,
+          "overall": 0.9841438192220016
+        },
+        "limitations": []
+      },
+      {
+        "lapNumber": 4,
+        "lapTimeMs": 73590,
+        "eligibility": "racing",
+        "analysisEligibility": {
+          "lapTime": {
+            "eligible": true,
+            "reasons": []
+          },
+          "racing": {
+            "eligible": true,
+            "reasons": []
+          },
+          "cornerDetection": {
+            "eligible": true,
+            "reasons": []
+          }
+        },
+        "confidence": {
+          "boundary": 0.9020199714418559,
+          "lapTime": 0.8800788719629342,
+          "overall": 0.8909818847510799
+        },
+        "limitations": []
+      }
+    ]
+  },
+  "track": {
+    "analysisId": "sha256:79d048e79816fb2c0d4dc10d5b1b6efc63a1e6e3fa38aabc0bc78c5f3e352f81",
+    "sessionId": "7f3a9c1e-0b52-4d84-9a6e-2c1d5f8b41a0",
+    "regions": [
+      {
+        "type": "corner",
+        "id": "C1",
+        "interval": {
+          "startNormalizedTrackPosition": 0.04510703363914373,
+          "endNormalizedTrackPosition": 0.11009174311926606,
+          "crossesStartFinishLine": false
+        },
+        "phases": [
+          {
+            "id": "C1-entry",
+            "phase": "entry",
+            "interval": {
+              "startNormalizedTrackPosition": 0.04510703363914373,
+              "endNormalizedTrackPosition": 0.05733944954128441,
+              "crossesStartFinishLine": false
+            }
+          },
+          {
+            "id": "C1-apex-proxy",
+            "phase": "apex-proxy",
+            "interval": {
+              "startNormalizedTrackPosition": 0.05733944954128441,
+              "endNormalizedTrackPosition": 0.09327217125382263,
+              "crossesStartFinishLine": false
+            },
+            "peakNormalizedTrackPosition": 0.07530581039755352
+          },
+          {
+            "id": "C1-exit",
+            "phase": "exit",
+            "interval": {
+              "startNormalizedTrackPosition": 0.09327217125382263,
+              "endNormalizedTrackPosition": 0.11009174311926606,
+              "crossesStartFinishLine": false
+            }
+          }
+        ]
+      },
+      {
+        "type": "straight",
+        "id": "C1-C2",
+        "previousCornerId": "C1",
+        "nextCornerId": "C2",
+        "interval": {
+          "startNormalizedTrackPosition": 0.11009174311926606,
+          "endNormalizedTrackPosition": 0.1834862385321101,
+          "crossesStartFinishLine": false
+        }
+      },
+      {
+        "type": "corner",
+        "id": "C2",
+        "interval": {
+          "startNormalizedTrackPosition": 0.1834862385321101,
+          "endNormalizedTrackPosition": 0.23776758409785934,
+          "crossesStartFinishLine": false
+        },
+        "phases": [
+          {
+            "id": "C2-entry",
+            "phase": "entry",
+            "interval": {
+              "startNormalizedTrackPosition": 0.1834862385321101,
+              "endNormalizedTrackPosition": 0.19036697247706422,
+              "crossesStartFinishLine": false
+            }
+          },
+          {
+            "id": "C2-apex-proxy",
+            "phase": "apex-proxy",
+            "interval": {
+              "startNormalizedTrackPosition": 0.19036697247706422,
+              "endNormalizedTrackPosition": 0.22018348623853212,
+              "crossesStartFinishLine": false
+            },
+            "peakNormalizedTrackPosition": 0.20527522935779818
+          },
+          {
+            "id": "C2-exit",
+            "phase": "exit",
+            "interval": {
+              "startNormalizedTrackPosition": 0.22018348623853212,
+              "endNormalizedTrackPosition": 0.23776758409785934,
+              "crossesStartFinishLine": false
+            }
+          }
+        ]
+      },
+      {
+        "type": "straight",
+        "id": "C2-C3",
+        "previousCornerId": "C2",
+        "nextCornerId": "C3",
+        "interval": {
+          "startNormalizedTrackPosition": 0.23776758409785934,
+          "endNormalizedTrackPosition": 0.290519877675841,
+          "crossesStartFinishLine": false
+        }
+      },
+      {
+        "type": "corner",
+        "id": "C3",
+        "interval": {
+          "startNormalizedTrackPosition": 0.290519877675841,
+          "endNormalizedTrackPosition": 0.3753822629969419,
+          "crossesStartFinishLine": false
+        },
+        "phases": [
+          {
+            "id": "C3-entry",
+            "phase": "entry",
+            "interval": {
+              "startNormalizedTrackPosition": 0.290519877675841,
+              "endNormalizedTrackPosition": 0.3073394495412844,
+              "crossesStartFinishLine": false
+            }
+          },
+          {
+            "id": "C3-apex-proxy",
+            "phase": "apex-proxy",
+            "interval": {
+              "startNormalizedTrackPosition": 0.3073394495412844,
+              "endNormalizedTrackPosition": 0.3532110091743119,
+              "crossesStartFinishLine": false
+            },
+            "peakNormalizedTrackPosition": 0.3298929663608563
+          },
+          {
+            "id": "C3-exit",
+            "phase": "exit",
+            "interval": {
+              "startNormalizedTrackPosition": 0.3532110091743119,
+              "endNormalizedTrackPosition": 0.3753822629969419,
+              "crossesStartFinishLine": false
+            }
+          }
+        ]
+      },
+      {
+        "type": "straight",
+        "id": "C3-C4",
+        "previousCornerId": "C3",
+        "nextCornerId": "C4",
+        "interval": {
+          "startNormalizedTrackPosition": 0.3753822629969419,
+          "endNormalizedTrackPosition": 0.43425076452599387,
+          "crossesStartFinishLine": false
+        }
+      },
+      {
+        "type": "corner",
+        "id": "C4",
+        "interval": {
+          "startNormalizedTrackPosition": 0.43425076452599387,
+          "endNormalizedTrackPosition": 0.4908256880733945,
+          "crossesStartFinishLine": false
+        },
+        "phases": [
+          {
+            "id": "C4-entry",
+            "phase": "entry",
+            "interval": {
+              "startNormalizedTrackPosition": 0.43425076452599387,
+              "endNormalizedTrackPosition": 0.4441896024464832,
+              "crossesStartFinishLine": false
+            }
+          },
+          {
+            "id": "C4-apex-proxy",
+            "phase": "apex-proxy",
+            "interval": {
+              "startNormalizedTrackPosition": 0.4441896024464832,
+              "endNormalizedTrackPosition": 0.47629969418960244,
+              "crossesStartFinishLine": false
+            },
+            "peakNormalizedTrackPosition": 0.4606269113149847
+          },
+          {
+            "id": "C4-exit",
+            "phase": "exit",
+            "interval": {
+              "startNormalizedTrackPosition": 0.47629969418960244,
+              "endNormalizedTrackPosition": 0.4908256880733945,
+              "crossesStartFinishLine": false
+            }
+          }
+        ]
+      },
+      {
+        "type": "straight",
+        "id": "C4-C5",
+        "previousCornerId": "C4",
+        "nextCornerId": "C5",
+        "interval": {
+          "startNormalizedTrackPosition": 0.4908256880733945,
+          "endNormalizedTrackPosition": 0.5787461773700305,
+          "crossesStartFinishLine": false
+        }
+      },
+      {
+        "type": "corner",
+        "id": "C5",
+        "interval": {
+          "startNormalizedTrackPosition": 0.5787461773700305,
+          "endNormalizedTrackPosition": 0.6276758409785933,
+          "crossesStartFinishLine": false
+        },
+        "phases": [
+          {
+            "id": "C5-entry",
+            "phase": "entry",
+            "interval": {
+              "startNormalizedTrackPosition": 0.5787461773700305,
+              "endNormalizedTrackPosition": 0.5863914373088686,
+              "crossesStartFinishLine": false
+            }
+          },
+          {
+            "id": "C5-apex-proxy",
+            "phase": "apex-proxy",
+            "interval": {
+              "startNormalizedTrackPosition": 0.5863914373088686,
+              "endNormalizedTrackPosition": 0.613914373088685,
+              "crossesStartFinishLine": false
+            },
+            "peakNormalizedTrackPosition": 0.6005351681957186
+          },
+          {
+            "id": "C5-exit",
+            "phase": "exit",
+            "interval": {
+              "startNormalizedTrackPosition": 0.613914373088685,
+              "endNormalizedTrackPosition": 0.6276758409785933,
+              "crossesStartFinishLine": false
+            }
+          }
+        ]
+      },
+      {
+        "type": "straight",
+        "id": "C5-C6",
+        "previousCornerId": "C5",
+        "nextCornerId": "C6",
+        "interval": {
+          "startNormalizedTrackPosition": 0.6276758409785933,
+          "endNormalizedTrackPosition": 0.7079510703363915,
+          "crossesStartFinishLine": false
+        }
+      },
+      {
+        "type": "corner",
+        "id": "C6",
+        "interval": {
+          "startNormalizedTrackPosition": 0.7079510703363915,
+          "endNormalizedTrackPosition": 0.7782874617737003,
+          "crossesStartFinishLine": false
+        },
+        "phases": [
+          {
+            "id": "C6-entry",
+            "phase": "entry",
+            "interval": {
+              "startNormalizedTrackPosition": 0.7079510703363915,
+              "endNormalizedTrackPosition": 0.7209480122324159,
+              "crossesStartFinishLine": false
+            }
+          },
+          {
+            "id": "C6-apex-proxy",
+            "phase": "apex-proxy",
+            "interval": {
+              "startNormalizedTrackPosition": 0.7209480122324159,
+              "endNormalizedTrackPosition": 0.7591743119266056,
+              "crossesStartFinishLine": false
+            },
+            "peakNormalizedTrackPosition": 0.7404434250764527
+          },
+          {
+            "id": "C6-exit",
+            "phase": "exit",
+            "interval": {
+              "startNormalizedTrackPosition": 0.7591743119266056,
+              "endNormalizedTrackPosition": 0.7782874617737003,
+              "crossesStartFinishLine": false
+            }
+          }
+        ]
+      },
+      {
+        "type": "straight",
+        "id": "C6-C7",
+        "previousCornerId": "C6",
+        "nextCornerId": "C7",
+        "interval": {
+          "startNormalizedTrackPosition": 0.7782874617737003,
+          "endNormalizedTrackPosition": 0.8478593272171254,
+          "crossesStartFinishLine": false
+        }
+      },
+      {
+        "type": "corner",
+        "id": "C7",
+        "interval": {
+          "startNormalizedTrackPosition": 0.8478593272171254,
+          "endNormalizedTrackPosition": 0.908256880733945,
+          "crossesStartFinishLine": false
+        },
+        "phases": [
+          {
+            "id": "C7-entry",
+            "phase": "entry",
+            "interval": {
+              "startNormalizedTrackPosition": 0.8478593272171254,
+              "endNormalizedTrackPosition": 0.8577981651376146,
+              "crossesStartFinishLine": false
+            }
+          },
+          {
+            "id": "C7-apex-proxy",
+            "phase": "apex-proxy",
+            "interval": {
+              "startNormalizedTrackPosition": 0.8577981651376146,
+              "endNormalizedTrackPosition": 0.8922018348623854,
+              "crossesStartFinishLine": false
+            },
+            "peakNormalizedTrackPosition": 0.875
+          },
+          {
+            "id": "C7-exit",
+            "phase": "exit",
+            "interval": {
+              "startNormalizedTrackPosition": 0.8922018348623854,
+              "endNormalizedTrackPosition": 0.908256880733945,
+              "crossesStartFinishLine": false
+            }
+          }
+        ]
+      },
+      {
+        "type": "straight",
+        "id": "C7-C1",
+        "previousCornerId": "C7",
+        "nextCornerId": "C1",
+        "interval": {
+          "startNormalizedTrackPosition": 0.908256880733945,
+          "endNormalizedTrackPosition": 0.04510703363914373,
+          "crossesStartFinishLine": true
+        }
+      }
+    ]
+  },
+  "timeLoss": {
+    "analysisId": "sha256:79d048e79816fb2c0d4dc10d5b1b6efc63a1e6e3fa38aabc0bc78c5f3e352f81",
+    "sessionId": "7f3a9c1e-0b52-4d84-9a6e-2c1d5f8b41a0",
+    "fastestLap": {
+      "lapNumber": 2,
+      "lapTimeMs": 73518
+    },
+    "idealLap": {
+      "durationMs": 73454.59007357332,
+      "basis": "fastest-observed-pass-per-region"
+    },
+    "laps": [
+      {
+        "lapNumber": 1,
+        "lapTimeMs": 73789,
+        "timeLossToFastestLapMs": 271,
+        "timeLossToIdealLapMs": 334.40992642668425,
+        "regions": [
+          {
+            "regionId": "C1",
+            "regionDurationMs": 6241.870455317701,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 6196.54652686762
+            },
+            "timeLossToFastestObservedPassMs": 45.32392845008144,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 45.32392845008144
+          },
+          {
+            "regionId": "C1-C2",
+            "regionDurationMs": 4377.494138634051,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 4368.020887942344
+            },
+            "timeLossToFastestObservedPassMs": 9.473250691706198,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 54.79717914178764
+          },
+          {
+            "regionId": "C2",
+            "regionDurationMs": 3609.634726469594,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 3576.443610416085
+            },
+            "timeLossToFastestObservedPassMs": 33.19111605350918,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 87.98829519529681
+          },
+          {
+            "regionId": "C2-C3",
+            "regionDurationMs": 3141.7631182952173,
+            "fastestObservedPass": {
+              "lapNumber": 1,
+              "durationMs": 3141.7631182952173
+            },
+            "timeLossToFastestObservedPassMs": 0,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 87.98829519529681
+          },
+          {
+            "regionId": "C3",
+            "regionDurationMs": 9855.240959176735,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 9793.334643949318
+            },
+            "timeLossToFastestObservedPassMs": 61.90631522741751,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 149.89461042271432
+          },
+          {
+            "regionId": "C3-C4",
+            "regionDurationMs": 3516.470268433579,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 3509.0978593272157
+            },
+            "timeLossToFastestObservedPassMs": 7.372409106363193,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 157.26701952907752
+          },
+          {
+            "regionId": "C4",
+            "regionDurationMs": 4722.527522935779,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 4691.789670404367
+            },
+            "timeLossToFastestObservedPassMs": 30.7378525314125,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 188.00487206049002
+          },
+          {
+            "regionId": "C4-C5",
+            "regionDurationMs": 5229.197247706426,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 5215.929882044555
+            },
+            "timeLossToFastestObservedPassMs": 13.267365661871736,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 201.27223772236175
+          },
+          {
+            "regionId": "C5",
+            "regionDurationMs": 3550.098623853206,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 3525.3217804961023
+            },
+            "timeLossToFastestObservedPassMs": 24.776843357103644,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 226.0490810794654
+          },
+          {
+            "regionId": "C5-C6",
+            "regionDurationMs": 4774.450305810402,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 4766.278389398591
+            },
+            "timeLossToFastestObservedPassMs": 8.171916411811253,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 234.22099749127665
+          },
+          {
+            "regionId": "C6",
+            "regionDurationMs": 7053.852905198772,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 7009.370661618363
+            },
+            "timeLossToFastestObservedPassMs": 44.482243580408976,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 278.7032410716856
+          },
+          {
+            "regionId": "C6-C7",
+            "regionDurationMs": 4143.683792048934,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 4139.784403669764
+            },
+            "timeLossToFastestObservedPassMs": 3.8993883791699773,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 282.6026294508556
+          },
+          {
+            "regionId": "C7",
+            "regionDurationMs": 5399.87767584098,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 5360.989806320082
+            },
+            "timeLossToFastestObservedPassMs": 38.887869520898676,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 321.4904989717543
+          },
+          {
+            "regionId": "C7-C1",
+            "regionDurationMs": 8172.838260278622,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 8159.918832823692
+            },
+            "timeLossToFastestObservedPassMs": 12.919427454929973,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 334.40992642668425
+          }
+        ]
+      },
+      {
+        "lapNumber": 2,
+        "lapTimeMs": 73518,
+        "timeLossToFastestLapMs": 0,
+        "timeLossToIdealLapMs": 63.40992642668425,
+        "regions": [
+          {
+            "regionId": "C1",
+            "regionDurationMs": 6196.54652686762,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 6196.54652686762
+            },
+            "timeLossToFastestObservedPassMs": 0,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 0
+          },
+          {
+            "regionId": "C1-C2",
+            "regionDurationMs": 4370.687490898505,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 4368.020887942344
+            },
+            "timeLossToFastestObservedPassMs": 2.6666029561602045,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 2.6666029561602045
+          },
+          {
+            "regionId": "C2",
+            "regionDurationMs": 3576.443610416085,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 3576.443610416085
+            },
+            "timeLossToFastestObservedPassMs": 0,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 2.6666029561602045
+          },
+          {
+            "regionId": "C2-C3",
+            "regionDurationMs": 3163.4320266889117,
+            "fastestObservedPass": {
+              "lapNumber": 1,
+              "durationMs": 3141.7631182952173
+            },
+            "timeLossToFastestObservedPassMs": 21.668908393694437,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 24.33551134985464
+          },
+          {
+            "regionId": "C3",
+            "regionDurationMs": 9793.334643949318,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 9793.334643949318
+            },
+            "timeLossToFastestObservedPassMs": 0,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 24.33551134985464
+          },
+          {
+            "regionId": "C3-C4",
+            "regionDurationMs": 3512.6677345759817,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 3509.0978593272157
+            },
+            "timeLossToFastestObservedPassMs": 3.5698752487660386,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 27.90538659862068
+          },
+          {
+            "regionId": "C4",
+            "regionDurationMs": 4691.789670404367,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 4691.789670404367
+            },
+            "timeLossToFastestObservedPassMs": 0,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 27.90538659862068
+          },
+          {
+            "regionId": "C4-C5",
+            "regionDurationMs": 5217.639483520208,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 5215.929882044555
+            },
+            "timeLossToFastestObservedPassMs": 1.7096014756534714,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 29.61498807427415
+          },
+          {
+            "regionId": "C5",
+            "regionDurationMs": 3525.3217804961023,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 3525.3217804961023
+            },
+            "timeLossToFastestObservedPassMs": 0,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 29.61498807427415
+          },
+          {
+            "regionId": "C5-C6",
+            "regionDurationMs": 4779.162807630695,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 4766.278389398591
+            },
+            "timeLossToFastestObservedPassMs": 12.884418232104508,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 42.49940630637866
+          },
+          {
+            "regionId": "C6",
+            "regionDurationMs": 7009.370661618363,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 7009.370661618363
+            },
+            "timeLossToFastestObservedPassMs": 0,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 42.49940630637866
+          },
+          {
+            "regionId": "C6-C7",
+            "regionDurationMs": 4148.988447162759,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 4139.784403669764
+            },
+            "timeLossToFastestObservedPassMs": 9.20404349299497,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 51.70344979937363
+          },
+          {
+            "regionId": "C7",
+            "regionDurationMs": 5360.989806320082,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 5360.989806320082
+            },
+            "timeLossToFastestObservedPassMs": 0,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 51.70344979937363
+          },
+          {
+            "regionId": "C7-C1",
+            "regionDurationMs": 8171.625309451003,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 8159.918832823692
+            },
+            "timeLossToFastestObservedPassMs": 11.706476627310622,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 63.40992642668425
+          }
+        ]
+      },
+      {
+        "lapNumber": 3,
+        "lapTimeMs": 74069,
+        "timeLossToFastestLapMs": 551,
+        "timeLossToIdealLapMs": 614.4099264266843,
+        "regions": [
+          {
+            "regionId": "C1",
+            "regionDurationMs": 6210.072171253822,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 6196.54652686762
+            },
+            "timeLossToFastestObservedPassMs": 13.525644386201748,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 13.525644386201748
+          },
+          {
+            "regionId": "C1-C2",
+            "regionDurationMs": 4403.4385321101,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 4368.020887942344
+            },
+            "timeLossToFastestObservedPassMs": 35.4176441677555,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 48.943288553957245
+          },
+          {
+            "regionId": "C2",
+            "regionDurationMs": 4001.47910295616,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 3576.443610416085
+            },
+            "timeLossToFastestObservedPassMs": 425.0354925400752,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 473.97878109403246
+          },
+          {
+            "regionId": "C2-C3",
+            "regionDurationMs": 3160.5686799184477,
+            "fastestObservedPass": {
+              "lapNumber": 1,
+              "durationMs": 3141.7631182952173
+            },
+            "timeLossToFastestObservedPassMs": 18.80556162323046,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 492.7843427172629
+          },
+          {
+            "regionId": "C3",
+            "regionDurationMs": 9818.178177030233,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 9793.334643949318
+            },
+            "timeLossToFastestObservedPassMs": 24.843533080915222,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 517.6278757981781
+          },
+          {
+            "regionId": "C3-C4",
+            "regionDurationMs": 3513.8596670064726,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 3509.0978593272157
+            },
+            "timeLossToFastestObservedPassMs": 4.76180767925689,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 522.389683477435
+          },
+          {
+            "regionId": "C4",
+            "regionDurationMs": 4701.987767584098,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 4691.789670404367
+            },
+            "timeLossToFastestObservedPassMs": 10.198097179731121,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 532.5877806571661
+          },
+          {
+            "regionId": "C4-C5",
+            "regionDurationMs": 5221.214067278284,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 5215.929882044555
+            },
+            "timeLossToFastestObservedPassMs": 5.284185233729659,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 537.8719658908958
+          },
+          {
+            "regionId": "C5",
+            "regionDurationMs": 3534.064776202402,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 3525.3217804961023
+            },
+            "timeLossToFastestObservedPassMs": 8.742995706299553,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 546.6149615971954
+          },
+          {
+            "regionId": "C5-C6",
+            "regionDurationMs": 4777.75479566303,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 4766.278389398591
+            },
+            "timeLossToFastestObservedPassMs": 11.476406264438992,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 558.0913678616344
+          },
+          {
+            "regionId": "C6",
+            "regionDurationMs": 7025.75076452599,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 7009.370661618363
+            },
+            "timeLossToFastestObservedPassMs": 16.380102907627588,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 574.4714707692619
+          },
+          {
+            "regionId": "C6-C7",
+            "regionDurationMs": 4148.5598029222165,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 4139.784403669764
+            },
+            "timeLossToFastestObservedPassMs": 8.775399252452189,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 583.2468700217141
+          },
+          {
+            "regionId": "C7",
+            "regionDurationMs": 5374.002378525329,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 5360.989806320082
+            },
+            "timeLossToFastestObservedPassMs": 13.012572205247125,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 596.2594422269613
+          },
+          {
+            "regionId": "C7-C1",
+            "regionDurationMs": 8178.069317023415,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 8159.918832823692
+            },
+            "timeLossToFastestObservedPassMs": 18.150484199722996,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 614.4099264266843
+          }
+        ]
+      },
+      {
+        "lapNumber": 4,
+        "lapTimeMs": 73590,
+        "timeLossToFastestLapMs": 72,
+        "timeLossToIdealLapMs": 135.40992642668425,
+        "regions": [
+          {
+            "regionId": "C1",
+            "regionDurationMs": 6218.97852956166,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 6196.54652686762
+            },
+            "timeLossToFastestObservedPassMs": 22.43200269404042,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 22.43200269404042
+          },
+          {
+            "regionId": "C1-C2",
+            "regionDurationMs": 4368.020887942344,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 4368.020887942344
+            },
+            "timeLossToFastestObservedPassMs": 0,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 22.43200269404042
+          },
+          {
+            "regionId": "C2",
+            "regionDurationMs": 3590.9200524246553,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 3576.443610416085
+            },
+            "timeLossToFastestObservedPassMs": 14.476442008570302,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 36.90844470261072
+          },
+          {
+            "regionId": "C2-C3",
+            "regionDurationMs": 3145.5367777241045,
+            "fastestObservedPass": {
+              "lapNumber": 1,
+              "durationMs": 3141.7631182952173
+            },
+            "timeLossToFastestObservedPassMs": 3.7736594288871856,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 40.68210413149791
+          },
+          {
+            "regionId": "C3",
+            "regionDurationMs": 9822.908482214727,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 9793.334643949318
+            },
+            "timeLossToFastestObservedPassMs": 29.573838265408995,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 70.2559423969069
+          },
+          {
+            "regionId": "C3-C4",
+            "regionDurationMs": 3509.0978593272157,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 3509.0978593272157
+            },
+            "timeLossToFastestObservedPassMs": 0,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 70.2559423969069
+          },
+          {
+            "regionId": "C4",
+            "regionDurationMs": 4705.338925294869,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 4691.789670404367
+            },
+            "timeLossToFastestObservedPassMs": 13.549254890502198,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 83.8051972874091
+          },
+          {
+            "regionId": "C4-C5",
+            "regionDurationMs": 5215.929882044555,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 5215.929882044555
+            },
+            "timeLossToFastestObservedPassMs": 0,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 83.8051972874091
+          },
+          {
+            "regionId": "C5",
+            "regionDurationMs": 3539.2593272171216,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 3525.3217804961023
+            },
+            "timeLossToFastestObservedPassMs": 13.937546721019316,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 97.74274400842842
+          },
+          {
+            "regionId": "C5-C6",
+            "regionDurationMs": 4766.278389398591,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 4766.278389398591
+            },
+            "timeLossToFastestObservedPassMs": 0,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 97.74274400842842
+          },
+          {
+            "regionId": "C6",
+            "regionDurationMs": 7027.843017329229,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 7009.370661618363
+            },
+            "timeLossToFastestObservedPassMs": 18.472355710866395,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 116.21509971929481
+          },
+          {
+            "regionId": "C6-C7",
+            "regionDurationMs": 4139.784403669764,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 4139.784403669764
+            },
+            "timeLossToFastestObservedPassMs": 0,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 116.21509971929481
+          },
+          {
+            "regionId": "C7",
+            "regionDurationMs": 5380.184633027471,
+            "fastestObservedPass": {
+              "lapNumber": 2,
+              "durationMs": 5360.989806320082
+            },
+            "timeLossToFastestObservedPassMs": 19.19482670738944,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 135.40992642668425
+          },
+          {
+            "regionId": "C7-C1",
+            "regionDurationMs": 8159.918832823692,
+            "fastestObservedPass": {
+              "lapNumber": 4,
+              "durationMs": 8159.918832823692
+            },
+            "timeLossToFastestObservedPassMs": 0,
+            "limitations": [],
+            "cumulativeTimeLossToIdealLapMs": 135.40992642668425
+          }
+        ]
+      }
+    ]
+  },
+  "coaching": {
+    "analysisId": "sha256:79d048e79816fb2c0d4dc10d5b1b6efc63a1e6e3fa38aabc0bc78c5f3e352f81",
+    "sessionId": "7f3a9c1e-0b52-4d84-9a6e-2c1d5f8b41a0",
+    "rankedPhenomena": [
+      {
+        "rank": 1,
+        "priority": 1,
+        "finding": {
+          "phenomenon": "UNNECESSARY_BRAKING",
+          "lapNumber": 3,
+          "comparedWithLapNumber": 2,
+          "analysisRegionId": "C2-entry",
+          "occurredAtLapElapsedMs": 12260.095238095237,
+          "impactTimeLossMs": 459.3394389504392,
+          "message": "On lap 3, you applied up to 45% brake before C2 entry, while your quickest C2 pass stayed off the brake. You entered 20.2 km/h slower and were 30.7 km/h slower in the part of C2 where you used the most steering. From the moment you started braking to the C2 exit, you lost 459 ms. Keep C2 brake-free and protect momentum through the corner.",
+          "evidence": [
+            {
+              "channels": [
+                "brakeRatio",
+                "speedKmh",
+                "normalizedTrackPosition"
+              ],
+              "message": "Compared region braking onset cell 218; travel-time loss from that cell through C2: 459 ms."
+            }
+          ],
+          "metrics": [
+            {
+              "kind": "event-position",
+              "role": "evidence",
+              "event": "braking-onset",
+              "regionId": "C2-entry",
+              "location": "before-region",
+              "analyzedPass": {
+                "lapNumber": 3,
+                "normalizedTrackPosition": 0.16666666666666666
+              }
+            },
+            {
+              "kind": "brake-application",
+              "role": "evidence",
+              "analyzedPass": {
+                "lapNumber": 3,
+                "maximumBrakeRatio": 0.4492609582059128
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "maximumBrakeRatio": 0.01
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "minimum",
+              "analyzedPass": {
+                "lapNumber": 3,
+                "speedKmh": 177.22334352701324
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 213.7389058783554
+              }
+            }
+          ],
+          "limitations": []
+        }
+      },
+      {
+        "rank": 2,
+        "priority": 0.7113080237537678,
+        "finding": {
+          "phenomenon": "LATE_BRAKE_RELEASE",
+          "lapNumber": 1,
+          "comparedWithLapNumber": 2,
+          "analysisRegionId": "C3",
+          "occurredAtLapElapsedMs": 26992.590978593274,
+          "impactTimeLossMs": 326.7318285520014,
+          "message": "On lap 1, you entered C3 17.4 km/h faster than on your quickest C3 pass, but kept braking for 476 ms longer. From the point where Lap 2 stopped braking to the C3 exit, you lost 327 ms and exited 10.1 km/h slower. The additional entry speed did not pay off — finish braking earlier and protect the exit.",
+          "evidence": [
+            {
+              "channels": [
+                "brakeRatio",
+                "speedKmh",
+                "normalizedTrackPosition"
+              ],
+              "message": "Compared region release cell 449; fastest region release cell 444; release difference 476 ms; time loss to corner exit 327 ms."
+            }
+          ],
+          "metrics": [
+            {
+              "kind": "event-position",
+              "role": "evidence",
+              "event": "brake-release",
+              "regionId": "C3",
+              "location": "in-region",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "normalizedTrackPosition": 0.34327217125382264
+              }
+            },
+            {
+              "kind": "timing-difference",
+              "role": "evidence",
+              "event": "brake-release",
+              "differenceMs": 475.9975535168196
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "entry",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 232.74888597640896
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 215.3610310179119
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "minimum",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 83.5
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 83.87155963302759
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "exit",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 233.54999999999998
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 243.6
+              }
+            }
+          ],
+          "limitations": []
+        }
+      },
+      {
+        "rank": 3,
+        "priority": 0.5136622460197331,
+        "finding": {
+          "phenomenon": "LATE_BRAKE_RELEASE",
+          "lapNumber": 1,
+          "comparedWithLapNumber": 2,
+          "analysisRegionId": "C6",
+          "occurredAtLapElapsedMs": 56561.35779816515,
+          "impactTimeLossMs": 235.94532789672667,
+          "message": "On lap 1, you entered C6 17.6 km/h faster than on your quickest C6 pass, but kept braking for 418 ms longer. From the point where Lap 2 stopped braking to the C6 exit, you lost 236 ms and exited 10.7 km/h slower. The additional entry speed did not pay off — finish braking earlier and protect the exit.",
+          "evidence": [
+            {
+              "channels": [
+                "brakeRatio",
+                "speedKmh",
+                "normalizedTrackPosition"
+              ],
+              "message": "Compared region release cell 984; fastest region release cell 979; release difference 418 ms; time loss to corner exit 236 ms."
+            }
+          ],
+          "metrics": [
+            {
+              "kind": "event-position",
+              "role": "evidence",
+              "event": "brake-release",
+              "regionId": "C6",
+              "location": "in-region",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "normalizedTrackPosition": 0.7522935779816514
+              }
+            },
+            {
+              "kind": "timing-difference",
+              "role": "evidence",
+              "event": "brake-release",
+              "differenceMs": 417.9327217125392
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "entry",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 238.5666666666665
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 220.9238095238093
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "minimum",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 107.0071865443425
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 107.74576962283383
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "exit",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 235.0366360856269
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 245.75715256540946
+              }
+            }
+          ],
+          "limitations": []
+        }
+      },
+      {
+        "rank": 4,
+        "priority": 0.4372696091415888,
+        "finding": {
+          "phenomenon": "LATE_BRAKE_RELEASE",
+          "lapNumber": 1,
+          "comparedWithLapNumber": 2,
+          "analysisRegionId": "C1",
+          "occurredAtLapElapsedMs": 7042.376146788993,
+          "impactTimeLossMs": 200.85517693317524,
+          "message": "On lap 1, you entered C1 18.8 km/h faster than on your quickest C1 pass, but kept braking for 467 ms longer. From the point where Lap 2 stopped braking to the C1 exit, you lost 201 ms and exited 11.5 km/h slower. The additional entry speed did not pay off — finish braking earlier and protect the exit.",
+          "evidence": [
+            {
+              "channels": [
+                "brakeRatio",
+                "speedKmh",
+                "normalizedTrackPosition"
+              ],
+              "message": "Compared region release cell 114; fastest region release cell 108; release difference 467 ms; time loss to corner exit 201 ms."
+            }
+          ],
+          "metrics": [
+            {
+              "kind": "event-position",
+              "role": "evidence",
+              "event": "brake-release",
+              "regionId": "C1",
+              "location": "in-region",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "normalizedTrackPosition": 0.0871559633027523
+              }
+            },
+            {
+              "kind": "timing-difference",
+              "role": "evidence",
+              "event": "brake-release",
+              "differenceMs": 466.5284403669648
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "entry",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 237.81542643560994
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 218.9852531430513
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "minimum",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 116.87805810397553
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 118.0250764525994
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "exit",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 233.029625382263
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 244.5346002621232
+              }
+            }
+          ],
+          "limitations": []
+        }
+      },
+      {
+        "rank": 5,
+        "priority": 0.3757493070780201,
+        "finding": {
+          "phenomenon": "LATE_BRAKE_RELEASE",
+          "lapNumber": 1,
+          "comparedWithLapNumber": 2,
+          "analysisRegionId": "C7",
+          "occurredAtLapElapsedMs": 66447.14525993884,
+          "impactTimeLossMs": 172.59647589923406,
+          "message": "On lap 1, you entered C7 18.0 km/h faster than on your quickest C7 pass, but kept braking for 374 ms longer. From the point where Lap 2 stopped braking to the C7 exit, you lost 173 ms and exited 11.2 km/h slower. The additional entry speed did not pay off — finish braking earlier and protect the exit.",
+          "evidence": [
+            {
+              "channels": [
+                "brakeRatio",
+                "speedKmh",
+                "normalizedTrackPosition"
+              ],
+              "message": "Compared region release cell 1158; fastest region release cell 1153; release difference 374 ms; time loss to corner exit 173 ms."
+            }
+          ],
+          "metrics": [
+            {
+              "kind": "event-position",
+              "role": "evidence",
+              "event": "brake-release",
+              "regionId": "C7",
+              "location": "in-region",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "normalizedTrackPosition": 0.8853211009174312
+              }
+            },
+            {
+              "kind": "timing-difference",
+              "role": "evidence",
+              "event": "brake-release",
+              "differenceMs": 373.6282219309651
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "entry",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 239.0019571865444
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 220.96520557254476
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "minimum",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 132.73547400611622
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 133.8410550458716
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "exit",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 233.35419639823303
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 244.51026163778468
+              }
+            }
+          ],
+          "limitations": []
+        }
+      },
+      {
+        "rank": 6,
+        "priority": 0.3313132311788378,
+        "finding": {
+          "phenomenon": "LATE_BRAKE_RELEASE",
+          "lapNumber": 4,
+          "comparedWithLapNumber": 2,
+          "analysisRegionId": "C3",
+          "occurredAtLapElapsedMs": 26858.06055045873,
+          "impactTimeLossMs": 152.18523372654454,
+          "message": "On lap 4, you entered C3 9.1 km/h faster than on your quickest C3 pass, but kept braking for 294 ms longer. From the point where Lap 2 stopped braking to the C3 exit, you lost 152 ms and exited 4.6 km/h slower. The additional entry speed did not pay off — finish braking earlier and protect the exit.",
+          "evidence": [
+            {
+              "channels": [
+                "brakeRatio",
+                "speedKmh",
+                "normalizedTrackPosition"
+              ],
+              "message": "Compared region release cell 447; fastest region release cell 444; release difference 294 ms; time loss to corner exit 152 ms."
+            }
+          ],
+          "metrics": [
+            {
+              "kind": "event-position",
+              "role": "evidence",
+              "event": "brake-release",
+              "regionId": "C3",
+              "location": "in-region",
+              "analyzedPass": {
+                "lapNumber": 4,
+                "normalizedTrackPosition": 0.34174311926605505
+              }
+            },
+            {
+              "kind": "timing-difference",
+              "role": "evidence",
+              "event": "brake-release",
+              "differenceMs": 294.3110091743001
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "entry",
+              "analyzedPass": {
+                "lapNumber": 4,
+                "speedKmh": 224.4914373088685
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 215.3610310179119
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "minimum",
+              "analyzedPass": {
+                "lapNumber": 4,
+                "speedKmh": 83.59785932721717
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 83.87155963302759
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "exit",
+              "analyzedPass": {
+                "lapNumber": 4,
+                "speedKmh": 239.04000000000002
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 243.6
+              }
+            }
+          ],
+          "limitations": []
+        }
+      },
+      {
+        "rank": 7,
+        "priority": 0.2870681653514922,
+        "finding": {
+          "phenomenon": "LATE_BRAKE_RELEASE",
+          "lapNumber": 1,
+          "comparedWithLapNumber": 2,
+          "analysisRegionId": "C4",
+          "occurredAtLapElapsedMs": 36567.41467889908,
+          "impactTimeLossMs": 131.86173001308634,
+          "message": "On lap 1, you entered C4 16.6 km/h faster than on your quickest C4 pass, but kept braking for 334 ms longer. From the point where Lap 2 stopped braking to the C4 exit, you lost 132 ms and exited 11.0 km/h slower. The additional entry speed did not pay off — finish braking earlier and protect the exit.",
+          "evidence": [
+            {
+              "channels": [
+                "brakeRatio",
+                "speedKmh",
+                "normalizedTrackPosition"
+              ],
+              "message": "Compared region release cell 615; fastest region release cell 610; release difference 334 ms; time loss to corner exit 132 ms."
+            }
+          ],
+          "metrics": [
+            {
+              "kind": "event-position",
+              "role": "evidence",
+              "event": "brake-release",
+              "regionId": "C4",
+              "location": "in-region",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "normalizedTrackPosition": 0.4701834862385321
+              }
+            },
+            {
+              "kind": "timing-difference",
+              "role": "evidence",
+              "event": "brake-release",
+              "differenceMs": 333.74836173001677
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "entry",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 241.5455657492355
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 224.93486238532125
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "minimum",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 148.5702053298384
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 150.07064220183486
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "exit",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 234.88875297315664
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 245.87382262996945
+              }
+            }
+          ],
+          "limitations": []
+        }
+      },
+      {
+        "rank": 8,
+        "priority": 0.17746347123664394,
+        "finding": {
+          "phenomenon": "LATE_BRAKE_RELEASE",
+          "lapNumber": 4,
+          "comparedWithLapNumber": 2,
+          "analysisRegionId": "C7",
+          "occurredAtLapElapsedMs": 66340.87889908254,
+          "impactTimeLossMs": 81.51597131203744,
+          "message": "On lap 4, you entered C7 9.8 km/h faster than on your quickest C7 pass, but kept braking for 374 ms longer. From the point where Lap 2 stopped braking to the C7 exit, you lost 82 ms and exited 4.8 km/h slower. The additional entry speed did not pay off — finish braking earlier and protect the exit.",
+          "evidence": [
+            {
+              "channels": [
+                "brakeRatio",
+                "speedKmh",
+                "normalizedTrackPosition"
+              ],
+              "message": "Compared region release cell 1158; fastest region release cell 1153; release difference 374 ms; time loss to corner exit 82 ms."
+            }
+          ],
+          "metrics": [
+            {
+              "kind": "event-position",
+              "role": "evidence",
+              "event": "brake-release",
+              "regionId": "C7",
+              "location": "in-region",
+              "analyzedPass": {
+                "lapNumber": 4,
+                "normalizedTrackPosition": 0.8853211009174312
+              }
+            },
+            {
+              "kind": "timing-difference",
+              "role": "evidence",
+              "event": "brake-release",
+              "differenceMs": 373.6282219309651
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "entry",
+              "analyzedPass": {
+                "lapNumber": 4,
+                "speedKmh": 230.7610747051112
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 220.96520557254476
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "minimum",
+              "analyzedPass": {
+                "lapNumber": 4,
+                "speedKmh": 133.58256880733947
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 133.8410550458716
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "exit",
+              "analyzedPass": {
+                "lapNumber": 4,
+                "speedKmh": 239.70131498470946
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 244.51026163778468
+              }
+            }
+          ],
+          "limitations": []
+        }
+      },
+      {
+        "rank": 9,
+        "priority": 0.13711384579569447,
+        "finding": {
+          "phenomenon": "LATE_BRAKE_RELEASE",
+          "lapNumber": 4,
+          "comparedWithLapNumber": 2,
+          "analysisRegionId": "C4",
+          "occurredAtLapElapsedMs": 36454.0266491918,
+          "impactTimeLossMs": 62.98179700013134,
+          "message": "On lap 4, you entered C4 8.8 km/h faster than on your quickest C4 pass, but kept braking for 267 ms longer. From the point where Lap 2 stopped braking to the C4 exit, you lost 63 ms and exited 5.4 km/h slower. The additional entry speed did not pay off — finish braking earlier and protect the exit.",
+          "evidence": [
+            {
+              "channels": [
+                "brakeRatio",
+                "speedKmh",
+                "normalizedTrackPosition"
+              ],
+              "message": "Compared region release cell 614; fastest region release cell 610; release difference 267 ms; time loss to corner exit 63 ms."
+            }
+          ],
+          "metrics": [
+            {
+              "kind": "event-position",
+              "role": "evidence",
+              "event": "brake-release",
+              "regionId": "C4",
+              "location": "in-region",
+              "analyzedPass": {
+                "lapNumber": 4,
+                "normalizedTrackPosition": 0.4694189602446483
+              }
+            },
+            {
+              "kind": "timing-difference",
+              "role": "evidence",
+              "event": "brake-release",
+              "differenceMs": 266.77588466581074
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "entry",
+              "analyzedPass": {
+                "lapNumber": 4,
+                "speedKmh": 233.7161060142713
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 224.93486238532125
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "minimum",
+              "analyzedPass": {
+                "lapNumber": 4,
+                "speedKmh": 149.4444444444445
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 150.07064220183486
+              }
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "exit",
+              "analyzedPass": {
+                "lapNumber": 4,
+                "speedKmh": 240.45856269113153
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 245.87382262996945
+              }
+            }
+          ],
+          "limitations": []
+        }
+      },
+      {
+        "rank": 10,
+        "priority": 0.09867197241683334,
+        "finding": {
+          "phenomenon": "LATE_BRAKING",
+          "lapNumber": 1,
+          "comparedWithLapNumber": 2,
+          "analysisRegionId": "C1-entry",
+          "occurredAtLapElapsedMs": 1944.8516819571887,
+          "impactTimeLossMs": 45.32392845008144,
+          "message": "On lap 1, you started braking for C1 approximately 272 ms later than on the quickest C1 pass (Lap 2).",
+          "evidence": [
+            {
+              "channels": [
+                "brakeRatio",
+                "normalizedTrackPosition"
+              ],
+              "message": "Compared lap onset cell 43; fastest observed onset cell 37; benchmark travel-time difference 272 ms."
+            }
+          ],
+          "metrics": [
+            {
+              "kind": "event-position",
+              "role": "evidence",
+              "event": "braking-onset",
+              "regionId": "C1-entry",
+              "location": "before-region",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "normalizedTrackPosition": 0.03287461773700306
+              }
+            },
+            {
+              "kind": "timing-difference",
+              "role": "evidence",
+              "event": "braking-onset",
+              "differenceMs": 272.1659021406813
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "minimum",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 116.87805810397553
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 118.0250764525994
+              }
+            }
+          ],
+          "limitations": []
+        }
+      },
+      {
+        "rank": 11,
+        "priority": 0.0846604193399002,
+        "finding": {
+          "phenomenon": "LATE_BRAKING",
+          "lapNumber": 1,
+          "comparedWithLapNumber": 2,
+          "analysisRegionId": "C7-entry",
+          "occurredAtLapElapsedMs": 62118.32110091743,
+          "impactTimeLossMs": 38.887869520898676,
+          "message": "On lap 1, you started braking for C7 approximately 317 ms later than on the quickest C7 pass (Lap 2).",
+          "evidence": [
+            {
+              "channels": [
+                "brakeRatio",
+                "normalizedTrackPosition"
+              ],
+              "message": "Compared lap onset cell 1092; fastest observed onset cell 1085; benchmark travel-time difference 317 ms."
+            }
+          ],
+          "metrics": [
+            {
+              "kind": "event-position",
+              "role": "evidence",
+              "event": "braking-onset",
+              "regionId": "C7-entry",
+              "location": "before-region",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "normalizedTrackPosition": 0.8348623853211009
+              }
+            },
+            {
+              "kind": "timing-difference",
+              "role": "evidence",
+              "event": "braking-onset",
+              "differenceMs": 317.3491103697452
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "minimum",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 132.73547400611622
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 133.8410550458716
+              }
+            }
+          ],
+          "limitations": []
+        }
+      },
+      {
+        "rank": 12,
+        "priority": 0.06691751224681794,
+        "finding": {
+          "phenomenon": "LATE_BRAKING",
+          "lapNumber": 1,
+          "comparedWithLapNumber": 2,
+          "analysisRegionId": "C4-entry",
+          "occurredAtLapElapsedMs": 32735.509004417254,
+          "impactTimeLossMs": 30.7378525314125,
+          "message": "On lap 1, you started braking for C4 approximately 362 ms later than on the quickest C4 pass (Lap 2).",
+          "evidence": [
+            {
+              "channels": [
+                "brakeRatio",
+                "normalizedTrackPosition"
+              ],
+              "message": "Compared lap onset cell 553; fastest observed onset cell 545; benchmark travel-time difference 362 ms."
+            }
+          ],
+          "metrics": [
+            {
+              "kind": "event-position",
+              "role": "evidence",
+              "event": "braking-onset",
+              "regionId": "C4-entry",
+              "location": "before-region",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "normalizedTrackPosition": 0.422782874617737
+              }
+            },
+            {
+              "kind": "timing-difference",
+              "role": "evidence",
+              "event": "braking-onset",
+              "differenceMs": 362.1957186544314
+            },
+            {
+              "kind": "speed",
+              "role": "related",
+              "measurement": "minimum",
+              "analyzedPass": {
+                "lapNumber": 1,
+                "speedKmh": 148.5702053298384
+              },
+              "fastestRegionPass": {
+                "lapNumber": 2,
+                "speedKmh": 150.07064220183486
+              }
+            }
+          ],
+          "limitations": []
+        }
+      }
+    ],
+    "detectorFailures": []
+  }
+}

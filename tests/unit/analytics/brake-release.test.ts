@@ -135,7 +135,7 @@ describe('brake release report facts', () => {
 
     test('creates the complete late-release report from supported facts', () => {
         expect(createBrakeReleaseReportMessage(createReportFacts(), REPORT_MARGINS)).toBe(
-            'On lap 4, you entered C3 9.1 km/h faster than on your quickest C3 pass, but kept braking for 294 ms longer. From the point where Lap 2 stopped braking to the C3 exit, you lost 155 ms and exited 4.7 km/h slower. The additional entry speed did not pay off — finish braking earlier and protect the exit.',
+            'On lap 8, you entered C6 7.5 km/h faster than on your quickest C6 pass, but kept braking for 320 ms longer. From the point where Lap 3 stopped braking to the C6 exit, you lost 140 ms and exited 3.2 km/h slower. The additional entry speed did not pay off — finish braking earlier and protect the exit.',
         )
     })
 
@@ -144,7 +144,7 @@ describe('brake release report facts', () => {
 
         expect(selectBrakeReleaseReportVariant(facts, REPORT_MARGINS)).toBe('LATE_RELEASE_WITH_SLOWER_EXIT')
         expect(createBrakeReleaseReportMessage(facts, REPORT_MARGINS)).toBe(
-            'On lap 4, you kept braking for 294 ms longer into C3 than on your quickest C3 pass. From the point where Lap 2 stopped braking to the C3 exit, you lost 155 ms and exited 4.7 km/h slower. Finish braking earlier and protect the exit.',
+            'On lap 8, you kept braking for 320 ms longer into C6 than on your quickest C6 pass. From the point where Lap 3 stopped braking to the C6 exit, you lost 140 ms and exited 3.2 km/h slower. Finish braking earlier and protect the exit.',
         )
     })
 
@@ -153,7 +153,7 @@ describe('brake release report facts', () => {
 
         expect(selectBrakeReleaseReportVariant(facts, REPORT_MARGINS)).toBe('LATE_RELEASE_WITH_TIME_LOSS')
         expect(createBrakeReleaseReportMessage(facts, REPORT_MARGINS)).toBe(
-            'On lap 4, you kept braking for 294 ms longer into C3 than on your quickest C3 pass. From the point where Lap 2 stopped braking to the C3 exit, you lost 155 ms. Finish braking earlier through C3.',
+            'On lap 8, you kept braking for 320 ms longer into C6 than on your quickest C6 pass. From the point where Lap 3 stopped braking to the C6 exit, you lost 140 ms. Finish braking earlier through C6.',
         )
     })
 
@@ -440,13 +440,13 @@ function createReportFacts(
     overrides: Partial<BrakeReleaseReportFacts> = {},
 ): BrakeReleaseReportFacts {
     return {
-        lapNumber: 4,
-        cornerId: 'C3',
-        fastestRegionPassLapNumber: 2,
-        brakeReleaseDifferenceMs: 294,
-        entrySpeedDifferenceKmh: 9.1,
-        timeLossFromFastestReleaseMs: 155,
-        exitSpeedDifferenceKmh: -4.7,
+        lapNumber: 8,
+        cornerId: 'C6',
+        fastestRegionPassLapNumber: 3,
+        brakeReleaseDifferenceMs: 320,
+        entrySpeedDifferenceKmh: 7.5,
+        timeLossFromFastestReleaseMs: 140,
+        exitSpeedDifferenceKmh: -3.2,
         ...overrides,
     }
 }
