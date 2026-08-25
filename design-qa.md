@@ -54,6 +54,202 @@ final result: passed
 
 ---
 
+# Limited-lap telemetry comparison — design QA
+
+## Comparison target
+
+- Source visual truth: `/Users/jirka/.codex/generated_images/01a02687-2248-76a0-80cd-8e38de2ba7e9/exec-d01af478-5104-49f5-9b86-677529c00309.png` (1496 × 1058 px).
+- Browser implementation: `/Users/jirka/WEB/racemake-hard/artifacts/design-qa-limited-lap-telemetry-desktop.png`, rendered at the same 1496 × 1058 CSS viewport.
+- Direct comparison input: `/Users/jirka/WEB/racemake-hard/artifacts/design-qa-limited-lap-telemetry-comparison.png`.
+- Route: `http://localhost:4173/analysis/sha256:07e6fd1b02c9d9b887c02da460a6518fbf731b8142dde5e2f6a7fc9989426087`.
+- State: limited Lap 4 reviewed against verified Lap 2, C2 selected, coaching-availability explanation hovered, and coaching rail unavailable.
+
+## Full-view comparison evidence
+
+- A limited lap is selectable for telemetry review but cannot become the verified reference or be swapped into that role.
+- Time Delta, Speed, Pedals and Steering remain visible and comparable. The reviewed limited trace and overview are amber; the verified reference remains violet.
+- Time Delta carries an `APPROXIMATE` badge and the plain-language `Boundary timing is uncertain` explanation instead of pretending that the boundary-derived delta is verified.
+- The limited card, information tooltip and unavailable coaching rail preserve the approved hierarchy and copy.
+- C2 selection remains functional and shades the same track-position interval through every chart.
+
+## Required fidelity surfaces
+
+- Fonts, compact labels, tabular times, borders, four-pixel radii and the existing near-black RACEMAKE surfaces are unchanged.
+- Amber is used consistently for limited review data, violet for the verified reference and lime only for verified reviewed-lap states and region selection.
+- All information and empty-state symbols come from the installed Phosphor icon library; no replacement asset or custom SVG was introduced.
+- The implementation intentionally uses measured fixture data. The mock's amber sampling-gap band and coaching marker are absent because this Lap 4 has uncertain boundary timing but no reported interior sampling gap or coaching finding. No telemetry damage is fabricated to match the illustration.
+
+## Interaction and accessibility verification
+
+- Verified selecting Lap 4, retaining Lap 2 as reference, disabled Swap, previous/next review navigation, C2 selection and all four chart channels.
+- Verified the coaching information tooltip on pointer hover and keyboard-addressable information/details actions.
+- Verified the chart status exposes `Time delta is approximate because boundary timing is uncertain` and the canvas description names Lap 4 versus Lap 2.
+- Verified the limited selection has an amber focus treatment rather than the verified-lap lime treatment.
+
+## Findings and comparison history
+
+- P2 initial browser pass: the selected limited card inherited the verified lap's lime focus outline.
+- Fix: limited review cards now use an amber focus outline. The final implementation screenshot and direct comparison contain the corrected state.
+- P0/P1/P2 after the fix: none.
+- P3: the production header reports three ranked racing laps, and the horizontal strip scrolls Lap 4 into view beside the closing fragment. These are evidence-driven differences from the illustrative mock and are not hard-coded away.
+
+## Verification
+
+- Focused selection and data-quality tests: 15 passed, 0 failed.
+- Clean-overlay full repository suite: 434 passed, 0 failed.
+- Clean-overlay root and frontend TypeScript checks, full lint, production data analysis and production frontend build pass. Lint retains 70 pre-existing warnings; the build retains the existing large-chunk warning.
+- Scoped changed-file Biome check and `git diff --check` pass in the working tree.
+- The working tree's repo-wide commands are currently blocked by the unrelated existing `co znmconst` syntax text in `src/analytics/corner-detect/detect-corners.ts:50`; the clean overlay corrected only that text and did not modify the user's worktree.
+
+final result: passed
+
+---
+
+# Limited-lap details — design QA
+
+## Comparison target
+
+- Desktop source visual truth: `/Users/jirka/.codex/generated_images/01a02687-2248-76a0-80cd-8e38de2ba7e9/exec-c02de21f-b330-4971-b84c-29265c6a989d.png` (1487 × 1058 px).
+- Desktop browser implementation: `/Users/jirka/WEB/racemake-hard/artifacts/design-qa-limited-data-desktop-final.png` (1487 × 1028 px), rendered from a requested 1487 × 1058 browser viewport; the in-app browser reserved 30 px for its own chrome.
+- Desktop combined comparison: `/Users/jirka/WEB/racemake-hard/artifacts/design-qa-comparison-desktop.png`; the source was cropped only at the bottom to 1487 × 1028, then placed beside the implementation without scaling.
+- Mobile source visual truth: `/Users/jirka/.codex/generated_images/01a02687-2248-76a0-80cd-8e38de2ba7e9/exec-5e816b4e-754e-4a09-b6bf-c408fc245cc0.png` (852 × 1846 px at Retina density).
+- Mobile browser implementation: `/Users/jirka/WEB/racemake-hard/artifacts/design-qa-limited-data-mobile-final.png`, rendered and captured at 426 × 923 CSS pixels with density 1.
+- Mobile combined comparison: `/Users/jirka/WEB/racemake-hard/artifacts/design-qa-comparison-mobile.png`; the source was normalized to 426 × 923 and placed beside the equal-size implementation.
+- State: the generated low-confidence-finish stint, Lap 3 reviewed against fastest Lap 2, Lap 4 marked `LIMITED DATA`, with the desktop popover or mobile inline `DETAILS` section open.
+
+## Full-view and focused comparison evidence
+
+- The desktop implementation preserves the approved hierarchy: amber outlined limited-lap card, approximate time, plain-language summary, review-only/ranking impact, an information action, and a popover anchored below the card rather than inside the coaching rail.
+- The mobile implementation keeps the same evidence inside the open lap selector, expands it in normal document flow, and leaves the Reference selector below it. It does not introduce a drawer or a multi-select affordance.
+- The combined images serve as both full-view and focused evidence because the desktop comparison retains the full 2986 × 1028 originals and the mobile comparison retains both complete 426 × 923 states; all card and detail copy is legible at original resolution.
+- The source's illustrative `~1:13.590`, 240 ms and 98.7% → 1.8% values are intentionally replaced by the production fixture's actual `~1:12.911`, 250 ms and 98.7% → 1.1% evidence. The header reports three racing laps because the limited lap is returned for review but excluded from ranking.
+
+## Required fidelity surfaces
+
+- Fonts and typography: the existing RACEMAKE font stack, uppercase micro-labels, tabular lap times, compact body size and established weights are reused. Detail headings, evidence rows and impact copy wrap without clipping.
+- Spacing and layout rhythm: the larger limited card gets a dedicated desktop row height; opening Details brings the full card into view before anchoring the popover. Mobile uses the approved Reviewed → list/detail → Reference → Swap document order.
+- Colors and visual tokens: existing near-black surfaces, neutral borders, amber limitation state, lime availability checks, violet Reference state and product focus outlines are preserved.
+- Image quality and assets: the RACEMAKE brand asset is unchanged. Information, warning, close, caret and check symbols come from the installed Phosphor library; no custom SVG, CSS illustration, emoji or replacement raster asset was introduced.
+- Copy and content: confidence values remain API-only. The UI explains the actual recorder failure, exact observed transition, affected uses and remaining usable data in nontechnical language.
+
+## Interaction and accessibility verification
+
+- Uploaded and analyzed `data/stint-low-confidence-finish.telemetry.json` through the production UI.
+- Verified desktop Details open, anchored repositioning after the lap strip scrolls, close button, outside dismissal and Escape dismissal with focus restoration.
+- Verified mobile Reviewed selector open/close, inline Details expand/collapse, Reference selector remaining below the detail, and Escape dismissal.
+- Limited Lap 4 cannot be selected for verified time comparison, while its separate Details control remains keyboard and pointer accessible.
+- Browser console warnings/errors after the final interactions: none.
+
+## Findings and comparison history
+
+- P2 initial desktop pass: centering the reviewed Lap 3 left most of the wider Lap 4 card clipped by the horizontal strip. Fix: opening Details first scrolls the complete Lap 4 card into view, then anchors the portal to the information action and follows later strip movement. Post-fix evidence is the final desktop comparison.
+- P2 initial mobile pass: an extra coaching-impact sentence made the detail taller than the approved state and pushed the Reference card under the coaching dock. Fix: retain the two approved time/ranking impact statements; backend `usage.coaching` still controls supported-region messaging where applicable. Post-fix evidence keeps the Reference card visible.
+- P0/P1/P2 after fixes: none.
+- P3: production fixture values and the additional closing fragment differ from the illustrative mock data. These are expected evidence-driven differences and should not be hard-coded to match the image.
+
+## Verification
+
+- Focused presentation and low-confidence fixture tests pass.
+- Full clean-overlay suite: 432 passed, 0 failed.
+- Root and frontend TypeScript checks pass in the clean overlay used to isolate the user's unrelated worktree syntax edit.
+- Full lint exits successfully with 70 pre-existing warnings; scoped changed-file checks have no diagnostics.
+- Production frontend build passes with the existing large-chunk warning.
+
+final result: passed
+
+---
+
+# Inline mobile channel selector — design QA
+
+## Evidence
+
+- Source visual truth: `/Users/jirka/WEB/racemake-hard/mobile-channel-selector-concept-v2.png`
+- Initial browser comparison: `/Users/jirka/WEB/racemake-hard/mobile-channel-selector-design-qa.jpg`
+- Final radio-state implementation: `/Users/jirka/WEB/racemake-hard/mobile-channel-selector-radio.jpg`
+- Post-selection RPM state: `/Users/jirka/WEB/racemake-hard/mobile-channel-selector-rpm.jpg`
+- Viewport: `390 x 844` CSS pixels at device scale factor `1`
+- Source pixels: `853 x 1844`; normalized to `390 x 844` in the comparison
+- Implementation pixels: `390 x 844`
+- State: comparison analysis, inline channel selector expanded, Delta selected
+
+## Full-view comparison
+
+The implemented control follows the approved interaction model: it expands in
+normal document flow immediately below the `CHANNELS` trigger, pushes the chart
+down, and does not use or overlap the coaching sheet. All seven comparison
+channels are visible without horizontal clipping.
+
+The surrounding lap cards differ from the generated concept because the
+implementation preserves the product's existing compact responsive layout.
+That surrounding layout was not part of the selected channel-picker change.
+
+## Focused comparison
+
+The focused comparison confirms the same two-column option rhythm, a full-width
+tyre-temperature option, lime selected state, compact borders, and attached
+trigger/panel composition. Project-native Phosphor icons replace the generated
+mockup's approximate icons and remain consistent with the existing interface.
+The final pass replaces square checkbox affordances with circular native radio
+controls, making the single-selection model explicit.
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing project typography is preserved; hierarchy,
+  weights, uppercase trigger label, and compact option labels match the target.
+- Spacing and layout rhythm: the attached panel, two-column grid, touch targets,
+  gaps, borders, and full-width final option match the approved direction.
+- Colors and visual tokens: existing charcoal surfaces, neutral borders, white
+  labels, and lime active state are reused without introducing new tokens.
+- Image and icon fidelity: the RACEMAKE brand asset is unchanged; channel icons
+  use the installed Phosphor library rather than custom SVG or CSS drawings.
+- Copy and content: Delta, Speed, Pedals, Steering, Gear, RPM, and Tyre
+  temperatures are present and readable.
+
+## Interaction verification
+
+- Opened and closed the inline selector from the `CHANNELS` trigger.
+- Confirmed all seven channel options are exposed in comparison mode.
+- Confirmed the fieldset exposes seven native radios and exactly one checked
+  value before and after changing channels.
+- Selected RPM and confirmed the selector closed and the RPM chart rendered.
+- Selected Tyre temperatures and confirmed the full label in the panel, the
+  compact `Tyres` trigger label, and the tyre-temperature chart rendered.
+- Confirmed the collapsed coaching control remains a separate bottom surface.
+- Browser console warnings/errors checked: none.
+
+## Findings
+
+- P2 before the final pass: square checkbox indicators suggested that multiple
+  charts could be selected even though compact mode renders one channel.
+- Fix: replace the checkbox visuals and toggle-button semantics with one native
+  radio group and Phosphor circle/radio indicators.
+- P0/P1/P2 after the fix: none.
+
+## Comparison history
+
+- Pass 1: no actionable P0/P1/P2 mismatch was found. No visual correction loop
+  was required.
+- Pass 2 after user feedback: radio semantics and circular indicators now make
+  the mutually exclusive choice explicit; browser evidence confirms exactly one
+  checked radio and the selected RPM chart.
+
+## Follow-up polish
+
+No P3 follow-up is required for this scoped change.
+
+## Verification
+
+- Focused mobile selection test: 6 passed, 0 failed.
+- Clean root and frontend TypeScript checks pass.
+- Full repository tests: 427 passed, 0 failed.
+- Full lint exits successfully with 69 pre-existing warnings.
+- Production frontend build and production data analysis pass. The build retains
+  the existing large-chunk warning.
+
+final result: passed
+
+---
+
 # Footer cursor-position indicator — design QA
 
 ## Comparison target

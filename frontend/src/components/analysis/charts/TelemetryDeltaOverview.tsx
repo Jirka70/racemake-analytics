@@ -26,12 +26,14 @@ export interface TelemetryDeltaOverviewProps {
 	readonly reviewedLapNumber: number | null;
 	readonly secondLapNumber: number | null;
 	readonly idealLapSeries: AvailableIdealLapResponse | null;
+	readonly reviewedLapIsLimited: boolean;
 	readonly viewport: TelemetryViewport;
 	readonly selectedRegion: TrackRegionResponse | null;
 	readonly cursorPositionPercent: number | null;
 }
 
 const REVIEWED_LAP_COLOR = "#a3e635";
+const LIMITED_REVIEWED_LAP_COLOR = "#f59e0b";
 const SECOND_LAP_COLOR = "#a78bfa";
 const IDEAL_LAP_COLOR = "#d4d4d8";
 
@@ -41,6 +43,7 @@ export function TelemetryDeltaOverview({
 	reviewedLapNumber,
 	secondLapNumber,
 	idealLapSeries,
+	reviewedLapIsLimited,
 	viewport,
 	selectedRegion,
 	cursorPositionPercent,
@@ -77,6 +80,7 @@ export function TelemetryDeltaOverview({
 					points={model.timeDelta.points}
 					idealPoints={model.idealTimeDelta?.points ?? null}
 					maximumAbsoluteSeconds={model.maximumAbsoluteTimeDeltaSeconds}
+					reviewedLapIsLimited={reviewedLapIsLimited}
 				/>
 			) : (
 				<div className="absolute top-1/2 right-2 left-2 h-px bg-[#333834]" />
@@ -149,10 +153,12 @@ function TelemetryDeltaOverviewCanvas({
 	points,
 	idealPoints,
 	maximumAbsoluteSeconds,
+	reviewedLapIsLimited,
 }: {
 	readonly points: readonly (readonly [number, number | null])[];
 	readonly idealPoints: readonly (readonly [number, number | null])[] | null;
 	readonly maximumAbsoluteSeconds: number;
+	readonly reviewedLapIsLimited: boolean;
 }) {
 	const containerRef = useRef<HTMLDivElement>(null);
 
@@ -166,6 +172,7 @@ function TelemetryDeltaOverviewCanvas({
 				points,
 				idealPoints,
 				maximumAbsoluteSeconds,
+				reviewedLapIsLimited,
 			),
 		);
 		const resizeObserver = new ResizeObserver(() => chart.resize());
@@ -175,7 +182,7 @@ function TelemetryDeltaOverviewCanvas({
 			resizeObserver.disconnect();
 			chart.dispose();
 		};
-	}, [points, idealPoints, maximumAbsoluteSeconds]);
+	}, [points, idealPoints, maximumAbsoluteSeconds, reviewedLapIsLimited]);
 
 	return (
 		<div ref={containerRef} className="absolute inset-0" aria-hidden="true" />
@@ -186,6 +193,7 @@ function createTelemetryDeltaOverviewOption(
 	points: readonly (readonly [number, number | null])[],
 	idealPoints: readonly (readonly [number, number | null])[] | null,
 	maximumAbsoluteSeconds: number,
+	reviewedLapIsLimited: boolean,
 ): TelemetryDeltaOverviewOption {
 	const maximumRangeSeconds = Math.max(0.1, maximumAbsoluteSeconds);
 
@@ -244,7 +252,9 @@ function createTelemetryDeltaOverviewOption(
 				connectNulls: false,
 				silent: true,
 				lineStyle: {
-					color: REVIEWED_LAP_COLOR,
+					color: reviewedLapIsLimited
+						? LIMITED_REVIEWED_LAP_COLOR
+						: REVIEWED_LAP_COLOR,
 					width: 1.25,
 				},
 			},

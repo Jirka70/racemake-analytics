@@ -31,19 +31,11 @@ export const FRAGMENT_TELEMETRY_CHART_IDS: readonly TelemetryChartId[] = [
 export const DEFAULT_VISIBLE_FRAGMENT_TELEMETRY_CHARTS: readonly TelemetryChartId[] =
 	["speed", "pedals", "steering"];
 
-export const MOBILE_COMPARISON_TELEMETRY_CHARTS: readonly TelemetryChartId[] = [
-	"time-delta",
-	"speed",
-	"pedals",
-	"steering",
-];
+export const MOBILE_COMPARISON_TELEMETRY_CHARTS: readonly TelemetryChartId[] =
+	TELEMETRY_CHART_IDS;
 
-export const MOBILE_SINGLE_TELEMETRY_CHARTS: readonly TelemetryChartId[] = [
-	"speed",
-	"pedals",
-	"steering",
-	"gear",
-];
+export const MOBILE_SINGLE_TELEMETRY_CHARTS: readonly TelemetryChartId[] =
+	FRAGMENT_TELEMETRY_CHART_IDS;
 
 export const PRIMARY_TELEMETRY_CHARTS: readonly TelemetryChartId[] =
 	DEFAULT_VISIBLE_TELEMETRY_CHARTS;

@@ -57,6 +57,8 @@ function MobileCoachingSheetContent(props: CoachingRailProps) {
 		activeRank,
 		fastestLapNumber,
 		emptyMessage,
+		unavailableTitle,
+		unavailableMessage,
 		errorMessage,
 	} = props;
 	const [mode, setMode] = useState<MobileCoachingSheetMode>("docked");
@@ -188,6 +190,7 @@ function MobileCoachingSheetContent(props: CoachingRailProps) {
 				<DockedCoaching
 					status={status}
 					finding={activeFinding}
+					unavailableTitle={unavailableTitle}
 					onPointerDown={startSheetDrag}
 					onOpen={() => {
 						if (ignoreNextHandleClickRef.current) {
@@ -259,7 +262,10 @@ function MobileCoachingSheetContent(props: CoachingRailProps) {
 
 			{showExpandedContent && status === "unavailable" ? (
 				<div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain">
-					<UnavailableCoaching />
+					<UnavailableCoaching
+						title={unavailableTitle}
+						message={unavailableMessage}
+					/>
 				</div>
 			) : null}
 
@@ -299,11 +305,13 @@ function MobileCoachingSheetContent(props: CoachingRailProps) {
 function DockedCoaching({
 	status,
 	finding: rankedFinding,
+	unavailableTitle,
 	onOpen,
 	onPointerDown,
 }: {
 	readonly status: CoachingRailProps["status"];
 	readonly finding: CoachingRailProps["findings"][number] | null;
+	readonly unavailableTitle?: string;
 	readonly onOpen: () => void;
 	readonly onPointerDown: (event: ReactPointerEvent<HTMLButtonElement>) => void;
 }) {
@@ -315,7 +323,7 @@ function DockedCoaching({
 	const label = findDockedCoachingLabel(status, finding !== null);
 	const title = finding
 		? formatCoachingPhenomenon(finding.phenomenon)
-		: findDockedCoachingTitle(status);
+		: (unavailableTitle ?? findDockedCoachingTitle(status));
 
 	return (
 		<button
@@ -463,7 +471,13 @@ function CollapsedFinding({
 	);
 }
 
-function UnavailableCoaching() {
+function UnavailableCoaching({
+	title,
+	message,
+}: {
+	readonly title?: string;
+	readonly message?: string;
+}) {
 	return (
 		<div className="px-6 pb-[calc(24px+env(safe-area-inset-bottom))]">
 			<div className="flex items-center gap-3">
@@ -477,11 +491,11 @@ function UnavailableCoaching() {
 				</span>
 			</div>
 			<h2 className="mt-4 text-lg font-semibold text-neutral-100 uppercase">
-				Coaching requires at least two laps
+				{title ?? "Coaching requires at least two laps"}
 			</h2>
 			<p className="mt-3 text-sm leading-6 text-neutral-400">
-				At least two laps are needed for comparison, time delta and coaching.
-				Add another lap.
+				{message ??
+					"At least two laps are needed for comparison, time delta and coaching. Add another lap."}
 			</p>
 		</div>
 	);

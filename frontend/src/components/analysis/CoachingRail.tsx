@@ -3,6 +3,7 @@ import {
 	CaretLeft,
 	CaretRight,
 	ChartLineUp,
+	ClipboardText,
 	Gauge,
 	MapPin,
 	Speedometer,
@@ -29,6 +30,8 @@ export interface CoachingRailProps {
 	readonly activeRank: number | null;
 	readonly fastestLapNumber: number | null;
 	readonly emptyMessage: string;
+	readonly unavailableTitle?: string;
+	readonly unavailableMessage?: string;
 	readonly errorMessage: string | null;
 	readonly onSelectRank: (rank: number) => void;
 }
@@ -73,6 +76,8 @@ export function CoachingRail({
 	activeRank,
 	fastestLapNumber,
 	emptyMessage,
+	unavailableTitle,
+	unavailableMessage,
 	errorMessage,
 	onSelectRank,
 }: CoachingRailProps) {
@@ -110,14 +115,18 @@ export function CoachingRail({
 			{status === "unavailable" && (
 				<div className="flex min-h-0 flex-1 flex-col items-center justify-center px-8 text-center">
 					<div className="grid size-16 place-items-center rounded-full border border-[#555b57] text-neutral-500">
-						<ChartLineUp aria-hidden="true" size={32} weight="light" />
+						{unavailableTitle ? (
+							<ClipboardText aria-hidden="true" size={32} weight="light" />
+						) : (
+							<ChartLineUp aria-hidden="true" size={32} weight="light" />
+						)}
 					</div>
 					<p className="mt-5 text-xl font-semibold leading-tight text-neutral-100">
-						Coaching requires at least two laps
+						{unavailableTitle ?? "Coaching requires at least two laps"}
 					</p>
 					<p className="mt-5 max-w-[250px] text-sm leading-6 text-neutral-400">
-						At least two laps are needed for comparison, time delta and
-						coaching. Add another lap.
+						{unavailableMessage ??
+							"At least two laps are needed for comparison, time delta and coaching. Add another lap."}
 					</p>
 				</div>
 			)}

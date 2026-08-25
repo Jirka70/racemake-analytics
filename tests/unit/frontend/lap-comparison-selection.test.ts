@@ -18,10 +18,15 @@ const SELECTION: LapComparisonSelection = {
 describe("lap comparison selection", () => {
 	test("uses an explicit one-lap plan and ignores a stale self-comparison", () => {
 		expect(
-			createLapReviewPlan([{ lapNumber: 1, lapTimeMs: 73_789 }], 1, {
-				comparedLapNumber: 1,
-				referenceLapNumber: 1,
-			}),
+			createLapReviewPlan(
+				[{ lapNumber: 1, lapTimeMs: 73_789 }],
+				[{ lapNumber: 1, lapTimeMs: 73_789 }],
+				1,
+				{
+					comparedLapNumber: 1,
+					referenceLapNumber: 1,
+				},
+			),
 		).toEqual({
 			mode: "single-lap",
 			selection: null,
@@ -34,6 +39,10 @@ describe("lap comparison selection", () => {
 	test("replaces a stale self-comparison with two distinct laps", () => {
 		expect(
 			createLapReviewPlan(
+				[
+					{ lapNumber: 1, lapTimeMs: 73_789 },
+					{ lapNumber: 2, lapTimeMs: 73_518 },
+				],
 				[
 					{ lapNumber: 1, lapTimeMs: 73_789 },
 					{ lapNumber: 2, lapTimeMs: 73_518 },
@@ -54,6 +63,7 @@ describe("lap comparison selection", () => {
 		expect(
 			createDefaultLapComparisonSelection(
 				[{ lapNumber: 1, lapTimeMs: 76_187 }],
+				[{ lapNumber: 1, lapTimeMs: 76_187 }],
 				1,
 			),
 		).toBeNull();
@@ -66,9 +76,53 @@ describe("lap comparison selection", () => {
 					{ lapNumber: 1, lapTimeMs: 76_187 },
 					{ lapNumber: 2, lapTimeMs: 73_518 },
 				],
+				[
+					{ lapNumber: 1, lapTimeMs: 76_187 },
+					{ lapNumber: 2, lapTimeMs: 73_518 },
+				],
 				2,
 			),
 		).toEqual({ comparedLapNumber: 1, referenceLapNumber: 2 });
+	});
+
+	test("keeps a limited lap reviewable while requiring a verified reference", () => {
+		const reviewableLaps = [
+			{ lapNumber: 2, lapTimeMs: 73_518 },
+			{ lapNumber: 4, lapTimeMs: 72_911 },
+		];
+		const verifiedReferenceLaps = [{ lapNumber: 2, lapTimeMs: 73_518 }];
+
+		expect(
+			createLapReviewPlan(reviewableLaps, verifiedReferenceLaps, 2, {
+				comparedLapNumber: 4,
+				referenceLapNumber: 2,
+			}),
+		).toEqual({
+			mode: "comparison",
+			selection: { comparedLapNumber: 4, referenceLapNumber: 2 },
+			reviewedLapNumber: 4,
+			referenceLapNumber: 2,
+			seriesLapNumbers: [4, 2],
+		});
+	});
+
+	test("never accepts a limited lap as the reference", () => {
+		const reviewableLaps = [
+			{ lapNumber: 2, lapTimeMs: 73_518 },
+			{ lapNumber: 3, lapTimeMs: 74_069 },
+			{ lapNumber: 4, lapTimeMs: 72_911 },
+		];
+		const verifiedReferenceLaps = reviewableLaps.slice(0, 2);
+
+		expect(
+			createLapReviewPlan(reviewableLaps, verifiedReferenceLaps, 2, {
+				comparedLapNumber: 3,
+				referenceLapNumber: 4,
+			}),
+		).toMatchObject({
+			mode: "comparison",
+			selection: { comparedLapNumber: 3, referenceLapNumber: 2 },
+		});
 	});
 
 	test("changes only the lap being reviewed", () => {

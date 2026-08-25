@@ -19,73 +19,82 @@ export interface LapReviewPlan {
 }
 
 export function createLapReviewPlan(
-	racingLaps: readonly LapComparisonCandidate[],
+	reviewableLaps: readonly LapComparisonCandidate[],
+	referenceLaps: readonly LapComparisonCandidate[],
 	fastestLapNumber: number | null,
 	requestedSelection: LapComparisonSelection | null,
 ): LapReviewPlan {
-	const singleRacingLap = racingLaps.length === 1 ? racingLaps[0] : undefined;
-	if (singleRacingLap !== undefined) {
+	const selection = isSelectionAvailable(
+		requestedSelection,
+		reviewableLaps,
+		referenceLaps,
+	)
+		? requestedSelection
+		: createDefaultLapComparisonSelection(
+				reviewableLaps,
+				referenceLaps,
+				fastestLapNumber,
+			);
+
+	if (selection !== null) {
+		return {
+			mode: "comparison",
+			selection,
+			reviewedLapNumber: selection.comparedLapNumber,
+			referenceLapNumber: selection.referenceLapNumber,
+			seriesLapNumbers: [
+				selection.comparedLapNumber,
+				selection.referenceLapNumber,
+			],
+		};
+	}
+
+	const singleReviewableLap =
+		reviewableLaps.length === 1 ? reviewableLaps[0] : undefined;
+	if (singleReviewableLap !== undefined) {
 		return {
 			mode: "single-lap",
 			selection: null,
-			reviewedLapNumber: singleRacingLap.lapNumber,
+			reviewedLapNumber: singleReviewableLap.lapNumber,
 			referenceLapNumber: null,
-			seriesLapNumbers: [singleRacingLap.lapNumber],
-		};
-	}
-
-	if (racingLaps.length < 2) {
-		return {
-			mode: "empty",
-			selection: null,
-			reviewedLapNumber: null,
-			referenceLapNumber: null,
-			seriesLapNumbers: null,
-		};
-	}
-
-	const selection = isSelectionAvailable(requestedSelection, racingLaps)
-		? requestedSelection
-		: createDefaultLapComparisonSelection(racingLaps, fastestLapNumber);
-
-	if (selection === null) {
-		return {
-			mode: "empty",
-			selection: null,
-			reviewedLapNumber: null,
-			referenceLapNumber: null,
-			seriesLapNumbers: null,
+			seriesLapNumbers: [singleReviewableLap.lapNumber],
 		};
 	}
 
 	return {
-		mode: "comparison",
-		selection,
-		reviewedLapNumber: selection.comparedLapNumber,
-		referenceLapNumber: selection.referenceLapNumber,
-		seriesLapNumbers: [
-			selection.comparedLapNumber,
-			selection.referenceLapNumber,
-		],
+		mode: "empty",
+		selection: null,
+		reviewedLapNumber: null,
+		referenceLapNumber: null,
+		seriesLapNumbers: null,
 	};
 }
 
 export function createDefaultLapComparisonSelection(
-	racingLaps: readonly LapComparisonCandidate[],
+	reviewableLaps: readonly LapComparisonCandidate[],
+	referenceLaps: readonly LapComparisonCandidate[],
 	fastestLapNumber: number | null,
 ): LapComparisonSelection | null {
-	if (racingLaps.length < 2) return null;
+	if (referenceLaps.length === 0) return null;
 
-	const referenceLapNumber =
-		fastestLapNumber ?? racingLaps[0]?.lapNumber ?? null;
+	const referenceLapNumber = referenceLaps.some(
+		(lap) => lap.lapNumber === fastestLapNumber,
+	)
+		? fastestLapNumber
+		: (referenceLaps[0]?.lapNumber ?? null);
+	const verifiedReviewedCandidates = referenceLaps.filter(
+		(lap) => lap.lapNumber !== referenceLapNumber,
+	);
+	const reviewedCandidates =
+		verifiedReviewedCandidates.length > 0
+			? verifiedReviewedCandidates
+			: reviewableLaps.filter((lap) => lap.lapNumber !== referenceLapNumber);
 	const comparedLapNumber =
-		[...racingLaps]
-			.filter((lap) => lap.lapNumber !== referenceLapNumber)
-			.sort(
-				(first, second) =>
-					second.lapTimeMs - first.lapTimeMs ||
-					first.lapNumber - second.lapNumber,
-			)[0]?.lapNumber ?? null;
+		[...reviewedCandidates].sort(
+			(first, second) =>
+				second.lapTimeMs - first.lapTimeMs ||
+				first.lapNumber - second.lapNumber,
+		)[0]?.lapNumber ?? null;
 
 	if (comparedLapNumber === null || referenceLapNumber === null) {
 		return null;
@@ -179,7 +188,8 @@ export function findAdjacentLapToReview(
 
 function isSelectionAvailable(
 	selection: LapComparisonSelection | null,
-	racingLaps: readonly LapComparisonCandidate[],
+	reviewableLaps: readonly LapComparisonCandidate[],
+	referenceLaps: readonly LapComparisonCandidate[],
 ): selection is LapComparisonSelection {
 	if (
 		selection === null ||
@@ -189,7 +199,9 @@ function isSelectionAvailable(
 	}
 
 	return (
-		racingLaps.some((lap) => lap.lapNumber === selection.comparedLapNumber) &&
-		racingLaps.some((lap) => lap.lapNumber === selection.referenceLapNumber)
+		reviewableLaps.some(
+			(lap) => lap.lapNumber === selection.comparedLapNumber,
+		) &&
+		referenceLaps.some((lap) => lap.lapNumber === selection.referenceLapNumber)
 	);
 }

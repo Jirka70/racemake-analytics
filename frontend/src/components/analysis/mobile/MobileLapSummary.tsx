@@ -43,7 +43,9 @@ export function MobileLapSummary({
 	const fragment = fragmentPresentations.find(
 		({ fragmentIndex }) => fragmentIndex === selectedFragmentIndex,
 	);
-	const selectableLaps = laps.filter((lap) => lap.isEligible);
+	const reviewableLaps = laps.filter(
+		(lap) => lap.isReviewable && lap.lapNumber !== referenceLapNumber,
+	);
 	const reviewTargets: readonly MobileReviewTarget[] = [
 		...(fragmentPresentations[0]
 			? [
@@ -53,7 +55,7 @@ export function MobileLapSummary({
 					},
 				]
 			: []),
-		...selectableLaps.map((lap) => ({
+		...reviewableLaps.map((lap) => ({
 			type: "lap" as const,
 			lapNumber: lap.lapNumber,
 		})),

@@ -25,6 +25,7 @@ import {
 	selectLapToReview,
 	swapComparedLaps,
 } from "../analysis/lap-comparison-selection";
+import { hasLimitedLapTime } from "../analysis/lap-data-quality";
 import {
 	createLapFragmentPresentations,
 	type LapFragmentPresentation,
@@ -84,7 +85,24 @@ export function AnalysisPage() {
 	const [dismissedDataQualityAnalysisId, setDismissedDataQualityAnalysisId] =
 		useState<AnalysisId | null>(null);
 	const racingLaps =
-		lapsQuery.data?.laps.filter((lap) => lap.eligibility === "racing") ?? [];
+		lapsQuery.data?.laps
+			.filter((lap) => lap.usage.lapRanking === "ranked")
+			.map((lap) => ({
+				lapNumber: lap.lapNumber,
+				lapTimeMs: lap.timing.lapTimeMs,
+			})) ?? [];
+	const reviewableLaps =
+		lapsQuery.data?.laps.map((lap) => ({
+			lapNumber: lap.lapNumber,
+			lapTimeMs: lap.timing.lapTimeMs,
+		})) ?? [];
+	const referenceLaps =
+		lapsQuery.data?.laps
+			.filter((lap) => lap.usage.lapTimeComparison === "verified-only")
+			.map((lap) => ({
+				lapNumber: lap.lapNumber,
+				lapTimeMs: lap.timing.lapTimeMs,
+			})) ?? [];
 	const fragmentPresentations = useMemo(
 		() =>
 			createLapFragmentPresentations(
@@ -97,7 +115,7 @@ export function AnalysisPage() {
 		fragmentPresentations,
 		requestedFragmentIndex,
 	);
-	const hasLapComparison = racingLaps.length >= 2;
+	const hasRankedLapComparison = racingLaps.length >= 2;
 	const isDataQualityPopoverOpen =
 		analysisId !== null && openDataQualityAnalysisId === analysisId;
 	const shouldLoadDiagnostics =
@@ -107,7 +125,7 @@ export function AnalysisPage() {
 		shouldLoadDiagnostics ? analysisId : null,
 	);
 	const trackAnalysisId = racingLaps.length >= 1 ? analysisId : null;
-	const comparisonAnalysisId = hasLapComparison ? analysisId : null;
+	const comparisonAnalysisId = hasRankedLapComparison ? analysisId : null;
 	const timeLossQuery = useTimeLossQuery(comparisonAnalysisId);
 	const coachingQuery = useCoachingQuery(comparisonAnalysisId);
 	const trackQuery = useTrackQuery(trackAnalysisId);
@@ -144,15 +162,22 @@ export function AnalysisPage() {
 		[analysisId],
 	);
 	const lapReviewPlan = createLapReviewPlan(
-		racingLaps,
+		reviewableLaps,
+		referenceLaps,
 		timeLossQuery.data?.fastestLap?.lapNumber ?? null,
 		requestedSelection,
 	);
 	const selection = lapReviewPlan.selection;
 	const reviewedLapNumber = lapReviewPlan.reviewedLapNumber;
 	const referenceLapNumber = lapReviewPlan.referenceLapNumber;
+	const reviewedLap =
+		lapsQuery.data?.laps.find((lap) => lap.lapNumber === reviewedLapNumber) ??
+		null;
+	const reviewedLapHasLimitedTime =
+		reviewedLap !== null && hasLimitedLapTime(reviewedLap);
+	const hasTelemetryComparison = lapReviewPlan.mode === "comparison";
 	const mobileChartIds =
-		selectedFragment || !hasLapComparison
+		selectedFragment || !hasTelemetryComparison
 			? MOBILE_SINGLE_TELEMETRY_CHARTS
 			: MOBILE_COMPARISON_TELEMETRY_CHARTS;
 	const activeMobileChartId = mobileChartIds.includes(mobileChartId)
@@ -221,8 +246,8 @@ export function AnalysisPage() {
 	}
 
 	const referenceLapTimeMs =
-		racingLaps.find((lap) => lap.lapNumber === referenceLapNumber)?.lapTimeMs ??
-		null;
+		referenceLaps.find((lap) => lap.lapNumber === referenceLapNumber)
+			?.lapTimeMs ?? null;
 	const fastestLapNumber =
 		timeLossQuery.data?.fastestLap?.lapNumber ??
 		(racingLaps.length === 1 ? (racingLaps[0]?.lapNumber ?? null) : null);
@@ -230,11 +255,18 @@ export function AnalysisPage() {
 		lapsQuery.data?.laps ?? []
 	).map((lap) => ({
 		lapNumber: lap.lapNumber,
-		lapTimeMs: lap.lapTimeMs,
+		lapTimeMs: lap.timing.lapTimeMs,
 		deltaToReferenceMs:
-			referenceLapTimeMs === null ? 0 : lap.lapTimeMs - referenceLapTimeMs,
+			referenceLapTimeMs === null
+				? 0
+				: lap.timing.lapTimeMs - referenceLapTimeMs,
 		isFastest: lap.lapNumber === fastestLapNumber,
-		isEligible: lap.eligibility === "racing",
+		isReviewable: true,
+		isReferenceEligible: lap.usage.lapTimeComparison === "verified-only",
+		timing: lap.timing,
+		quality: lap.quality,
+		usage: lap.usage,
+		coverage: lap.coverage,
 		samplingGaps:
 			lapsQuery.data?.samplingGaps.filter(
 				(gap) => gap.lapNumber === lap.lapNumber,
@@ -242,13 +274,13 @@ export function AnalysisPage() {
 	}));
 	const lapPickerStatus = findLapPickerStatus(
 		analysisId,
-		lapsQuery.isPending || (hasLapComparison && timeLossQuery.isPending),
-		lapsQuery.isError || (hasLapComparison && timeLossQuery.isError),
+		lapsQuery.isPending || (hasRankedLapComparison && timeLossQuery.isPending),
+		lapsQuery.isError || (hasRankedLapComparison && timeLossQuery.isError),
 	);
 	const lapPickerErrorMessage = findLapPickerErrorMessage(
 		analysisId,
 		lapsQuery.error,
-		hasLapComparison ? timeLossQuery.error : null,
+		hasRankedLapComparison ? timeLossQuery.error : null,
 	);
 	const telemetryChartStatus = selectedFragment
 		? fragmentSeriesQuery.isError
@@ -263,18 +295,18 @@ export function AnalysisPage() {
 				: telemetrySeriesQuery.isPending
 					? "loading"
 					: "ready";
-	const racingLapNumbers = racingLaps.map((lap) => lap.lapNumber);
+	const reviewableLapNumbers = reviewableLaps.map((lap) => lap.lapNumber);
 	const previousLapNumber = selection
-		? findAdjacentLapToReview(selection, racingLapNumbers, "previous")
+		? findAdjacentLapToReview(selection, reviewableLapNumbers, "previous")
 		: null;
 	const nextLapNumber = selection
-		? findAdjacentLapToReview(selection, racingLapNumbers, "next")
+		? findAdjacentLapToReview(selection, reviewableLapNumbers, "next")
 		: null;
 	const adjacentFragmentTargets = selectedFragment
 		? findAdjacentFragmentReviewTargets(
 				selectedFragment,
 				fragmentPresentations,
-				racingLapNumbers,
+				reviewableLapNumbers,
 			)
 		: null;
 	const previousFragmentTarget = adjacentFragmentTargets?.previous ?? null;
@@ -324,7 +356,12 @@ export function AnalysisPage() {
 	}
 
 	function swapLaps(): void {
-		if (!selection) return;
+		if (
+			!selection ||
+			reviewedLap?.usage.lapTimeComparison !== "verified-only"
+		) {
+			return;
+		}
 		setRequestedSelection(swapComparedLaps(selection));
 	}
 
@@ -468,6 +505,8 @@ export function AnalysisPage() {
 					secondLapNumber: selectedFragment ? null : referenceLapNumber,
 					idealLap: selectedFragment ? null : idealLap,
 					idealLapSeries: selectedFragment ? null : idealLapSeries,
+					reviewedLapIsLimited:
+						selectedFragment === null && reviewedLapHasLimitedTime,
 					errorMessage: findSeriesErrorMessage(
 						selectedFragment
 							? fragmentSeriesQuery.error
@@ -503,19 +542,30 @@ export function AnalysisPage() {
 					regions: trackQuery.data?.regions ?? [],
 				}}
 				coachingRail={{
-					status: !hasLapComparison
-						? "unavailable"
-						: coachingQuery.isError
-							? "error"
-							: coachingQuery.isPending
-								? "loading"
-								: "ready",
+					status:
+						reviewedLap?.usage.coaching === "none"
+							? "unavailable"
+							: !hasRankedLapComparison
+								? "unavailable"
+								: coachingQuery.isError
+									? "error"
+									: coachingQuery.isPending
+										? "loading"
+										: "ready",
 					findings: coachingFindings,
 					activeRank: activeCoachingRank,
 					fastestLapNumber,
 					emptyMessage: selection
 						? `No coaching findings were found for Lap ${selection.comparedLapNumber}. Try another lap.`
 						: "Select a racing lap to see its coaching findings.",
+					unavailableTitle:
+						reviewedLap?.usage.coaching === "none"
+							? `Coaching unavailable for Lap ${reviewedLap.lapNumber}`
+							: undefined,
+					unavailableMessage:
+						reviewedLap?.usage.coaching === "none"
+							? "Recorded telemetry is still available for review."
+							: undefined,
 					errorMessage: findCoachingErrorMessage(coachingQuery.error),
 					onSelectRank: setRequestedCoachingRank,
 				}}

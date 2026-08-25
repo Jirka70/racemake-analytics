@@ -1,5 +1,6 @@
 import { Minus } from "@phosphor-icons/react";
 import type { IdealLapDefinition } from "../../../analysis/ideal-lap";
+import { hasLimitedLapTime } from "../../../analysis/lap-data-quality";
 import type { LapPickerLap } from "../laps/LapPicker";
 import { formatLapTimeMs } from "../laps/lap-time-format";
 
@@ -20,7 +21,9 @@ export function LapComparisonLegend({
 			<LegendItem
 				lap={comparedLap}
 				label="Reviewed lap"
-				colorClassName="text-lime-400"
+				colorClassName={
+					hasLimitedLapTime(comparedLap) ? "text-amber-400" : "text-lime-400"
+				}
 			/>
 			<LegendItem
 				lap={referenceLap}

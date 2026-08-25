@@ -100,6 +100,7 @@ export interface TelemetryComparisonChartDataProps {
 	readonly series: SeriesResponse | null;
 	readonly reviewedLapNumber: number | null;
 	readonly reviewedLabel?: string;
+	readonly reviewedLapIsLimited: boolean;
 	readonly secondLapNumber: number | null;
 	readonly idealLap: IdealLapDefinition | null;
 	readonly idealLapSeries: AvailableIdealLapResponse | null;
@@ -124,6 +125,7 @@ export interface TelemetryComparisonChartProps
 }
 
 const REVIEWED_LAP_COLOR = "#a3e635";
+const LIMITED_REVIEWED_LAP_COLOR = "#f59e0b";
 const SECOND_LAP_COLOR = "#a78bfa";
 const IDEAL_LAP_COLOR = "#d4d4d8";
 const GRID_LINE_COLOR = "#2b2f2c";
@@ -159,6 +161,7 @@ export function TelemetryComparisonChart({
 	series,
 	reviewedLapNumber,
 	reviewedLabel,
+	reviewedLapIsLimited,
 	secondLapNumber,
 	idealLap,
 	idealLapSeries,
@@ -227,6 +230,13 @@ export function TelemetryComparisonChart({
 				layout={chartLayout}
 				presentation={presentation}
 			/>
+			{reviewedLapIsLimited ? (
+				<ApproximateTimeDeltaNotice
+					sections={chartSections}
+					layout={chartLayout}
+					presentation={presentation}
+				/>
+			) : null}
 			<div
 				className="pointer-events-none absolute"
 				style={{
@@ -296,6 +306,7 @@ export function TelemetryComparisonChart({
 					samplingGaps={samplingGaps}
 					reviewedLapNumber={reviewedLapNumber}
 					secondLapNumber={secondLapNumber}
+					reviewedLapIsLimited={reviewedLapIsLimited}
 					isGuideInspectingSeries={controlsGuideStep === "inspect"}
 				/>
 			)}
@@ -316,6 +327,7 @@ function TelemetryChartCanvas({
 	samplingGaps,
 	reviewedLapNumber,
 	secondLapNumber,
+	reviewedLapIsLimited,
 	isGuideInspectingSeries,
 }: {
 	readonly model: TelemetryChartModel;
@@ -330,6 +342,7 @@ function TelemetryChartCanvas({
 	readonly samplingGaps: readonly LapSamplingGapResponse[];
 	readonly reviewedLapNumber: number | null;
 	readonly secondLapNumber: number | null;
+	readonly reviewedLapIsLimited: boolean;
 	readonly isGuideInspectingSeries: boolean;
 }) {
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -789,8 +802,7 @@ function TelemetryChartCanvas({
 		if (!isGuideInspectingSeries) {
 			if (
 				guideSelectedSeriesIdRef.current !== null &&
-				selectedSeriesRef.current?.lineId ===
-					guideSelectedSeriesIdRef.current
+				selectedSeriesRef.current?.lineId === guideSelectedSeriesIdRef.current
 			) {
 				setSelectedSeries(null);
 			}
@@ -856,6 +868,7 @@ function TelemetryChartCanvas({
 				idealLap,
 				presentation,
 				selectedSeries,
+				reviewedLapIsLimited,
 				() =>
 					readVisibleTooltipObstacles(
 						containerRef.current,
@@ -866,7 +879,14 @@ function TelemetryChartCanvas({
 			{ notMerge: true },
 		);
 		chartViewportRef.current = currentViewport;
-	}, [sections, layout, idealLap, presentation, selectedSeries]);
+	}, [
+		sections,
+		layout,
+		idealLap,
+		presentation,
+		selectedSeries,
+		reviewedLapIsLimited,
+	]);
 
 	useEffect(() => {
 		if (selectedSeries === null) return;
@@ -946,7 +966,10 @@ function TelemetryChartCanvas({
 			{selectedSeries && selectedSeriesAnchor ? (
 				<SelectedTelemetrySeriesPanel
 					selection={selectedSeries}
-					color={findTelemetryRoleColor(selectedSeries.role)}
+					color={findTelemetryRoleColor(
+						selectedSeries.role,
+						reviewedLapIsLimited,
+					)}
 					presentation={presentation}
 					anchor={selectedSeriesAnchor}
 					plotInsets={plotInsets}
@@ -1167,6 +1190,7 @@ function createTelemetryChartOption(
 	idealLap: IdealLapDefinition | null,
 	presentation: TelemetryChartPresentation,
 	selectedSeries: TelemetrySeriesSelection | null,
+	reviewedLapIsLimited: boolean,
 	getTooltipObstacles: () => readonly TelemetryTooltipRectangle[],
 ): TelemetryChartOption {
 	const plotInsets = getTelemetryChartPlotInsets(presentation);
@@ -1303,7 +1327,13 @@ function createTelemetryChartOption(
 		),
 		series: sections.flatMap((section, gridIndex) =>
 			section.lines.map((line) =>
-				createLineSeries(line, gridIndex, selectedSeries, presentation),
+				createLineSeries(
+					line,
+					gridIndex,
+					selectedSeries,
+					presentation,
+					reviewedLapIsLimited,
+				),
 			),
 		),
 	};
@@ -1403,8 +1433,9 @@ function createLineSeries(
 	gridIndex: number,
 	selectedSeries: TelemetrySeriesSelection | null,
 	presentation: TelemetryChartPresentation,
+	reviewedLapIsLimited: boolean,
 ): LineSeriesOption {
-	const color = findTelemetryLineColor(line);
+	const color = findTelemetryLineColor(line, reviewedLapIsLimited);
 	const isSelected = selectedSeries?.lineId === line.id;
 	const isSiblingOfSelection =
 		selectedSeries !== null &&
@@ -1501,12 +1532,22 @@ function getTelemetrySeriesBaseZ(line: TelemetryChartLine): number {
 	return 4;
 }
 
-function findTelemetryLineColor(line: TelemetryChartLine): string {
-	return findTelemetryRoleColor(line.role);
+function findTelemetryLineColor(
+	line: TelemetryChartLine,
+	reviewedLapIsLimited: boolean,
+): string {
+	return findTelemetryRoleColor(line.role, reviewedLapIsLimited);
 }
 
-function findTelemetryRoleColor(role: TelemetryChartLine["role"]): string {
-	if (role === "reviewed") return REVIEWED_LAP_COLOR;
+function findTelemetryRoleColor(
+	role: TelemetryChartLine["role"],
+	reviewedLapIsLimited: boolean,
+): string {
+	if (role === "reviewed") {
+		return reviewedLapIsLimited
+			? LIMITED_REVIEWED_LAP_COLOR
+			: REVIEWED_LAP_COLOR;
+	}
 	if (role === "second") return SECOND_LAP_COLOR;
 	return IDEAL_LAP_COLOR;
 }
@@ -1730,6 +1771,40 @@ function createAccessibleChartDescription(
 	return model.timeDelta
 		? `${chartNames.join(", ")} comparison for ${model.timeDelta.name}.`
 		: `${chartNames.join(", ")} for ${reviewedLapName ?? "the selected lap"}.`;
+}
+
+function ApproximateTimeDeltaNotice({
+	sections,
+	layout,
+	presentation,
+}: {
+	readonly sections: readonly TelemetryChartSection[];
+	readonly layout: readonly TelemetryChartGridLayout[];
+	readonly presentation: "desktop" | "compact";
+}) {
+	const timeDeltaIndex = sections.findIndex(
+		(section) => section.id === "time-delta",
+	);
+	const timeDeltaLayout = layout[timeDeltaIndex];
+	if (timeDeltaLayout === undefined) return null;
+
+	return (
+		<div
+			className={`pointer-events-none absolute z-20 flex items-center gap-2 ${
+				presentation === "compact" ? "left-[76px]" : "left-[104px]"
+			}`}
+			style={{ top: `${timeDeltaLayout.topPercent + 1.5}%` }}
+			role="status"
+			aria-label="Time delta is approximate because boundary timing is uncertain"
+		>
+			<span className="rounded-[3px] border border-amber-500/80 bg-amber-500/[0.08] px-2 py-1 text-[9px] font-semibold tracking-[0.06em] text-amber-400 uppercase">
+				Approximate
+			</span>
+			<span className="hidden text-[10px] text-neutral-500 min-[720px]:inline">
+				Boundary timing is uncertain
+			</span>
+		</div>
+	);
 }
 
 function ChartChannelLabels({

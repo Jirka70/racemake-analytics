@@ -7,14 +7,20 @@ import {
 	useState,
 } from "react";
 import type {
+	LapCoverageResponse,
 	LapFragmentResponse,
+	LapQualityResponse,
 	LapSamplingGapResponse,
+	LapTimingResponse,
+	LapUsageResponse,
 } from "../../../../../src/http/contracts";
 import type { IdealLapDefinition } from "../../../analysis/ideal-lap";
+import { createLapDataDetails } from "../../../analysis/lap-data-quality";
 import { createLapFragmentPresentations } from "../../../analysis/lap-fragment-presentation";
 import { FragmentTelemetryLegend } from "../charts/FragmentTelemetryLegend";
 import { LapComparisonLegend } from "../charts/LapComparisonLegend";
 import { ComparisonLapSelect } from "./ComparisonLapSelect";
+import { LapDataDetailsPopover } from "./LapDataDetailsPopover";
 import { LapFragmentPickerItem } from "./LapFragmentPickerItem";
 import { LapPickerItem } from "./LapPickerItem";
 import { formatLapTimeMs } from "./lap-time-format";
@@ -24,7 +30,12 @@ export interface LapPickerLap {
 	readonly lapTimeMs: number;
 	readonly deltaToReferenceMs: number;
 	readonly isFastest: boolean;
-	readonly isEligible: boolean;
+	readonly isReviewable: boolean;
+	readonly isReferenceEligible: boolean;
+	readonly timing: LapTimingResponse;
+	readonly quality: LapQualityResponse;
+	readonly usage: LapUsageResponse;
+	readonly coverage: LapCoverageResponse;
 	readonly samplingGaps: readonly LapSamplingGapResponse[];
 }
 
@@ -62,11 +73,13 @@ export function LapPicker({
 	const cardStripRef = useRef<HTMLDivElement>(null);
 	const [canScrollLeft, setCanScrollLeft] = useState(false);
 	const [canScrollRight, setCanScrollRight] = useState(false);
-	const selectableLaps = laps.filter((lap) => lap.isEligible);
-	const comparedLap = selectableLaps.find(
-		(lap) => lap.lapNumber === comparedLapNumber,
-	);
-	const referenceLap = selectableLaps.find(
+	const [openDetails, setOpenDetails] = useState<{
+		readonly lap: LapPickerLap;
+		readonly anchor: HTMLButtonElement;
+	} | null>(null);
+	const referenceLaps = laps.filter((lap) => lap.isReferenceEligible);
+	const comparedLap = laps.find((lap) => lap.lapNumber === comparedLapNumber);
+	const referenceLap = referenceLaps.find(
 		(lap) => lap.lapNumber === referenceLapNumber,
 	);
 	const fragmentPresentations = createLapFragmentPresentations(
@@ -146,164 +159,209 @@ export function LapPicker({
 		});
 	}
 
+	const openDetailsAnchor = openDetails?.anchor ?? null;
+	const closeDetails = useCallback(
+		(restoreFocus: boolean): void => {
+			if (restoreFocus) openDetailsAnchor?.focus();
+			setOpenDetails(null);
+		},
+		[openDetailsAnchor],
+	);
+
+	function toggleDetails(lap: LapPickerLap, anchor: HTMLButtonElement): void {
+		if (openDetails?.lap.lapNumber === lap.lapNumber) {
+			setOpenDetails(null);
+			return;
+		}
+
+		anchor.closest<HTMLElement>("[data-review-card-key]")?.scrollIntoView({
+			behavior: "auto",
+			block: "nearest",
+			inline: "center",
+		});
+		setOpenDetails({ lap, anchor });
+	}
+
+	const openDetailsPresentation = openDetails
+		? createLapDataDetails(
+				openDetails.lap,
+				formatLapTimeMs(openDetails.lap.lapTimeMs),
+			)
+		: null;
+
 	return (
-		<section className="flex min-w-0 rounded-[3px] border border-[#292d2a] bg-[#101311]">
-			<div className="w-[272px] shrink-0 px-4 py-3">
-				<h2 className="m-0 text-[11px] font-semibold tracking-[0.04em] text-neutral-300">
-					CHOOSE DATA TO REVIEW
-				</h2>
-				<p className="mt-0.5 text-[11px] text-neutral-500">
-					{selectedFragmentIndex === null
-						? "Select a lap card"
-						: "Fragment review"}
-				</p>
-
-				{status === "ready" && selectedFragmentIndex === null && (
-					<ComparisonLapSelect
-						laps={selectableLaps}
-						comparedLapNumber={comparedLapNumber}
-						referenceLapNumber={referenceLapNumber}
-						onSelect={onSelectReferenceLap}
-						onSwap={onSwapLaps}
-					/>
-				)}
-				{status === "ready" && selectedFragmentIndex !== null ? (
-					<p className="mt-2 max-w-[224px] text-[11px] leading-4 text-neutral-500">
-						Comparison is not available for partial telemetry.
+		<>
+			<section className="flex min-w-0 rounded-[3px] border border-[#292d2a] bg-[#101311]">
+				<div className="w-[272px] shrink-0 px-4 py-3">
+					<h2 className="m-0 text-[11px] font-semibold tracking-[0.04em] text-neutral-300">
+						CHOOSE DATA TO REVIEW
+					</h2>
+					<p className="mt-0.5 text-[11px] text-neutral-500">
+						{selectedFragmentIndex === null
+							? "Select a lap card"
+							: "Fragment review"}
 					</p>
-				) : null}
-			</div>
 
-			<div className="flex min-w-0 flex-1">
-				<div className="relative min-w-0 flex-1">
-					<div
-						ref={cardStripRef}
-						className="flex h-full min-w-0 items-center justify-start gap-2 overflow-x-auto px-1 py-3"
-					>
-						{status === "loading" && (
-							<p className="text-sm text-neutral-400" aria-live="polite">
-								Loading stint…
-							</p>
-						)}
-
-						{status === "empty" && (
-							<div aria-live="polite">
-								<p className="text-sm font-medium text-neutral-200">
-									No stint selected
-								</p>
-								<p className="mt-1 text-xs text-neutral-500">
-									Open a stint to start comparing laps.
-								</p>
-							</div>
-						)}
-
-						{status === "error" && (
-							<div className="max-w-md" role="alert">
-								<p className="text-sm font-medium text-red-300">
-									We couldn’t load this stint
-								</p>
-								<p className="mt-1 text-xs text-neutral-400">
-									{errorMessage ?? "Try opening it again."}
-								</p>
-							</div>
-						)}
-
-						{status === "ready" && openingFragment !== null && (
-							<LapFragmentPickerItem
-								fragment={openingFragment}
-								isSelected={
-									openingFragment.fragmentIndex === selectedFragmentIndex
-								}
-								onSelect={onSelectFragment}
-							/>
-						)}
-
-						{status === "ready" &&
-							laps.map((lap) => (
-								<LapPickerItem
-									key={lap.lapNumber}
-									{...lap}
-									isSelected={
-										selectedFragmentIndex === null &&
-										lap.lapNumber === comparedLapNumber
-									}
-									isReference={lap.lapNumber === referenceLapNumber}
-									onSelect={onSelectComparedLap}
-								/>
-							))}
-
-						{status === "ready" &&
-							remainingFragments.map((fragment) => (
-								<LapFragmentPickerItem
-									key={fragment.key}
-									fragment={fragment}
-									isSelected={fragment.fragmentIndex === selectedFragmentIndex}
-									onSelect={onSelectFragment}
-								/>
-							))}
-
-						{status === "ready" &&
-							selectedFragmentIndex === null &&
-							idealLap !== null && (
-								<div
-									className="flex h-[94px] w-[108px] shrink-0 flex-col rounded-[4px] border border-[#303431] bg-[#111412] px-3 py-2"
-									title="Theoretical time composed from the fastest observed pass through each region"
-								>
-									<span className="text-xs font-medium text-neutral-300">
-										Ideal
-									</span>
-									<span className="mt-1 text-sm font-semibold tabular-nums text-neutral-100">
-										{formatLapTimeMs(idealLap.durationMs)}
-									</span>
-									<span className="mt-auto whitespace-nowrap text-[11px] text-neutral-500">
-										Best sections
-									</span>
-								</div>
-							)}
-
-						{status === "ready" && selectableLaps.length === 0 && (
-							<p className="text-sm text-neutral-400">
-								No racing laps are available for comparison.
-							</p>
-						)}
-					</div>
-
-					{canScrollLeft ? (
-						<CardStripScrollControl
-							direction="left"
-							onClick={() => scrollCards(-1)}
+					{status === "ready" && selectedFragmentIndex === null && (
+						<ComparisonLapSelect
+							laps={referenceLaps}
+							comparedLapNumber={comparedLapNumber}
+							referenceLapNumber={referenceLapNumber}
+							canSwap={comparedLap?.isReferenceEligible === true}
+							onSelect={onSelectReferenceLap}
+							onSwap={onSwapLaps}
 						/>
-					) : null}
-					{canScrollRight ? (
-						<CardStripScrollControl
-							direction="right"
-							onClick={() => scrollCards(1)}
-						/>
+					)}
+					{status === "ready" && selectedFragmentIndex !== null ? (
+						<p className="mt-2 max-w-[224px] text-[11px] leading-4 text-neutral-500">
+							Comparison is not available for partial telemetry.
+						</p>
 					) : null}
 				</div>
 
-				{status === "ready" && selectedFragment !== null && (
-					<div className="ml-auto flex h-[94px] shrink-0 border-l border-[#292d2a]">
-						<FragmentTelemetryLegend fragment={selectedFragment} />
-						{chartControls}
-					</div>
-				)}
+				<div className="flex min-w-0 flex-1">
+					<div className="relative min-w-0 flex-1">
+						<div
+							ref={cardStripRef}
+							className="flex h-full min-w-0 items-center justify-start gap-2 overflow-x-auto px-1 py-3"
+						>
+							{status === "loading" && (
+								<p className="text-sm text-neutral-400" aria-live="polite">
+									Loading stint…
+								</p>
+							)}
 
-				{status === "ready" &&
-					selectedFragment === null &&
-					comparedLap &&
-					referenceLap && (
-						<div className="ml-auto flex h-[94px] shrink-0 border-l border-[#292d2a]">
-							<LapComparisonLegend
-								comparedLap={comparedLap}
-								referenceLap={referenceLap}
-								idealLap={idealLap}
+							{status === "empty" && (
+								<div aria-live="polite">
+									<p className="text-sm font-medium text-neutral-200">
+										No stint selected
+									</p>
+									<p className="mt-1 text-xs text-neutral-500">
+										Open a stint to start comparing laps.
+									</p>
+								</div>
+							)}
+
+							{status === "error" && (
+								<div className="max-w-md" role="alert">
+									<p className="text-sm font-medium text-red-300">
+										We couldn’t load this stint
+									</p>
+									<p className="mt-1 text-xs text-neutral-400">
+										{errorMessage ?? "Try opening it again."}
+									</p>
+								</div>
+							)}
+
+							{status === "ready" && openingFragment !== null && (
+								<LapFragmentPickerItem
+									fragment={openingFragment}
+									isSelected={
+										openingFragment.fragmentIndex === selectedFragmentIndex
+									}
+									onSelect={onSelectFragment}
+								/>
+							)}
+
+							{status === "ready" &&
+								laps.map((lap) => (
+									<LapPickerItem
+										key={lap.lapNumber}
+										{...lap}
+										isSelected={
+											selectedFragmentIndex === null &&
+											lap.lapNumber === comparedLapNumber
+										}
+										isReference={lap.lapNumber === referenceLapNumber}
+										isDetailsOpen={openDetails?.lap.lapNumber === lap.lapNumber}
+										onSelect={onSelectComparedLap}
+										onToggleDetails={(anchor) => toggleDetails(lap, anchor)}
+									/>
+								))}
+
+							{status === "ready" &&
+								remainingFragments.map((fragment) => (
+									<LapFragmentPickerItem
+										key={fragment.key}
+										fragment={fragment}
+										isSelected={
+											fragment.fragmentIndex === selectedFragmentIndex
+										}
+										onSelect={onSelectFragment}
+									/>
+								))}
+
+							{status === "ready" &&
+								selectedFragmentIndex === null &&
+								idealLap !== null && (
+									<div
+										className="flex h-[94px] w-[108px] shrink-0 flex-col rounded-[4px] border border-[#303431] bg-[#111412] px-3 py-2"
+										title="Theoretical time composed from the fastest observed pass through each region"
+									>
+										<span className="text-xs font-medium text-neutral-300">
+											Ideal
+										</span>
+										<span className="mt-1 text-sm font-semibold tabular-nums text-neutral-100">
+											{formatLapTimeMs(idealLap.durationMs)}
+										</span>
+										<span className="mt-auto whitespace-nowrap text-[11px] text-neutral-500">
+											Best sections
+										</span>
+									</div>
+								)}
+
+							{status === "ready" && referenceLaps.length === 0 && (
+								<p className="text-sm text-neutral-400">
+									No racing laps are available for comparison.
+								</p>
+							)}
+						</div>
+
+						{canScrollLeft ? (
+							<CardStripScrollControl
+								direction="left"
+								onClick={() => scrollCards(-1)}
 							/>
+						) : null}
+						{canScrollRight ? (
+							<CardStripScrollControl
+								direction="right"
+								onClick={() => scrollCards(1)}
+							/>
+						) : null}
+					</div>
+
+					{status === "ready" && selectedFragment !== null && (
+						<div className="ml-auto flex h-[94px] shrink-0 border-l border-[#292d2a]">
+							<FragmentTelemetryLegend fragment={selectedFragment} />
 							{chartControls}
 						</div>
 					)}
-			</div>
-		</section>
+
+					{status === "ready" &&
+						selectedFragment === null &&
+						comparedLap &&
+						referenceLap && (
+							<div className="ml-auto flex h-[94px] shrink-0 border-l border-[#292d2a]">
+								<LapComparisonLegend
+									comparedLap={comparedLap}
+									referenceLap={referenceLap}
+									idealLap={idealLap}
+								/>
+								{chartControls}
+							</div>
+						)}
+				</div>
+			</section>
+			{openDetails && openDetailsPresentation ? (
+				<LapDataDetailsPopover
+					lapNumber={openDetails.lap.lapNumber}
+					details={openDetailsPresentation}
+					anchor={openDetails.anchor}
+					onClose={closeDetails}
+				/>
+			) : null}
+		</>
 	);
 }
 

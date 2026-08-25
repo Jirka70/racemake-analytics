@@ -5,6 +5,7 @@ interface ComparisonLapSelectProps {
 	readonly laps: readonly LapPickerLap[];
 	readonly comparedLapNumber: number | null;
 	readonly referenceLapNumber: number | null;
+	readonly canSwap: boolean;
 	readonly onSelect: (lapNumber: number) => void;
 	readonly onSwap: () => void;
 }
@@ -13,6 +14,7 @@ export function ComparisonLapSelect({
 	laps,
 	comparedLapNumber,
 	referenceLapNumber,
+	canSwap,
 	onSelect,
 	onSwap,
 }: ComparisonLapSelectProps) {
@@ -56,7 +58,7 @@ export function ComparisonLapSelect({
 				<button
 					className="flex h-8 shrink-0 items-center gap-1.5 rounded-[4px] border border-[#353a36] bg-[#111412] px-2.5 text-[11px] font-medium text-neutral-300 transition-colors hover:border-neutral-500 hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-400 disabled:cursor-not-allowed disabled:text-neutral-600"
 					type="button"
-					disabled={!hasCompleteSelection}
+					disabled={!hasCompleteSelection || !canSwap}
 					onClick={onSwap}
 				>
 					<ArrowsLeftRight aria-hidden="true" size={13} />

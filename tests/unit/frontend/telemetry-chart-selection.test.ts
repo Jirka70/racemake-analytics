@@ -4,6 +4,9 @@ import {
 	DEFAULT_VISIBLE_TELEMETRY_CHARTS,
 	FRAGMENT_TELEMETRY_CHART_IDS,
 	getSeriesChannelsForTelemetryCharts,
+	MOBILE_COMPARISON_TELEMETRY_CHARTS,
+	MOBILE_SINGLE_TELEMETRY_CHARTS,
+	TELEMETRY_CHART_IDS,
 	toggleTelemetryChart,
 } from "../../../frontend/src/analysis/telemetry-chart-selection";
 
@@ -22,6 +25,13 @@ describe("telemetry chart selection", () => {
 			"pedals",
 			"steering",
 		]);
+	});
+
+	test("makes every applicable desktop channel available on mobile", () => {
+		expect(MOBILE_COMPARISON_TELEMETRY_CHARTS).toEqual(TELEMETRY_CHART_IDS);
+		expect(MOBILE_SINGLE_TELEMETRY_CHARTS).toEqual(
+			FRAGMENT_TELEMETRY_CHART_IDS,
+		);
 	});
 
 	test("keeps chart order stable when optional charts are enabled", () => {

@@ -4,6 +4,7 @@ import {
 	areComparedLapRolesSwapped,
 	type LapComparisonSelection,
 } from "../../analysis/lap-comparison-selection";
+import { hasLimitedLapTime } from "../../analysis/lap-data-quality";
 import {
 	resolveTelemetryWheelGestureAxis,
 	resolveTelemetryWheelScrollTarget,
@@ -65,6 +66,7 @@ export function TelemetryWorkspace({
 		() => [mobileChart.activeChartId],
 		[mobileChart.activeChartId],
 	);
+	const hasExpandedLapCard = lapPicker.laps.some(hasLimitedLapTime);
 	const selectableRegions = useMemo(
 		() => trackRegionBand.regions.filter((region) => region.type === "corner"),
 		[trackRegionBand.regions],
@@ -249,6 +251,7 @@ export function TelemetryWorkspace({
 			reviewedLapNumber={telemetryChart.reviewedLapNumber}
 			secondLapNumber={telemetryChart.secondLapNumber}
 			idealLapSeries={telemetryChart.idealLapSeries}
+			reviewedLapIsLimited={telemetryChart.reviewedLapIsLimited}
 			viewport={viewport}
 			selectedRegion={selectedRegion}
 			cursorPositionPercent={cursorPositionPercent}
@@ -316,7 +319,11 @@ export function TelemetryWorkspace({
 		</section>
 	) : (
 		<section
-			className="grid min-h-0 grid-rows-[124px_44px_minmax(0,1fr)_72px] gap-1.5 overflow-hidden"
+			className={`grid min-h-0 gap-1.5 overflow-hidden ${
+				hasExpandedLapCard
+					? "grid-rows-[166px_44px_minmax(0,1fr)_72px]"
+					: "grid-rows-[124px_44px_minmax(0,1fr)_72px]"
+			}`}
 			aria-label="Telemetry workspace"
 		>
 			<LapPicker {...lapPicker} />
