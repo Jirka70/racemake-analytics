@@ -30,6 +30,19 @@ therefore not interpret those discontinuities as driver or vehicle behaviour.
 The current implementation exposes the boundaries in diagnostics, but it does
 not yet maintain channel trust beyond each boundary.
 
+## Sampling gaps around start/finish
+
+A sampling gap inside a lap does not normally invalidate crossing-to-crossing
+time. It does invalidate that time when the missing interval may contain an
+unobserved start/finish boundary, because two real laps could otherwise be
+merged into one apparently valid detected lap.
+
+The detector treats either a start/finish-shaped position drop or any recorded
+lap-counter change across the gap as conservative evidence of that risk. The
+lap counter is used only to veto time, ranking, and coaching; it never creates
+a crossing. The detected interval and its recorded telemetry remain available
+for review as limited data.
+
 ### Proposed channel-epoch solution
 
 1. Give every audited channel value a typed status: `usable`, `suspect`,
