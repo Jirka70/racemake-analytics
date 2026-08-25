@@ -44,7 +44,9 @@ await Promise.all([
   writeJsonAtomically(diagnosticsOutputPath, diagnostics),
 ])
 
-const racingLaps = laps.laps.filter((lap) => lap.eligibility === 'racing')
+const racingLaps = laps.laps.filter(
+  (lap) => lap.usage.lapRanking === 'ranked',
+)
 console.log([
   `Analysis: ${ingest.analysisId}`,
   `Frames: ${ingest.receivedFrameCount} received, ${ingest.retainedTimelineFrameCount} retained, ${ingest.excludedTimelineFrameCount} excluded`,
@@ -93,9 +95,12 @@ function assertArtifactInvariants(
   }
 
   const racingLaps = sample.laps.laps.filter(
-    (lap) => lap.eligibility === 'racing',
+    (lap) => lap.usage.lapRanking === 'ranked',
   )
-  if (racingLaps.length === 0 || racingLaps.some((lap) => lap.lapTimeMs <= 0)) {
+  if (
+    racingLaps.length === 0
+    || racingLaps.some((lap) => lap.timing.lapTimeMs <= 0)
+  ) {
     throw new Error('Sample output must contain positive real-racing lap times')
   }
   if (sample.track.regions.length === 0) {

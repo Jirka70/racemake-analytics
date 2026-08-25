@@ -1,50 +1,29 @@
 import type {
   DetectedLap,
-  LapEligibilityDecision,
-  LapEligibilityReason,
+  DetectedLapEligibility,
+  DetectedLapGridCoverage,
+  LapCrossing,
   SamplingGapWithinLapLimitation,
 } from '../analytics/lap-detect/lap-detect-types'
+import { DEFAULT_LAP_DETECTION_CONFIG } from '../analytics/lap-detect/config/lap-detection-config'
 import type { AnalysisStore } from './analysis-store'
 import type {
-  LapEligibilityDecisionResponse,
-  LapEligibilityReasonResponse,
+  LapBoundaryLimitationResponse,
   LapLimitationResponse,
+  LapQualityResponse,
   LapResponse,
   LapSamplingGapLimitationResponse,
   LapSamplingGapResponse,
+  LapTimeLimitationResponse,
+  LapUsageResponse,
   LapsResponse,
 } from './contracts/laps'
 import { getAnalysis } from './get-analysis'
 
-const LAP_ELIGIBILITY_MESSAGES: Readonly<
-  Record<LapEligibilityReason['code'], string>
-> = {
-  BOUNDARY_CONFIDENCE_BELOW_MINIMUM:
-    'Lap boundary confidence is below the required minimum.',
-  LAP_TIME_CONFIDENCE_BELOW_MINIMUM:
-    'Lap-time confidence is below the required minimum.',
-  POSITION_COVERAGE_BELOW_MINIMUM:
-    'Track-position coverage is below the required minimum.',
-  MOVEMENT_OBSERVATION_BELOW_MINIMUM:
-    'Usable movement observation is below the required minimum.',
-  MOVING_TIME_BELOW_MINIMUM:
-    'The moving share of the observed lap is below the required minimum.',
-  STEERING_COVERAGE_BELOW_MINIMUM:
-    'Steering coverage is below the required minimum.',
-  POSITION_HOLE_EXCEEDS_MAXIMUM:
-    'The largest unsupported track-position interval exceeds the allowed maximum.',
-  STATIONARY_INTERVAL_EXCEEDS_MAXIMUM:
-    'The longest stationary interval exceeds the allowed maximum.',
-  STEERING_HOLE_EXCEEDS_MAXIMUM:
-    'The largest unsupported steering interval exceeds the allowed maximum.',
-  NON_POSITIVE_LAP_TIME: 'The calculated lap time is not positive.',
-  TIME_ELIGIBILITY_REQUIRED:
-    'Reliable lap timing is required before racing eligibility can be evaluated.',
-  REAL_RACING_ELIGIBILITY_REQUIRED:
-    'Racing eligibility is required before corner eligibility can be evaluated.',
-  SAMPLING_GAP_WITHIN_LAP:
-    'A sampling gap limits position-aligned analysis of this lap.',
-}
+const MINIMUM_BOUNDARY_CONFIDENCE =
+  DEFAULT_LAP_DETECTION_CONFIG.eligibility.time.minimumBoundaryConfidence
+const MINIMUM_LAP_TIME_CONFIDENCE =
+  DEFAULT_LAP_DETECTION_CONFIG.eligibility.time.minimumLapTimeConfidence
 
 export function getLaps(
   query: unknown,
@@ -56,6 +35,12 @@ export function getLaps(
     analysis.lapDetectionResult.lapEligibilityResults.map((result) => [
       result.lapNumber,
       result.eligibility,
+    ]),
+  )
+  const coverageByLapNumber = new Map(
+    analysis.lapDetectionResult.lapGridCoverages.map((result) => [
+      result.lapNumber,
+      result.coverage,
     ]),
   )
   const samplingGaps = analysis.lapDetectionResult.laps.flatMap((lap) =>
@@ -81,32 +66,36 @@ export function getLaps(
           `Lap ${lap.lapNumber} is missing its eligibility result.`,
         )
       }
+      const coverage = coverageByLapNumber.get(lap.lapNumber)
+      if (!coverage) {
+        throw new TypeError(
+          `Lap ${lap.lapNumber} is missing its coverage result.`,
+        )
+      }
+
+      const limitations = createLapLimitationResponses(lap, eligibility)
+      const quality = createLapQualityResponse(limitations)
 
       return {
         lapNumber: lap.lapNumber,
-        lapTimeMs: lap.lapTimeMs,
-        eligibility: eligibility.realRacing.eligible
-          ? 'racing'
-          : 'non-racing',
-        analysisEligibility: {
-          lapTime: createEligibilityDecisionResponse(
-            eligibility.timeEligible,
-          ),
-          racing: createEligibilityDecisionResponse(
-            eligibility.realRacing,
-          ),
-          // Kept as an HTTP compatibility field: every racing lap enters corner
-          // detection and contributes only where its steering data is supported.
-          cornerDetection: createEligibilityDecisionResponse(
-            eligibility.realRacing,
-          ),
+        timing: {
+          status: eligibility.timeEligible.eligible
+            ? 'verified'
+            : 'unverified',
+          lapTimeMs: lap.lapTimeMs,
         },
+        quality,
+        usage: createLapUsageResponse(eligibility, quality),
+        coverage: createLapCoverageResponse(coverage),
         confidence: {
-          boundary: lap.confidence.boundaryConfidence,
-          lapTime: lap.confidence.lapTimeConfidence,
-          overall: lap.confidence.overallConfidence,
+          startCrossing: createCrossingConfidenceResponse(lap.startCrossing),
+          finishCrossing: createCrossingConfidenceResponse(lap.endCrossing),
+          lap: {
+            boundary: lap.confidence.boundaryConfidence,
+            lapTime: lap.confidence.lapTimeConfidence,
+            overall: lap.confidence.overallConfidence,
+          },
         },
-        limitations: createLapLimitationResponses(lap),
       }
     }),
   }
@@ -114,16 +103,194 @@ export function getLaps(
 
 function createLapLimitationResponses(
   lap: DetectedLap,
+  eligibility: DetectedLapEligibility,
 ): readonly LapLimitationResponse[] {
-  const crossingLimitations = [
-    ...lap.startCrossing.limitations,
-    ...lap.endCrossing.limitations,
-  ].map(({ code, severity, message }) => ({ code, severity, message }))
+  const crossingLimitations = createLapBoundaryLimitationResponses(
+    lap,
+    eligibility,
+  )
+  const lapTimeLimitation = createLapTimeLimitationResponse(lap, eligibility)
   const samplingGapLimitations = lap.limitations.map((limitation) =>
     createLapSamplingGapLimitationResponse(lap.lapNumber, limitation),
   )
 
-  return [...crossingLimitations, ...samplingGapLimitations]
+  return [
+    ...crossingLimitations,
+    ...(lapTimeLimitation ? [lapTimeLimitation] : []),
+    ...samplingGapLimitations,
+  ]
+}
+
+function createLapBoundaryLimitationResponses(
+  lap: DetectedLap,
+  eligibility: DetectedLapEligibility,
+): readonly LapBoundaryLimitationResponse[] {
+  const hasBoundaryEligibilityFailure =
+    eligibility.timeEligible.reasons.some(
+      ({ code }) => code === 'BOUNDARY_CONFIDENCE_BELOW_MINIMUM',
+    )
+  const limitedCrossings: Array<{
+    boundary: 'start' | 'finish'
+    crossing: LapCrossing
+  }> = [
+    ...(lap.startCrossing.limitations.length > 0
+      ? [{ boundary: 'start' as const, crossing: lap.startCrossing }]
+      : []),
+    ...(lap.endCrossing.limitations.length > 0
+      ? [{ boundary: 'finish' as const, crossing: lap.endCrossing }]
+      : []),
+  ]
+
+  if (limitedCrossings.length === 0 && hasBoundaryEligibilityFailure) {
+    limitedCrossings.push(
+      lap.startCrossing.confidence.boundaryConfidence
+        <= lap.endCrossing.confidence.boundaryConfidence
+        ? { boundary: 'start', crossing: lap.startCrossing }
+        : { boundary: 'finish', crossing: lap.endCrossing },
+    )
+  }
+
+  return limitedCrossings.map(({ boundary, crossing }) =>
+    createLapBoundaryLimitationResponse(lap, boundary, crossing),
+  )
+}
+
+function createLapBoundaryLimitationResponse(
+  lap: DetectedLap,
+  boundary: 'start' | 'finish',
+  crossing: LapCrossing,
+): LapBoundaryLimitationResponse {
+  const localContext = crossing.limitations.find(
+    (limitation) =>
+      limitation.code === 'LOCAL_POSITION_RATE_CONTEXT_UNAVAILABLE',
+  )
+
+  return {
+    code:
+      boundary === 'start'
+        ? 'START_BOUNDARY_UNCERTAIN'
+        : 'FINISH_BOUNDARY_UNCERTAIN',
+    severity: 'warning',
+    message:
+      boundary === 'start'
+        ? 'Start crossing was not captured clearly.'
+        : 'Finish crossing was not captured clearly.',
+    boundary,
+    crossingBoundaryConfidence: crossing.confidence.boundaryConfidence,
+    lapBoundaryConfidence: lap.confidence.boundaryConfidence,
+    requiredLapBoundaryConfidence: MINIMUM_BOUNDARY_CONFIDENCE,
+    evidence: {
+      fromPosition: crossing.positionInterpolation.fromPosition,
+      toPosition: crossing.positionInterpolation.toPosition,
+      transitionDurationMs: crossing.transition.timestampDeltaMs,
+      lapCounterEvidence: crossing.lapCounterEvidence.status,
+      usablePositionRateSamplesBefore:
+        localContext?.usablePositionRateSamplesBefore ?? null,
+      usablePositionRateSamplesAfter:
+        localContext?.usablePositionRateSamplesAfter ?? null,
+      reasonCodes: crossing.limitations.map(({ code }) => code),
+    },
+  }
+}
+
+function createLapTimeLimitationResponse(
+  lap: DetectedLap,
+  eligibility: DetectedLapEligibility,
+): LapTimeLimitationResponse | null {
+  const hasUnavailableLapTime = eligibility.timeEligible.reasons.some(
+    ({ code }) => code === 'NON_POSITIVE_LAP_TIME',
+  )
+  const hasUncertainLapTime = eligibility.timeEligible.reasons.some(
+    ({ code }) => code === 'LAP_TIME_CONFIDENCE_BELOW_MINIMUM',
+  )
+  if (!hasUnavailableLapTime && !hasUncertainLapTime) return null
+
+  return {
+    code: hasUnavailableLapTime
+      ? 'LAP_TIME_UNAVAILABLE'
+      : 'LAP_TIME_UNCERTAIN',
+    severity: hasUnavailableLapTime ? 'error' : 'warning',
+    message: hasUnavailableLapTime
+      ? 'Lap time could not be calculated.'
+      : 'Lap time could not be calculated precisely.',
+    observedLapTimeConfidence: lap.confidence.lapTimeConfidence,
+    requiredLapTimeConfidence: MINIMUM_LAP_TIME_CONFIDENCE,
+  }
+}
+
+function createLapQualityResponse(
+  limitations: readonly LapLimitationResponse[],
+): LapQualityResponse {
+  if (limitations.length === 0) {
+    return {
+      status: 'verified',
+      label: 'Verified',
+      summary: null,
+      limitations: [],
+    }
+  }
+
+  const [firstLimitation, ...remainingLimitations] = limitations
+  if (!firstLimitation) {
+    throw new TypeError('A limited lap must have at least one limitation.')
+  }
+  const nonEmptyLimitations: readonly [
+    LapLimitationResponse,
+    ...LapLimitationResponse[],
+  ] = [firstLimitation, ...remainingLimitations]
+  const primaryLimitation =
+    nonEmptyLimitations.find(
+      ({ code }) => code === 'FINISH_BOUNDARY_UNCERTAIN',
+    )
+    ?? nonEmptyLimitations.find(
+      ({ code }) => code === 'START_BOUNDARY_UNCERTAIN',
+    )
+    ?? nonEmptyLimitations.find(({ code }) => code.startsWith('LAP_TIME_'))
+    ?? firstLimitation
+
+  return {
+    status: 'limited',
+    label: 'Limited data',
+    summary: primaryLimitation.message,
+    limitations: nonEmptyLimitations,
+  }
+}
+
+function createLapUsageResponse(
+  eligibility: DetectedLapEligibility,
+  quality: LapQualityResponse,
+): LapUsageResponse {
+  const isRacingLap = eligibility.realRacing.eligible
+
+  return {
+    telemetryReview:
+      quality.status === 'verified' ? 'full' : 'recorded-sections-only',
+    lapTimeComparison: eligibility.timeEligible.eligible
+      ? 'verified-only'
+      : 'excluded',
+    lapRanking: isRacingLap ? 'ranked' : 'excluded',
+    coaching: !isRacingLap
+      ? 'none'
+      : quality.status === 'verified'
+        ? 'full'
+        : 'supported-regions-only',
+  }
+}
+
+function createLapCoverageResponse(coverage: DetectedLapGridCoverage) {
+  return {
+    capturedRatio: coverage.position.coverageRatio,
+    startPosition: 0 as const,
+    endPosition: 1 as const,
+  }
+}
+
+function createCrossingConfidenceResponse(crossing: LapCrossing) {
+  return {
+    boundary: crossing.confidence.boundaryConfidence,
+    timestamp: crossing.confidence.timestampConfidence,
+    overall: crossing.confidence.overallConfidence,
+  }
 }
 
 function createLapSamplingGapResponse(
@@ -141,8 +308,14 @@ function createLapSamplingGapLimitationResponse(
   limitation: SamplingGapWithinLapLimitation,
 ): LapSamplingGapLimitationResponse {
   return {
-    ...limitation,
+    code: limitation.code,
+    severity: limitation.severity,
     message: createLapSamplingGapMessage(lapNumber, limitation),
+    gapStartTimestampMs: limitation.gapStartTimestampMs,
+    gapEndTimestampMs: limitation.gapEndTimestampMs,
+    gapDurationMs: limitation.gapDurationMs,
+    fromPosition: limitation.fromPosition,
+    toPosition: limitation.toPosition,
   }
 }
 
@@ -154,49 +327,9 @@ function createLapSamplingGapMessage(
   const toPercent = (limitation.toPosition * 100).toFixed(1)
   const durationMs = Math.round(limitation.gapDurationMs)
 
+  if (limitation.mayContainLapBoundary) {
+    return 'Recording stopped around start/finish. This duration may contain more than one lap.'
+  }
+
   return `Lap ${lapNumber} has a ${durationMs} ms telemetry gap from ${fromPercent}% to ${toPercent}% of the lap. Calculations requiring this section are unavailable.`
-}
-
-function createEligibilityDecisionResponse(
-  decision: LapEligibilityDecision,
-): LapEligibilityDecisionResponse {
-  return {
-    eligible: decision.eligible,
-    reasons: decision.reasons.map(createEligibilityReasonResponse),
-  }
-}
-
-function createEligibilityReasonResponse(
-  reason: LapEligibilityReason,
-): LapEligibilityReasonResponse {
-  if ('requiredMinimum' in reason) {
-    return {
-      code: reason.code,
-      message: LAP_ELIGIBILITY_MESSAGES[reason.code],
-      observedValue: reason.observedValue,
-      requiredValue: reason.requiredMinimum,
-    }
-  }
-
-  if ('allowedMaximum' in reason) {
-    return {
-      code: reason.code,
-      message: LAP_ELIGIBILITY_MESSAGES[reason.code],
-      observedValue: reason.observedValue,
-      requiredValue: reason.allowedMaximum,
-    }
-  }
-
-  if (reason.code === 'NON_POSITIVE_LAP_TIME') {
-    return {
-      code: reason.code,
-      message: LAP_ELIGIBILITY_MESSAGES[reason.code],
-      observedValue: reason.lapTimeMs,
-    }
-  }
-
-  return {
-    code: reason.code,
-    message: LAP_ELIGIBILITY_MESSAGES[reason.code],
-  }
 }

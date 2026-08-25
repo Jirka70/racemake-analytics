@@ -23,5 +23,12 @@ export function evaluateLapTimeEligibility(lap: DetectedLap, config: LapTimeElig
         })
     }
 
+    if (lap.limitations.some(
+        (limitation) => limitation.code === 'SAMPLING_GAP_WITHIN_LAP'
+            && limitation.mayContainLapBoundary,
+    )) {
+        reasons.push({ code: 'SAMPLING_GAP_WITHIN_LAP' })
+    }
+
     return { eligible: reasons.length === 0, reasons }
 }

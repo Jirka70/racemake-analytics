@@ -11,6 +11,8 @@
 		"analyze:data": "bun scripts/analyze-data.ts",
 		"generate:spa-data": "bun scripts/generate-spa-dataset.ts",
 		"generate:limited-data": "bun scripts/generate-limited-stint-dataset.ts",
+		"generate:low-confidence-finish-data": "bun scripts/generate-low-confidence-finish-dataset.ts",
+		"generate:start-finish-gap-data": "bun scripts/generate-start-finish-gap-dataset.ts",
 		"generate:single-lap-data": "bun scripts/generate-single-racing-lap-dataset.ts",
 		"test:data-audit": "bun test tests/integration/data-audit-pipeline.test.ts"
 	},

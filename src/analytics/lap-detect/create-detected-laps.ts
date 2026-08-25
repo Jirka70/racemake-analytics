@@ -39,10 +39,24 @@ function findDetectedLapLimitations(timeline: UsableTimeline, startCrossing: Lap
             gapDurationMs: transition.timestampDeltaMs,
             fromPosition: transition.previous.normalizedTrackPosition,
             toPosition: transition.current.normalizedTrackPosition,
+            mayContainLapBoundary: maySamplingGapContainLapBoundary(transition),
         })
     }
 
     return limitations
+}
+
+function maySamplingGapContainLapBoundary(
+    transition: UsableTimeline['transitions'][number],
+): boolean {
+    const positionDrop = transition.previous.normalizedTrackPosition
+        - transition.current.normalizedTrackPosition
+    const recordedLapNumberChanged = transition.previous.recordedLapNumber
+        !== transition.current.recordedLapNumber
+
+    // Recorder counter data is not trusted enough to create a crossing, but it
+    // is valid conservative evidence for refusing a potentially merged time.
+    return positionDrop > 0.5 || recordedLapNumberChanged
 }
 
 function createDetectedLapConfidence(startCrossing: LapCrossing, endCrossing: LapCrossing): DetectedLapConfidence {

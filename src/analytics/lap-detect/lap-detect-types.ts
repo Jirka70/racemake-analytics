@@ -303,6 +303,8 @@ export interface SamplingGapWithinLapLimitation {
     readonly gapDurationMs: number
     readonly fromPosition: number // Last observed normalized track position before the gap.
     readonly toPosition: number // First observed normalized track position after the gap.
+    /** Internal conservative veto: the missing interval may contain an unobserved start/finish crossing. */
+    readonly mayContainLapBoundary: boolean
 }
 
 export type DetectedLapLimitation = SamplingGapWithinLapLimitation

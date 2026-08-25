@@ -61,7 +61,7 @@ describe('analysis response functions', () => {
       const responseLap = laps.laps.find(
         ({ lapNumber }) => lapNumber === expectedGap.lapNumber,
       )
-      expect(responseLap?.limitations).toContainEqual({
+      expect(responseLap?.quality.limitations).toContainEqual({
         code: 'SAMPLING_GAP_WITHIN_LAP',
         severity: 'warning',
         message: responseGap.message,

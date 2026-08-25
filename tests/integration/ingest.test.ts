@@ -277,13 +277,13 @@ describe("POST /ingest", () => {
 			firstLaps.laps.every(
 				(lap) =>
 					lap.lapNumber > 0 &&
-					lap.lapTimeMs > 0 &&
-					lap.confidence.overall >= 0 &&
-					lap.confidence.overall <= 1,
+					lap.timing.lapTimeMs > 0 &&
+					lap.confidence.lap.overall >= 0 &&
+					lap.confidence.lap.overall <= 1,
 			),
 		).toBeTrue();
 		expect(
-			firstLaps.laps.some((lap) => lap.eligibility === "racing"),
+			firstLaps.laps.some((lap) => lap.usage.lapRanking === "ranked"),
 		).toBeTrue();
 
 		const invalidIngestResponse = await app.request("/ingest", {
@@ -335,7 +335,9 @@ describe("POST /ingest", () => {
 			`/laps?analysisId=${encodeURIComponent(ingest.analysisId)}`,
 		);
 		const laps = (await lapsResponse.json()) as LapsResponse;
-		const racingLap = laps.laps.find((lap) => lap.eligibility === "racing");
+		const racingLap = laps.laps.find(
+			(lap) => lap.usage.lapRanking === "ranked",
+		);
 		if (!racingLap) throw new Error("Expected at least one racing lap");
 
 		const response = await app.request(
@@ -413,7 +415,7 @@ describe("POST /ingest", () => {
 		).toBeTrue();
 	});
 
-	test("rejects invalid series filters and unavailable racing laps", async () => {
+	test("rejects invalid series filters and unavailable complete laps", async () => {
 		const app = createApp();
 		const stintJson = await Bun.file(stintPath).text();
 		const ingestResponse = await app.request("/ingest", {
@@ -460,7 +462,7 @@ describe("POST /ingest", () => {
 					{
 						path: "laps",
 						message:
-							"Lap 999999 is not available as a racing lap in this analysis",
+							"Lap 999999 is not available as a complete lap in this analysis",
 					},
 				],
 			},

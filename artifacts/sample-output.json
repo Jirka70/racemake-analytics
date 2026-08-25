@@ -195,114 +195,178 @@
     "laps": [
       {
         "lapNumber": 1,
-        "lapTimeMs": 73789,
-        "eligibility": "racing",
-        "analysisEligibility": {
-          "lapTime": {
-            "eligible": true,
-            "reasons": []
-          },
-          "racing": {
-            "eligible": true,
-            "reasons": []
-          },
-          "cornerDetection": {
-            "eligible": true,
-            "reasons": []
-          }
+        "timing": {
+          "status": "verified",
+          "lapTimeMs": 73789
+        },
+        "quality": {
+          "status": "limited",
+          "label": "Limited data",
+          "summary": "Lap 1 has a 2672 ms telemetry gap from 50.1% to 54.6% of the lap. Calculations requiring this section are unavailable.",
+          "limitations": [
+            {
+              "code": "SAMPLING_GAP_WITHIN_LAP",
+              "severity": "warning",
+              "message": "Lap 1 has a 2672 ms telemetry gap from 50.1% to 54.6% of the lap. Calculations requiring this section are unavailable.",
+              "gapStartTimestampMs": 92520,
+              "gapEndTimestampMs": 95192,
+              "gapDurationMs": 2672,
+              "fromPosition": 0.5007,
+              "toPosition": 0.5458
+            }
+          ]
+        },
+        "usage": {
+          "telemetryReview": "recorded-sections-only",
+          "lapTimeComparison": "verified-only",
+          "lapRanking": "ranked",
+          "coaching": "supported-regions-only"
+        },
+        "coverage": {
+          "capturedRatio": 0.9549274255156608,
+          "startPosition": 0,
+          "endPosition": 1
         },
         "confidence": {
-          "boundary": 0.9647416171457296,
-          "lapTime": 0.9625657480060328,
-          "overall": 0.9636530684538025
-        },
-        "limitations": [
-          {
-            "code": "SAMPLING_GAP_WITHIN_LAP",
-            "severity": "warning",
-            "message": "Lap 1 has a 2672 ms telemetry gap from 50.1% to 54.6% of the lap. Calculations requiring this section are unavailable.",
-            "gapStartTimestampMs": 92520,
-            "gapEndTimestampMs": 95192,
-            "gapDurationMs": 2672,
-            "fromPosition": 0.5007,
-            "toPosition": 0.5458
+          "startCrossing": {
+            "boundary": 0.9514235291316079,
+            "timestamp": 0.9398764360992574,
+            "overall": 0.94563235762171
+          },
+          "finishCrossing": {
+            "boundary": 0.9782461326161007,
+            "timestamp": 0.9858027966737589,
+            "overall": 0.9820171960654461
+          },
+          "lap": {
+            "boundary": 0.9647416171457296,
+            "lapTime": 0.9625657480060328,
+            "overall": 0.9636530684538025
           }
-        ]
+        }
       },
       {
         "lapNumber": 2,
-        "lapTimeMs": 73518,
-        "eligibility": "racing",
-        "analysisEligibility": {
-          "lapTime": {
-            "eligible": true,
-            "reasons": []
-          },
-          "racing": {
-            "eligible": true,
-            "reasons": []
-          },
-          "cornerDetection": {
-            "eligible": true,
-            "reasons": []
-          }
+        "timing": {
+          "status": "verified",
+          "lapTimeMs": 73518
+        },
+        "quality": {
+          "status": "verified",
+          "label": "Verified",
+          "summary": null,
+          "limitations": []
+        },
+        "usage": {
+          "telemetryReview": "full",
+          "lapTimeComparison": "verified-only",
+          "lapRanking": "ranked",
+          "coaching": "full"
+        },
+        "coverage": {
+          "capturedRatio": 1,
+          "startPosition": 0,
+          "endPosition": 1
         },
         "confidence": {
-          "boundary": 0.9781670965733551,
-          "lapTime": 0.9835959928347336,
-          "overall": 0.9808777887751042
-        },
-        "limitations": []
+          "startCrossing": {
+            "boundary": 0.9782461326161007,
+            "timestamp": 0.9858027966737589,
+            "overall": 0.9820171960654461
+          },
+          "finishCrossing": {
+            "boundary": 0.9780880669162171,
+            "timestamp": 0.9813941291147671,
+            "overall": 0.9797397035074097
+          },
+          "lap": {
+            "boundary": 0.9781670965733551,
+            "lapTime": 0.9835959928347336,
+            "overall": 0.9808777887751042
+          }
+        }
       },
       {
         "lapNumber": 3,
-        "lapTimeMs": 74069,
-        "eligibility": "racing",
-        "analysisEligibility": {
-          "lapTime": {
-            "eligible": true,
-            "reasons": []
-          },
-          "racing": {
-            "eligible": true,
-            "reasons": []
-          },
-          "cornerDetection": {
-            "eligible": true,
-            "reasons": []
-          }
+        "timing": {
+          "status": "verified",
+          "lapTimeMs": 74069
+        },
+        "quality": {
+          "status": "verified",
+          "label": "Verified",
+          "summary": null,
+          "limitations": []
+        },
+        "usage": {
+          "telemetryReview": "full",
+          "lapTimeComparison": "verified-only",
+          "lapRanking": "ranked",
+          "coaching": "full"
+        },
+        "coverage": {
+          "capturedRatio": 1,
+          "startPosition": 0,
+          "endPosition": 1
         },
         "confidence": {
-          "boundary": 0.9797981804290072,
-          "lapTime": 0.9885087319602801,
-          "overall": 0.9841438192220016
-        },
-        "limitations": []
+          "startCrossing": {
+            "boundary": 0.9780880669162171,
+            "timestamp": 0.9813941291147671,
+            "overall": 0.9797397035074097
+          },
+          "finishCrossing": {
+            "boundary": 0.9815112839468138,
+            "timestamp": 0.995674912018401,
+            "overall": 0.9885677322717
+          },
+          "lap": {
+            "boundary": 0.9797981804290072,
+            "lapTime": 0.9885087319602801,
+            "overall": 0.9841438192220016
+          }
+        }
       },
       {
         "lapNumber": 4,
-        "lapTimeMs": 73590,
-        "eligibility": "racing",
-        "analysisEligibility": {
-          "lapTime": {
-            "eligible": true,
-            "reasons": []
-          },
-          "racing": {
-            "eligible": true,
-            "reasons": []
-          },
-          "cornerDetection": {
-            "eligible": true,
-            "reasons": []
-          }
+        "timing": {
+          "status": "verified",
+          "lapTimeMs": 73590
+        },
+        "quality": {
+          "status": "verified",
+          "label": "Verified",
+          "summary": null,
+          "limitations": []
+        },
+        "usage": {
+          "telemetryReview": "full",
+          "lapTimeComparison": "verified-only",
+          "lapRanking": "ranked",
+          "coaching": "full"
+        },
+        "coverage": {
+          "capturedRatio": 0.9992360580595875,
+          "startPosition": 0,
+          "endPosition": 1
         },
         "confidence": {
-          "boundary": 0.9020199714418559,
-          "lapTime": 0.8800788719629342,
-          "overall": 0.8909818847510799
-        },
-        "limitations": []
+          "startCrossing": {
+            "boundary": 0.9815112839468138,
+            "timestamp": 0.995674912018401,
+            "overall": 0.9885677322717
+          },
+          "finishCrossing": {
+            "boundary": 0.8289665561542908,
+            "timestamp": 0.777903321180836,
+            "overall": 0.803029163343563
+          },
+          "lap": {
+            "boundary": 0.9020199714418559,
+            "lapTime": 0.8800788719629342,
+            "overall": 0.8909818847510799
+          }
+        }
       }
     ]
   },

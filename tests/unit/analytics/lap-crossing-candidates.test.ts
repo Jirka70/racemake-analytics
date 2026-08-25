@@ -338,6 +338,7 @@ describe('findLapCrossingCandidates', () => {
                 gapDurationMs: 100,
                 fromPosition: 0.2,
                 toPosition: 0.4,
+                mayContainLapBoundary: false,
             }],
         }
         const eligibility = evaluateLapEligibility(
@@ -346,6 +347,71 @@ describe('findLapCrossingCandidates', () => {
         )
 
         expect(eligibility.realRacing).toEqual({ eligible: true, reasons: [] })
+    })
+
+    test('excludes a detected lap when a sampling gap may hide another lap boundary', () => {
+        const positions = [
+            0.9, 0.98, 0.02,
+            0.9, 0.98, 0.02,
+            0.9, 0.98, 0.02,
+        ]
+        const timeline = createTimeline(positions, {
+            recordedLapNumbers: [1, 1, 2, 2, 2, 3, 3, 3, 4],
+            nonContinuousTransitionIndex: 4,
+        })
+        const crossings = findLapCrossings(
+            timeline,
+            SAMPLING_BASELINE,
+            POSITION_CALIBRATION,
+            indexAuditedFrames(timeline),
+            DEFAULT_LAP_DETECTION_CONFIG,
+        )
+        const lap = createDetectedLaps(timeline, crossings)[0]
+        const eligibility = evaluateLapEligibility(
+            lap,
+            DEFAULT_LAP_DETECTION_CONFIG.eligibility,
+        )
+
+        expect(crossings).toHaveLength(2)
+        expect(lap.limitations).toContainEqual(expect.objectContaining({
+            code: 'SAMPLING_GAP_WITHIN_LAP',
+            fromPosition: 0.98,
+            toPosition: 0.02,
+            mayContainLapBoundary: true,
+        }))
+        expect(eligibility.timeEligible.eligible).toBeFalse()
+        expect(eligibility.timeEligible.reasons).toContainEqual({
+            code: 'SAMPLING_GAP_WITHIN_LAP',
+        })
+        expect(eligibility.realRacing).toEqual(eligibility.timeEligible)
+    })
+
+    test('uses a lap-counter change across a non-wrapping gap only as an eligibility veto', () => {
+        const positions = [0.9, 0.98, 0.02, 0.3, 0.4, 0.6, 0.9, 0.98, 0.02]
+        const timeline = createTimeline(positions, {
+            recordedLapNumbers: [1, 1, 2, 2, 3, 3, 3, 3, 4],
+            nonContinuousTransitionIndex: 3,
+        })
+        const crossings = findLapCrossings(
+            timeline,
+            SAMPLING_BASELINE,
+            POSITION_CALIBRATION,
+            indexAuditedFrames(timeline),
+            DEFAULT_LAP_DETECTION_CONFIG,
+        )
+        const lap = createDetectedLaps(timeline, crossings)[0]
+
+        expect(crossings).toHaveLength(2)
+        expect(lap.limitations).toContainEqual(expect.objectContaining({
+            code: 'SAMPLING_GAP_WITHIN_LAP',
+            fromPosition: 0.3,
+            toPosition: 0.4,
+            mayContainLapBoundary: true,
+        }))
+        expect(evaluateLapEligibility(
+            lap,
+            DEFAULT_LAP_DETECTION_CONFIG.eligibility,
+        ).timeEligible.eligible).toBeFalse()
     })
 
     test('copies failed lap-time requirements into the real-racing decision', () => {
@@ -430,6 +496,7 @@ describe('findLapCrossingCandidates', () => {
             gapDurationMs: 100,
             fromPosition: 0.9,
             toPosition: 0.98,
+            mayContainLapBoundary: false,
         }])
     })
 

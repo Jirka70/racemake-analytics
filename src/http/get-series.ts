@@ -2,6 +2,7 @@ import type {
 	CellAlignedRacingLap,
 	CellAlignedRacingLapCell,
 } from "../analytics/coach/cell-aligned-racing-telemetry-types";
+import { createCellAlignedRacingTelemetry } from "../analytics/coach/create-cell-aligned-racing-telemetry";
 import type { AnalysisStore } from "./analysis-store";
 import { ApiRequestError } from "./api-request-error";
 import type {
@@ -31,7 +32,20 @@ export function getSeries(
 		seriesQuery.analysisId,
 		analysisStore,
 	);
-	const alignedLaps = analysis.coachCallsResult.cellAlignedRacingTelemetry.laps;
+	const cachedRacingLaps =
+		analysis.coachCallsResult.cellAlignedRacingTelemetry.laps;
+	const cachedRacingLapNumbers = new Set(
+		cachedRacingLaps.map(({ lapNumber }) => lapNumber),
+	);
+	const alignedLaps = seriesQuery.laps.every((lapNumber) =>
+		cachedRacingLapNumbers.has(lapNumber),
+	)
+		? cachedRacingLaps
+		: createCellAlignedRacingTelemetry(
+				analysis.auditResult.usableTimeline,
+				analysis.lapDetectionResult,
+				analysis.lapDetectionResult.laps,
+			).laps;
 	const normalizedTrackPositions = alignedLaps[0]
 		? alignedLaps[0].cells.map((cell) => cell.center.normalizedTrackPosition)
 		: analysis.cornerDetectionResult.cellAlignedSteering.cellCenters;
@@ -78,7 +92,7 @@ function selectLaps(
 			throw new ApiRequestError("INVALID_QUERY", [
 				{
 					path: "laps",
-					message: `Lap ${lapNumber} is not available as a racing lap in this analysis`,
+					message: `Lap ${lapNumber} is not available as a complete lap in this analysis`,
 				},
 			]);
 		}
