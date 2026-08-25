@@ -1,5 +1,9 @@
 # RACEMAKE telemetry analysis
 
+The complete analytical approach, design decisions, validation, UI behaviour,
+and known limitations are documented in the
+[technical report](docs/RACEMAKE-technical-report.pdf).
+
 ## Local development
 
 ```bash
