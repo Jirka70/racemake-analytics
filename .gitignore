@@ -10,6 +10,12 @@ coverage/
 .vscode/
 .DS_Store
 
+# local Codex and visual QA working documents
+AGENTS.md
+CODEX_TASK.md
+RACEMAKE_CODEX_MASTER_BRIEF.md
+design-qa.md
+
 # local visual QA artifacts
 data/artifacts/
 data/artifacts copy/
