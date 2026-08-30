@@ -163,8 +163,18 @@ export function createApp(): Hono {
     return context.json(response, HTTP_STATUS.OK)
   })
 
+  const serveFrontend = serveStatic({
+    path: './dist/frontend/index.html',
+  })
+
   app.use('/assets/*', serveStatic({ root: './dist/frontend' }))
-  app.get('*', serveStatic({ path: './dist/frontend/index.html' }))
+  app.get('/', serveFrontend)
+  app.get('/analysis/:analysisId', serveFrontend)
+
+  app.notFound((context) => {
+    const { status, ...apiError } = API_ERRORS.ROUTE_NOT_FOUND
+    return context.json({ error: apiError }, status)
+  })
 
   return app
 }
