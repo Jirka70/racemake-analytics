@@ -40,6 +40,51 @@ const analysisEndpointPaths = [
 ] as const;
 
 describe("POST /ingest", () => {
+	test("shows a safe public error for speed or steering outside the recorder range", async () => {
+		const payload = {
+			schema: "racemake.telemetry.stint.v1",
+			recorder: {
+				name: "racemake-agent",
+				version: "0.1.2874",
+			},
+			session_id: "7f3a9c1e-0b52-4d84-9a6e-2c1d5f8b41a0",
+			note: "unsupported recorder value",
+			frame_count: 1,
+			frames: [
+				{
+					ts: 48,
+					lap: 0,
+					pos: 0.4,
+					spd: 1e300,
+					thr: 1,
+					brk: 0,
+					str: 0.2,
+					gear: 2,
+					rpm: 8_716,
+					tyres: { fl: 579, fr: 551, rl: 574, rr: 541 },
+				},
+			],
+		};
+		const expectedError = {
+			error: {
+				code: "UNSAFE_TELEMETRY_VALUES",
+				message:
+					"Some speed or steering measurements could not be analyzed reliably, so this stint was not processed.",
+			},
+		};
+
+		for (const path of ["/ingest", "/ingest/stream"] as const) {
+			const response = await createApp().request(path, {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify(payload),
+			});
+
+			expect(response.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY);
+			expect(await response.json()).toEqual(expectedError);
+		}
+	});
+
 	test("rejects telemetry bodies above the shared 100 MB limit before parsing", async () => {
 		const app = createApp();
 

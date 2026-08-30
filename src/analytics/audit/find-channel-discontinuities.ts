@@ -1,5 +1,6 @@
 import type { AuditedFrame, AuditedTimelineTransition, ChannelContinuityConfig, ChannelDiscontinuity, ChannelDiscontinuityEvidence, DerivableTelemetryChannel, LocallyAuditedSignalChannel, PersistenceAuditedChannel, SamplingBaseline, TelemetryChannel, UsableTimeline } from "../frame-audit-types";
 import { interquartileRange, median, quantile, scaledMedianAbsoluteDeviation } from "../robust-statistics";
+import { requireFiniteResult } from "../util/require-finite-result";
 import { readChannelValue } from "./util/read-channel-value";
 
 const PERSISTENCE_AUDITED_CHANNELS: readonly PersistenceAuditedChannel[] = [
@@ -144,10 +145,20 @@ function calculateRateThreshold(rates: readonly number[], config: ChannelContinu
     const medianRate = median(rates)
     const scaledMadRate = scaledMedianAbsoluteDeviation(rates)
 
-    if (scaledMadRate > 0) return medianRate + config.rateMadMultiplier * scaledMadRate
+    if (scaledMadRate > 0) {
+        return requireFiniteResult(
+            medianRate + config.rateMadMultiplier * scaledMadRate,
+            'robust-threshold',
+        )
+    }
 
     const rateIqr = interquartileRange(rates)
-    if (rateIqr > 0) return quantile(rates, 0.75) + config.rateIqrMultiplier * rateIqr
+    if (rateIqr > 0) {
+        return requireFiniteResult(
+            quantile(rates, 0.75) + config.rateIqrMultiplier * rateIqr,
+            'robust-threshold',
+        )
+    }
 
     return medianRate
 }
@@ -157,7 +168,10 @@ function calculateAbsoluteRate(transition: AuditedTimelineTransition, channel: P
     const currentValue = readChannelValue(transition.current, channel)
     const durationSeconds = transition.timestampDeltaMs / 1_000
 
-    return Math.abs(currentValue - previousValue) / durationSeconds
+    return requireFiniteResult(
+        Math.abs(currentValue - previousValue) / durationSeconds,
+        'signal-rate',
+    )
 }
 
 function createPersistentShiftEvidence(timeline: UsableTimeline, transitionIndex: number, channel: PersistenceAuditedChannel,

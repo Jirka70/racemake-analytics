@@ -22,7 +22,6 @@ import {
 	type AnalysisProgressEvent,
 	type AnalysisStage,
 } from "../../../../src/http/contracts";
-import { ApiError } from "../../api/api-client";
 import { useIngestStintMutation } from "../../hooks/use-ingest-stint-mutation";
 import {
 	STINT_FILE_INPUT_ACCEPT,
@@ -36,6 +35,7 @@ import {
 	findCurrentAnalysisMessage,
 	formatAnalysisStageMessage,
 } from "../../upload/analysis-progress-presentation";
+import { findIngestErrorMessage } from "../../upload/ingest-error-message";
 
 interface StintUploadPanelProps {
 	readonly onAnalysisReady: (analysisId: AnalysisId) => void;
@@ -453,18 +453,4 @@ function formatElapsedTime(elapsedSeconds: number): string {
 	return minutes > 0
 		? `${minutes}:${seconds.toString().padStart(2, "0")}`
 		: `${seconds}s`;
-}
-
-function findIngestErrorMessage(error: Error): string {
-	if (error instanceof ApiError) {
-		if (error.code === "MALFORMED_JSON") {
-			return "We couldn’t read this file. Choose another RACEMAKE JSON file.";
-		}
-
-		if (error.code === "INVALID_TELEMETRY_PAYLOAD") {
-			return "This doesn’t look like a supported RACEMAKE stint.";
-		}
-	}
-
-	return "Something went wrong while analyzing this stint. Your file was not changed.";
 }

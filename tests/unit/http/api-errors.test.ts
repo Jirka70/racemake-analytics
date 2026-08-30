@@ -6,9 +6,20 @@ describe('API_ERRORS', () => {
   test('assigns the documented HTTP status to each public error', () => {
     expect(API_ERRORS.MALFORMED_JSON.status).toBe(HTTP_STATUS.BAD_REQUEST)
     expect(API_ERRORS.INVALID_TELEMETRY_PAYLOAD.status).toBe(HTTP_STATUS.UNPROCESSABLE_ENTITY)
+    expect(API_ERRORS.UNSAFE_TELEMETRY_VALUES).toEqual({
+      code: 'UNSAFE_TELEMETRY_VALUES',
+      status: HTTP_STATUS.UNPROCESSABLE_ENTITY,
+      message:
+        'Some speed or steering measurements could not be analyzed reliably, so this stint was not processed.',
+    })
     expect(API_ERRORS.TELEMETRY_PAYLOAD_TOO_LARGE.status).toBe(HTTP_STATUS.CONTENT_TOO_LARGE)
     expect(API_ERRORS.ANALYSIS_ID_REQUIRED.status).toBe(HTTP_STATUS.BAD_REQUEST)
     expect(API_ERRORS.ANALYSIS_NOT_FOUND.status).toBe(HTTP_STATUS.NOT_FOUND)
+    expect(API_ERRORS.ROUTE_NOT_FOUND).toEqual({
+      code: 'ROUTE_NOT_FOUND',
+      status: HTTP_STATUS.NOT_FOUND,
+      message: 'The requested endpoint does not exist',
+    })
     expect(API_ERRORS.INVALID_QUERY.status).toBe(HTTP_STATUS.BAD_REQUEST)
     expect(API_ERRORS.INTERNAL_ERROR.status).toBe(HTTP_STATUS.INTERNAL_SERVER_ERROR)
   })

@@ -20,7 +20,10 @@ export function createSavitzkyGolayWindowSmoother(options: SavitzkyGolayOptions)
   return (windowValues) => {
     if (windowValues.length !== options.windowSize) throw new RangeError('Savitzky-Golay window must match the configured window size')
     if (windowValues.some((value) => !Number.isFinite(value))) throw new RangeError('Savitzky-Golay values must be finite')
-    return windowValues.reduce((smoothedValue, value, index) => smoothedValue + weights[index] * value, 0)
+    return requireFiniteResult(
+      windowValues.reduce((smoothedValue, value, index) => smoothedValue + weights[index] * value, 0),
+      'savitzky-golay',
+    )
   }
 }
 
@@ -68,3 +71,4 @@ function validateOptions({ polynomialOrder, windowSize }: SavitzkyGolayOptions):
   if (!Number.isInteger(windowSize) || windowSize < 1 || windowSize % 2 === 0) throw new RangeError('Savitzky-Golay window size must be a positive odd integer')
   if (!Number.isInteger(polynomialOrder) || polynomialOrder < 0 || polynomialOrder >= windowSize) throw new RangeError('Savitzky-Golay polynomial order must be a non-negative integer below the window size')
 }
+import { requireFiniteResult } from './util/require-finite-result'

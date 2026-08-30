@@ -133,4 +133,41 @@ describe("ingestStint", () => {
 			fetchSpy.mockRestore();
 		}
 	});
+
+	test("preserves a safe telemetry failure for the upload UI", async () => {
+		const file = new File(["{}"], "stint.json", {
+			type: "application/json",
+		});
+		const message =
+			"Some speed or steering measurements could not be analyzed reliably, so this stint was not processed.";
+		const fetchImplementation = Object.assign(
+			async () =>
+				new Response(
+					`${JSON.stringify({
+						type: "failed",
+						error: {
+							code: "UNSAFE_TELEMETRY_VALUES",
+							message,
+						},
+					})}\n`,
+				),
+			{ preconnect: globalThis.fetch.preconnect },
+		) satisfies typeof fetch;
+		const fetchSpy = spyOn(globalThis, "fetch").mockImplementation(
+			fetchImplementation,
+		);
+
+		try {
+			await expect(
+				ingestStint(file, { onProgress: () => undefined }),
+			).rejects.toMatchObject({
+				name: "ApiError",
+				status: 422,
+				code: "UNSAFE_TELEMETRY_VALUES",
+				message,
+			});
+		} finally {
+			fetchSpy.mockRestore();
+		}
+	});
 });

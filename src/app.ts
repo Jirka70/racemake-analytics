@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
 import { bodyLimit } from 'hono/body-limit'
 import { ZodError } from 'zod'
+import { UnsafeTelemetryComputationError } from './analytics/util/require-finite-result'
 import { DEFAULT_FRAME_AUDIT_CONFIG } from './config/frame-audit-config'
 import { MAX_TELEMETRY_INGEST_SIZE_BYTES } from './config/telemetry-ingest-config'
 import { createInMemoryAnalysisStore } from './http/analysis-store'
@@ -17,6 +18,7 @@ import { getTimeLoss } from './http/get-time-loss'
 import { getTrack } from './http/get-track'
 import { HTTP_STATUS } from './http/http-status'
 import { ingestTelemetryAnalysis } from './http/ingest-telemetry-analysis'
+import { UNSUPPORTED_RECORDER_VALUE_MESSAGE } from './http/schemas/telemetry-payload'
 import { streamIngestTelemetryAnalysis } from './http/stream-ingest-telemetry-analysis'
 
 export function createApp(): Hono {
@@ -33,6 +35,11 @@ export function createApp(): Hono {
   })
 
   app.onError((error, context) => {
+    if (error instanceof UnsafeTelemetryComputationError) {
+      const { status, ...apiError } = API_ERRORS.UNSAFE_TELEMETRY_VALUES
+      return context.json({ error: apiError }, status)
+    }
+
     if (error instanceof ApiRequestError) {
       const { status, ...apiError } = API_ERRORS[error.code]
       return context.json(
@@ -57,15 +64,27 @@ export function createApp(): Hono {
     }
 
     if (error instanceof ZodError) {
-      const { status, ...apiError } = API_ERRORS.INVALID_TELEMETRY_PAYLOAD
+      const containsUnsupportedRecorderValue = error.issues.some((issue) => {
+        const field = issue.path.at(-1)
+        return issue.message === UNSUPPORTED_RECORDER_VALUE_MESSAGE
+          && (field === 'spd' || field === 'str')
+      })
+      const definition = containsUnsupportedRecorderValue
+        ? API_ERRORS.UNSAFE_TELEMETRY_VALUES
+        : API_ERRORS.INVALID_TELEMETRY_PAYLOAD
+      const { status, ...apiError } = definition
       return context.json(
         {
           error: {
             ...apiError,
-            issues: error.issues.map((issue) => ({
-              path: issue.path.join('.'),
-              message: issue.message,
-            })),
+            ...(containsUnsupportedRecorderValue
+              ? {}
+              : {
+                  issues: error.issues.map((issue) => ({
+                    path: issue.path.join('.'),
+                    message: issue.message,
+                  })),
+                }),
           },
         },
         status,

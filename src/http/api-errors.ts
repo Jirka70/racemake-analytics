@@ -18,6 +18,12 @@ export const API_ERRORS = {
     status: HTTP_STATUS.UNPROCESSABLE_ENTITY,
     message: 'Telemetry payload does not match the wire contract',
   },
+  UNSAFE_TELEMETRY_VALUES: {
+    code: 'UNSAFE_TELEMETRY_VALUES',
+    status: HTTP_STATUS.UNPROCESSABLE_ENTITY,
+    message:
+      'Some speed or steering measurements could not be analyzed reliably, so this stint was not processed.',
+  },
   TELEMETRY_PAYLOAD_TOO_LARGE: {
     code: 'TELEMETRY_PAYLOAD_TOO_LARGE',
     status: HTTP_STATUS.CONTENT_TOO_LARGE,
@@ -32,6 +38,11 @@ export const API_ERRORS = {
     code: 'ANALYSIS_NOT_FOUND',
     status: HTTP_STATUS.NOT_FOUND,
     message: 'The requested analysis does not exist',
+  },
+  ROUTE_NOT_FOUND: {
+    code: 'ROUTE_NOT_FOUND',
+    status: HTTP_STATUS.NOT_FOUND,
+    message: 'The requested endpoint does not exist',
   },
   INVALID_QUERY: {
     code: 'INVALID_QUERY',

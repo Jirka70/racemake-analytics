@@ -3,6 +3,7 @@ import type {
 	IngestResponse,
 	IngestStreamEvent,
 } from "../../../src/http/contracts";
+import { API_ERRORS } from "../../../src/http/api-errors";
 import { ApiError, readApiError } from "./api-client";
 import { ingestStreamEventSchema } from "./schemas/ingest-stream-event";
 
@@ -84,7 +85,7 @@ function processStreamLine(
 
 	if (event.type === "failed") {
 		throw new ApiError(
-			500,
+			API_ERRORS[event.error.code].status,
 			event.error.code,
 			event.error.message,
 		);

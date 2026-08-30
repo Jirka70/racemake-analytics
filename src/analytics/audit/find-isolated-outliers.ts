@@ -2,6 +2,7 @@ import type { DriverInputChannel, IsolatedChannelOutlier, IsolatedOutlierConfig,
 import { interquartileRange, median, quantile, scaledMedianAbsoluteDeviation } from "../robust-statistics";
 import type { NormalizedTelemetryFrame } from "../telemetry-types";
 import { linearInterpolate } from "../util/linear-interpolation";
+import { requireFiniteResult } from "../util/require-finite-result";
 import { readChannelValue } from "./util/read-channel-value";
 
 const LOCALLY_AUDITED_SIGNAL_CHANNELS:
@@ -140,14 +141,22 @@ function returnsImmediatelyToTrend(
     minimumReturnRateRatio: number,
 ) {
     const values = valuesForRateComparison(sample)
-    const incomingRate =
+    const incomingRate = requireFiniteResult(
         (values.observed - values.previous) /
-        sample.incomingDurationMs
-    const outgoingRate =
+        sample.incomingDurationMs,
+        'signal-rate',
+    )
+    const outgoingRate = requireFiniteResult(
         (values.next - values.observed) /
-        sample.outgoingDurationMs
+        sample.outgoingDurationMs,
+        'signal-rate',
+    )
 
-    if (incomingRate * outgoingRate >= 0) {
+    if (
+        incomingRate === 0
+        || outgoingRate === 0
+        || Math.sign(incomingRate) === Math.sign(outgoingRate)
+    ) {
         return false
     }
 
@@ -212,7 +221,10 @@ function calculateResidualThreshold(samples: SignalResidualSample[],
             ? config.driverInputMadMultiplier
             : config.signalMadMultiplier
 
-        const madThreshold = medianResidual + madMultiplier * scaledMadResidual
+        const madThreshold = requireFiniteResult(
+            medianResidual + madMultiplier * scaledMadResidual,
+            'robust-threshold',
+        )
         return applyChannelResidualFloor(madThreshold, channel, config)
     }
 
@@ -220,7 +232,10 @@ function calculateResidualThreshold(samples: SignalResidualSample[],
 
     if (iqrResiduals > 0) {
         const upperQuartile = quantile(residuals, 0.75)
-        const iqrThreshold = upperQuartile + config.fallbackIqrMultiplier * iqrResiduals
+        const iqrThreshold = requireFiniteResult(
+            upperQuartile + config.fallbackIqrMultiplier * iqrResiduals,
+            'robust-threshold',
+        )
         return applyChannelResidualFloor(iqrThreshold, channel, config)
     }
 
@@ -295,7 +310,10 @@ function createSignalResidualSample(previousFrame: NormalizedTelemetryFrame,
     const observedValueForComparison = channel === "normalizedTrackPosition" 
         ? unwrapTrackPosition(observedValue, predictedValueForComparison) 
         : observedValue
-    const residual = Math.abs(observedValueForComparison - predictedValueForComparison)
+    const residual = requireFiniteResult(
+        Math.abs(observedValueForComparison - predictedValueForComparison),
+        'signal-residual',
+    )
     const predictedValue = channel === "normalizedTrackPosition" 
         ? wrapTrackPosition(predictedValueForComparison) 
         : predictedValueForComparison

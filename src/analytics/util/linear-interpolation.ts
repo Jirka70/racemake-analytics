@@ -1,3 +1,8 @@
+import { requireFiniteResult } from './require-finite-result'
+
 export function linearInterpolate(fromValue: number, toValue: number, fraction: number): number {
-    return fromValue + fraction * (toValue - fromValue)
+    return requireFiniteResult(
+        fromValue + fraction * (toValue - fromValue),
+        'linear-interpolation',
+    )
 }

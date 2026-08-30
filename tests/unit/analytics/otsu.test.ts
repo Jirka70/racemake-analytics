@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { calculateOtsuThreshold } from '../../../src/analytics/otsu'
+import { UnsafeTelemetryComputationError } from '../../../src/analytics/util/require-finite-result'
 
 describe('calculateOtsuThreshold', () => {
   test('finds the split with maximum between-class variance without mutating the sample', () => {
@@ -25,5 +26,12 @@ describe('calculateOtsuThreshold', () => {
   test('rejects non-finite values', () => {
     expect(() => calculateOtsuThreshold([0, Number.NaN])).toThrow(RangeError)
     expect(() => calculateOtsuThreshold([0, Number.POSITIVE_INFINITY])).toThrow(RangeError)
+  })
+
+  test('rejects a non-finite variance derived from finite inputs', () => {
+    expect(() => calculateOtsuThreshold([
+      -Number.MAX_VALUE,
+      Number.MAX_VALUE,
+    ])).toThrow(UnsafeTelemetryComputationError)
   })
 })

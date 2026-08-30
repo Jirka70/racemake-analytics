@@ -8,9 +8,16 @@ import type {
 
 const INT16_MIN = -32_768
 const INT16_MAX = 32_767
+export const WIRE_FLOAT32_MAX = 3.4028234663852886e38
+
+export const UNSUPPORTED_RECORDER_VALUE_MESSAGE =
+  'Value is outside the range supported by the telemetry recorder'
 
 // Zod 4 rejects NaN and infinite values in z.number() by default.
 const finiteNumberSchema = z.number()
+const wireFloat32Schema = finiteNumberSchema
+  .min(-WIRE_FLOAT32_MAX, { error: UNSUPPORTED_RECORDER_VALUE_MESSAGE })
+  .max(WIRE_FLOAT32_MAX, { error: UNSUPPORTED_RECORDER_VALUE_MESSAGE })
 const int16Schema = z.int().min(INT16_MIN).max(INT16_MAX)
 const int32Schema = z.int32()
 
@@ -37,10 +44,10 @@ export const wireTelemetryFrameSchema: z.ZodType<WireTelemetryFrame> =
     ts: z.int().nonnegative(),
     lap: int32Schema,
     pos: finiteNumberSchema.min(0).max(1),
-    spd: finiteNumberSchema, // negative for reverse
+    spd: wireFloat32Schema, // negative for reverse
     thr: finiteNumberSchema.min(0).max(1),
     brk: finiteNumberSchema.min(0).max(1),
-    str: finiteNumberSchema,
+    str: wireFloat32Schema,
     gear: z.int().min(-1).max(8),
     rpm: int32Schema.nonnegative(),
     tyres: wireTyresSchema,

@@ -1,4 +1,5 @@
 import type { SteeringStrengthProfile } from './create-steering-strength-profile'
+import { requireFiniteResult } from '../util/require-finite-result'
 
 export interface LogSteeringStrengthProfileCell {
     readonly cellCenter: number
@@ -13,7 +14,12 @@ export function createLogSteeringStrengthProfile(profile: SteeringStrengthProfil
     return {
         cells: profile.cells.map(({ cellCenter, steeringStrengthDegrees }) => ({
             cellCenter,
-            logSteeringStrength: steeringStrengthDegrees === null ? null : Math.log1p(steeringStrengthDegrees),
+            logSteeringStrength: steeringStrengthDegrees === null
+                ? null
+                : requireFiniteResult(
+                    Math.log1p(steeringStrengthDegrees),
+                    'steering-log-transform',
+                ),
         })),
     }
 }

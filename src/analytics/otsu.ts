@@ -25,21 +25,30 @@ export function calculateOtsuThreshold(values: readonly number[]): OtsuResult {
     return { status: 'unavailable', reason: 'CONSTANT_SAMPLE', sampleCount: sortedValues.length }
   }
 
-  const totalSum = sortedValues.reduce((sum, value) => sum + value, 0)
-  const totalVariance = calculateVariance(sortedValues)
+  const totalSum = requireFiniteResult(
+    sortedValues.reduce((sum, value) => sum + value, 0),
+    'otsu',
+  )
+  const totalMean = requireFiniteResult(totalSum / sortedValues.length, 'otsu')
+  const totalVariance = calculateVariance(sortedValues, totalMean)
   let lowerSum = 0
   let bestSplitIndex = -1
   let bestBetweenClassVariance = -Infinity
 
   for (let splitIndex = 0; splitIndex < sortedValues.length - 1; splitIndex++) {
-    lowerSum += sortedValues[splitIndex]
+    lowerSum = requireFiniteResult(lowerSum + sortedValues[splitIndex], 'otsu')
     if (sortedValues[splitIndex] === sortedValues[splitIndex + 1]) continue
 
     const lowerClassCount = splitIndex + 1
     const upperClassCount = sortedValues.length - lowerClassCount
-    const lowerClassMean = lowerSum / lowerClassCount
-    const upperClassMean = (totalSum - lowerSum) / upperClassCount
-    const betweenClassVariance = lowerClassCount / sortedValues.length * upperClassCount / sortedValues.length * (lowerClassMean - upperClassMean) ** 2
+    const lowerClassMean = requireFiniteResult(lowerSum / lowerClassCount, 'otsu')
+    const upperClassMean = requireFiniteResult((totalSum - lowerSum) / upperClassCount, 'otsu')
+    const betweenClassVariance = requireFiniteResult(
+      lowerClassCount / sortedValues.length
+        * upperClassCount / sortedValues.length
+        * (lowerClassMean - upperClassMean) ** 2,
+      'otsu',
+    )
     if (betweenClassVariance > bestBetweenClassVariance) {
       bestSplitIndex = splitIndex
       bestBetweenClassVariance = betweenClassVariance
@@ -48,19 +57,30 @@ export function calculateOtsuThreshold(values: readonly number[]): OtsuResult {
 
   const lowerClassCount = bestSplitIndex + 1
   const upperClassCount = sortedValues.length - lowerClassCount
-  const threshold = sortedValues[bestSplitIndex] / 2 + sortedValues[bestSplitIndex + 1] / 2
+  const threshold = requireFiniteResult(
+    sortedValues[bestSplitIndex] / 2 + sortedValues[bestSplitIndex + 1] / 2,
+    'otsu',
+  )
+  const separabilityRatio = requireFiniteResult(
+    bestBetweenClassVariance / totalVariance,
+    'otsu',
+  )
   return {
     status: 'calculated',
     threshold,
     diagnostics: {
-      separabilityRatio: Math.min(1, Math.max(0, bestBetweenClassVariance / totalVariance)),
+      separabilityRatio: Math.min(1, Math.max(0, separabilityRatio)),
       lowerClassCount,
       upperClassCount,
     },
   }
 }
 
-function calculateVariance(values: readonly number[]): number {
-  const mean = values.reduce((sum, value) => sum + value, 0) / values.length
-  return values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length
+function calculateVariance(values: readonly number[], mean: number): number {
+  const squaredDeviationSum = requireFiniteResult(
+    values.reduce((sum, value) => sum + (value - mean) ** 2, 0),
+    'otsu',
+  )
+  return requireFiniteResult(squaredDeviationSum / values.length, 'otsu')
 }
+import { requireFiniteResult } from './util/require-finite-result'

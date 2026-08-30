@@ -1,5 +1,6 @@
 import type { Context } from 'hono'
 import { stream } from 'hono/streaming'
+import { UnsafeTelemetryComputationError } from '../analytics/util/require-finite-result'
 import { API_ERRORS } from './api-errors'
 import type { IngestStreamEvent } from './contracts/ingest-progress'
 import {
@@ -49,8 +50,11 @@ export async function streamIngestTelemetryAnalysis(
         type: 'completed',
         response,
       })
-    } catch {
-      const { status: _status, ...error } = API_ERRORS.INTERNAL_ERROR
+    } catch (cause: unknown) {
+      const definition = cause instanceof UnsafeTelemetryComputationError
+        ? API_ERRORS.UNSAFE_TELEMETRY_VALUES
+        : API_ERRORS.INTERNAL_ERROR
+      const { status: _status, ...error } = definition
 
       await writeEvent({
         type: 'failed',

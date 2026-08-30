@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import {
   telemetryPayloadSchema,
+  WIRE_FLOAT32_MAX,
   wireTelemetryFrameSchema,
   type WireTelemetryFrame,
 } from '../../../src/http/schemas/telemetry-payload'
@@ -96,6 +97,49 @@ describe('wireTelemetryFrameSchema', () => {
         }),
       ).success,
     ).toBe(false)
+  })
+
+  test('enforces the recorder float32 range for speed and steering', () => {
+    const unsupportedSpeed = wireTelemetryFrameSchema.safeParse(
+      createValidFrame({ spd: 1e300 }),
+    )
+    const unsupportedSteering = wireTelemetryFrameSchema.safeParse(
+      createValidFrame({ str: -1e300 }),
+    )
+
+    expect(unsupportedSpeed.success).toBe(false)
+    expect(unsupportedSteering.success).toBe(false)
+
+    if (!unsupportedSpeed.success) {
+      expect(unsupportedSpeed.error.issues).toContainEqual(
+        expect.objectContaining({
+          path: ['spd'],
+          message:
+            'Value is outside the range supported by the telemetry recorder',
+        }),
+      )
+    }
+
+    if (!unsupportedSteering.success) {
+      expect(unsupportedSteering.error.issues).toContainEqual(
+        expect.objectContaining({
+          path: ['str'],
+          message:
+            'Value is outside the range supported by the telemetry recorder',
+        }),
+      )
+    }
+
+    expect(
+      wireTelemetryFrameSchema.safeParse(
+        createValidFrame({ spd: WIRE_FLOAT32_MAX }),
+      ).success,
+    ).toBe(true)
+    expect(
+      wireTelemetryFrameSchema.safeParse(
+        createValidFrame({ str: -WIRE_FLOAT32_MAX }),
+      ).success,
+    ).toBe(true)
   })
 
   test('retains representable physical outliers for the later audit', () => {

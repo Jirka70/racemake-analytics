@@ -1,6 +1,7 @@
 import type { OtsuDiagnostics, OtsuResult } from '../otsu'
 import { interquartileRange, median, medianAbsoluteDeviation } from '../robust-statistics'
 import type { SteeringStrengthProfile } from './create-steering-strength-profile'
+import { requireFiniteResult } from '../util/require-finite-result'
 
 export type LowerClassSpreadSource = 'MAD' | 'HALF_IQR' | 'ZERO_SPREAD'
 
@@ -23,7 +24,7 @@ export type SteeringStrengthThresholdResult =
 export function deriveSteeringStrengthThresholds(profile: SteeringStrengthProfile, otsu: OtsuResult): SteeringStrengthThresholdResult {
     if (otsu.status === 'unavailable') return otsu
 
-    const highThresholdDegrees = Math.expm1(otsu.threshold)
+    const highThresholdDegrees = requireFiniteResult(Math.expm1(otsu.threshold), 'otsu')
     const lowerClass = profile.cells.flatMap(({ steeringStrengthDegrees }) => steeringStrengthDegrees !== null && steeringStrengthDegrees <= highThresholdDegrees ? [steeringStrengthDegrees] : [])
     const lowerClassMedianDegrees = median(lowerClass)
     const madDegrees = medianAbsoluteDeviation(lowerClass)
@@ -32,7 +33,13 @@ export function deriveSteeringStrengthThresholds(profile: SteeringStrengthProfil
         : 0
     const { spreadDegrees: lowerClassSpreadDegrees, source: lowerClassSpreadSource } = deriveLowerClassSpread(madDegrees, iqrDegrees)
     const lowThresholdDegrees = lowerClassSpreadDegrees > 0
-        ? Math.min(highThresholdDegrees, lowerClassMedianDegrees + lowerClassSpreadDegrees)
+        ? Math.min(
+            highThresholdDegrees,
+            requireFiniteResult(
+                lowerClassMedianDegrees + lowerClassSpreadDegrees,
+                'robust-threshold',
+            ),
+        )
         : highThresholdDegrees
 
     return {

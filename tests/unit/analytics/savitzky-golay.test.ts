@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { smoothWithSavitzkyGolay } from '../../../src/analytics/savitzky-golay'
+import { UnsafeTelemetryComputationError } from '../../../src/analytics/util/require-finite-result'
 
 describe('smoothWithSavitzkyGolay', () => {
   test('uses the quadratic five-point center coefficients and leaves unsupported edges null', () => {
@@ -22,5 +23,12 @@ describe('smoothWithSavitzkyGolay', () => {
   test('rejects an even window and a polynomial that cannot fit the window', () => {
     expect(() => smoothWithSavitzkyGolay([1, 2, 3], { polynomialOrder: 2, windowSize: 4 })).toThrow(RangeError)
     expect(() => smoothWithSavitzkyGolay([1, 2, 3], { polynomialOrder: 3, windowSize: 3 })).toThrow(RangeError)
+  })
+
+  test('rejects a non-finite weighted result', () => {
+    expect(() => smoothWithSavitzkyGolay(
+      Array.from({ length: 5 }, () => Number.MAX_VALUE),
+      { polynomialOrder: 2, windowSize: 5 },
+    )).toThrow(UnsafeTelemetryComputationError)
   })
 })

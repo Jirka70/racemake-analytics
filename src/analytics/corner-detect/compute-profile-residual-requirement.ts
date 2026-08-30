@@ -1,6 +1,7 @@
 import { interquartileRange, median, scaledMedianAbsoluteDeviation } from '../robust-statistics'
 import type { TrackSteeringProfile } from './create-track-steering-profile'
 import type { SmoothedTrackSteeringProfile } from './smooth-track-steering-profile'
+import { requireFiniteResult } from '../util/require-finite-result'
 
 const NORMAL_DISTRIBUTION_IQR_SCALE_FACTOR = 1.349
 
@@ -13,13 +14,25 @@ export function computeProfileResidualRequirement(profile: TrackSteeringProfile,
         if (signedMedianSteeringDegrees === null 
             || smoothedSignedSteeringDegrees === null 
             || smoothedSignedSteeringDegrees === undefined) return []
-        const originalStrengthLog = Math.log1p(Math.abs(signedMedianSteeringDegrees))
-        const smoothedStrengthLog = Math.log1p(Math.abs(smoothedSignedSteeringDegrees))
-        return [Math.abs(originalStrengthLog - smoothedStrengthLog)]
+        const originalStrengthLog = requireFiniteResult(
+            Math.log1p(Math.abs(signedMedianSteeringDegrees)),
+            'steering-log-transform',
+        )
+        const smoothedStrengthLog = requireFiniteResult(
+            Math.log1p(Math.abs(smoothedSignedSteeringDegrees)),
+            'steering-log-transform',
+        )
+        return [requireFiniteResult(
+            Math.abs(originalStrengthLog - smoothedStrengthLog),
+            'signal-residual',
+        )]
     })
     const residualMedianLog = median(residualsLog)
     const residualSpreadLog = computeResidualSpreadLog(residualsLog)
-    return residualMedianLog + noiseMultiplier * residualSpreadLog
+    return requireFiniteResult(
+        residualMedianLog + noiseMultiplier * residualSpreadLog,
+        'robust-threshold',
+    )
 }
 
 function computeResidualSpreadLog(residualsLog: readonly number[]): number {
