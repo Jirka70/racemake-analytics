@@ -12,8 +12,6 @@ COPY vite.config.mts ./
 COPY src ./src
 COPY frontend ./frontend
 RUN bun run build
-RUN cp dist/frontend/racemake-mark.png dist/frontend/assets/racemake-mark.png \
-    && sed -i 's#/racemake-mark\.png#/assets/racemake-mark.png#g' dist/frontend/assets/index-*.js
 RUN bun build src/index.ts --target=bun --minify --outfile dist/server.js
 
 

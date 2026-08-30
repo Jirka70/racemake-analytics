@@ -35,6 +35,7 @@ describe('application routing', () => {
 
     expect(frontendGetPaths).toContain('/')
     expect(frontendGetPaths).toContain('/analysis/:analysisId')
+    expect(frontendGetPaths).toContain('/racemake-mark.png')
     expect(frontendGetPaths).not.toContain('*')
   })
 })

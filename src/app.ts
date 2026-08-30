@@ -168,6 +168,10 @@ export function createApp(): Hono {
   })
 
   app.use('/assets/*', serveStatic({ root: './dist/frontend' }))
+  app.get(
+    '/racemake-mark.png',
+    serveStatic({ path: './dist/frontend/racemake-mark.png' }),
+  )
   app.get('/', serveFrontend)
   app.get('/analysis/:analysisId', serveFrontend)
 
