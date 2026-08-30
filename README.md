@@ -11,7 +11,18 @@ bun install
 bun run dev
 ```
 
-Open <http://localhost:3000>.
+Open <http://localhost:5173>. The development command starts the Vite frontend
+on port 5173 and the Bun + Hono API on port 3000. Vite proxies API requests to
+the backend, so both ports must be available.
+
+To run a local production build on a single port instead, use:
+
+```bash
+bun run build
+bun run start
+```
+
+Then open <http://localhost:3000>.
 
 Telemetry ingest is limited to 100 MiB on both `POST /ingest` and
 `POST /ingest/stream`. The server enforces the limit before parsing JSON; the
